@@ -1,2 +1,2 @@
-# ideal-memory
+# Native Idl
 Idl language
