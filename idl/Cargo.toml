@@ -1,0 +1,17 @@
+[package]
+name = "native_idl"
+version = "0.1.0"
+authors = ["Adriano Souza"]
+edition = "2018"
+
+[[bin]]
+name = "native_idl"
+path = "src/bin/main.rs"
+
+[dependencies]
+regex = "1.0"
+quote = "1.0"
+lazy_static = "1.4.0"
+proc-macro2 = { version = "1", default-features = false }
+tokio = { version = "0.2", features = ["full"] }
+dashmap = "3.11.10"

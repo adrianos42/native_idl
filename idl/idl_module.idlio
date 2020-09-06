@@ -1,0 +1,58 @@
+library idl_interface
+
+import { idl_types }
+
+--- How native-idl is supposed to be implemented:
+---
+--- interface.idl
+--- - generate enums
+--- - generate structs
+---   - define abi types
+---   - define language types
+--- - generate interfaces
+---   - client
+---   - server
+--- - generate constant values
+---
+--- ! Make the tests with interface_test.idl
+
+interface LanguageServer {
+    add_enums: (enums: IdlEnum[]),
+    add_structs: (structs: IdlStruct[]),
+    add_interfaces: (interfaces: IdlInterface[]),
+    add_strings: (strings: IdlConst[]),
+    add_ints: (ints: IdlConst[]),
+    add_floats: (floats: IdlConst[]),
+    finalize: (),
+    as_string: string,
+}
+
+struct LanguageOutput {
+    name: string,
+}
+
+struct SourceFolder {
+    sourcerino: LanguageOutput,
+    name: string,
+    files: SourceItem[],
+}
+
+type SourceItem {
+    SourceFile,
+    SourceFolder,
+}
+
+struct SourceFile {
+    file_name: string,
+    source: string,
+}
+
+enum AbiError {
+    Ok,
+    InvalidArg,
+    NullPtr,
+    Abort,
+    CallbackException,
+    Unimplemented,
+    NotAllowedOperation,
+}

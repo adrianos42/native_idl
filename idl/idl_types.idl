@@ -1,0 +1,220 @@
+library idl_types
+
+enum Types {
+    NativeInt,
+    NativeFloat,
+    NativeString,
+    NativeBytes,
+    NativeBool,
+    NativeNone,
+}
+
+type TypeNode {
+    LibraryName,
+    Imports,
+    Comment,
+    InterfaceComment,
+    TypeInterface,
+    StructComment,
+    TypeStruct,
+    EnumComment,
+    TypeEnum,
+    TypeListComment,
+    TypeList,
+    ConstComment,
+    TypeConst,
+    StreamComment,
+    TypeStream,
+    FactoryComment,
+    TypeFactory,
+}
+
+type LibraryName { string }
+
+type Imports { string[] }
+
+type Comment { string }
+
+type FactoryComment { string }
+
+type FactoryTypeName { string }
+
+struct TypeFactory {
+    ident: FactoryTypeName,
+    fields: FactoryNode[],
+}
+
+type FactoryNode {
+    FactoryField,
+    Comment,
+}
+
+struct FactoryField {
+    attributes: Attribute[],
+    ident: string,
+    ty: TypeName,
+}
+
+type InterfaceComment { string }
+
+type InterfaceTypeName { string }
+
+struct TypeInterface {
+    ident: InterfaceTypeName,
+    fields: InterfaceNode[],
+}
+
+type InterfaceNode {
+    InterfaceField,
+    Comment,
+}
+
+struct InterfaceField {
+    attributes: Attribute[],
+    ident: string,
+    ty: TypeName,
+}
+
+type StructComment { string }
+
+type StructTypeName { string }
+
+struct TypeStruct {
+    ident: StructTypeName,
+    fields: StructNode[],
+}
+
+type StructNode {
+    StructField,
+    Comment,
+}
+
+struct StructField {
+    ident: string,
+    ty: TypeName,
+}
+
+type StreamComment { string }
+
+type StreamTypeName { string }
+
+struct TypeStream {
+    ident: StreamTypeName,
+    fields: StreamNode[],
+}
+
+type StreamNode {
+    StreamField,
+    Comment,
+}
+
+struct StreamField {
+    ident: string,
+    ty: TypeName,
+}
+
+type TypeListComment { string }
+
+type ListTypeName { string }
+
+struct TypeList {
+    ident: ListTypeName,
+    ty_list: TypeListNode[],
+}
+
+type TypeListNode {
+    TypeListField[],
+    Comment,
+}
+
+struct TypeListField {
+    ty: TypeName,
+}
+
+type EnumComment { string }
+
+type EnumTypeName { string }
+
+struct TypeEnum {
+    ident: EnumTypeName,
+    fields: EnumNode[],
+}
+
+type EnumNode {
+    EnumField,
+    Comment,
+}
+
+struct EnumField {
+    ident: string,
+}
+
+type ConstComment { string }
+
+type ConstTypeName { string }
+
+struct TypeConst {
+    ident: ConstTypeName,
+    fields: ConstNode[],
+    const_type: ConstTypes,
+}
+
+enum ConstTypes {
+    NativeInt,
+    NativeFloat,
+    NativeString,
+}
+
+type ConstNode {
+    ConstField,
+    Comment,
+}
+
+struct ConstField {
+    ident: string,
+    value: string,
+}
+
+struct Attribute {
+    fields: AttributeField[],
+}
+
+type AttributeField { string }
+
+type TypeName {
+    Types,
+    TypeFunction,
+    TypeTuple,
+    TypeArray,
+    TypeMap,
+    ListTypeName,
+    EnumTypeName,
+    StructTypeName,
+    InterfaceTypeName,
+    ConstTypeName,
+    FactoryTypeName,
+    StreamTypeName,
+}
+
+struct TypeFunction {
+    args: TypeName,
+    return_ty: TypeName,
+}
+
+struct TypeArray {
+    ty: TypeName,
+}
+
+struct TypeMap {
+    map_ty: TypeName,
+    index_ty: TypeName,
+}
+
+struct TypeTuple {
+    ty_list: TupleEntry[],
+}
+
+struct TupleEntry {
+    ident: string,
+    ty: TypeName,
+}
