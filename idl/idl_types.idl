@@ -21,6 +21,7 @@ interface LanguageServer {
     add_nodes: (nodes: TypeNode[]),
     finalize: (),
     as_string: [string; float],
+    wer: int,           
 }
 
 type TypeNode {

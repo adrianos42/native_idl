@@ -1,6 +1,8 @@
 use regex::Regex;
 use std::fmt;
 
+use super::range::{Position, Range};
+
 static KEYWORDS: &'static [&str] = &[
     "enum",
     "struct",
@@ -90,25 +92,18 @@ impl fmt::Display for AttributeNames {
 
 #[derive(Debug)]
 pub(super) struct WordRange<T> {
-    pub(super) line: usize,
-    pub(super) index: usize,
-    pub(super) length: usize,
+    pub(super) range: Range,
     word: T,
 }
 
-#[derive(Debug, Default, Copy, Clone)]
-pub(super) struct WRange {
-    pub(super) line: usize,
-    pub(super) index: usize,
-    pub(super) length: usize,
-}
-
-impl WRange {
-    fn new(line: usize, index: usize, length: usize) -> Self {
-        WRange {
-            line,
-            index,
-            length,
+impl Range {
+    fn new_with_length(line: usize, index: usize, length: usize) -> Self {
+        Self {
+            start: Position { line, index },
+            end: Position {
+                line,
+                index: index + length,
+            },
         }
     }
 }
@@ -149,7 +144,7 @@ pub(super) enum WordStream {
 }
 
 impl WordStream {
-    pub(super) fn get_range(&self) -> WRange {
+    pub(super) fn get_range(&self) -> Range {
         match self {
             WordStream::LeftCurlyBracket(value)
             | WordStream::RightSquareBracket(value)
@@ -163,21 +158,21 @@ impl WordStream {
             | WordStream::NewLine(value)
             | WordStream::Hyphen(value)
             | WordStream::GreaterThan(value)
-            | WordStream::SemiColon(value) => WRange::new(value.line, value.index, value.length),
+            | WordStream::SemiColon(value) => value.range,
             WordStream::Identifier(value)
             | WordStream::TypeName(value)
             | WordStream::Comment(value)
             | WordStream::StringBody(value)
             | WordStream::FloatValue(value)
-            | WordStream::IntegerValue(value) => WRange::new(value.line, value.index, value.length),
-            WordStream::Keyword(value) => WRange::new(value.line, value.index, value.length),
-            WordStream::NativeType(value) => WRange::new(value.line, value.index, value.length),
-            WordStream::Attribute(value) => WRange::new(value.line, value.index, value.length),
+            | WordStream::IntegerValue(value) => value.range,
+            WordStream::Keyword(value) => value.range,
+            WordStream::NativeType(value) => value.range,
+            WordStream::Attribute(value) => value.range,
             WordStream::CurlyBracketBody(w_streams)
             | WordStream::ParenthesisBody(w_streams)
             | WordStream::SquareBracketBody(w_streams) => match w_streams.first() {
                 Some(value) => value.get_range(),
-                None => WRange::default(),
+                None => Range::default(),
             },
         }
     }
@@ -198,7 +193,6 @@ impl fmt::Display for WordStream {
             | WordStream::Hyphen(name)
             | WordStream::GreaterThan(name)
             | WordStream::SemiColon(name) => name.get_word().to_string(),
-            WordStream::NewLine(_) => "\\n".to_owned(), // ??
             WordStream::Identifier(name)
             | WordStream::TypeName(name)
             | WordStream::Comment(name)
@@ -208,6 +202,7 @@ impl fmt::Display for WordStream {
             WordStream::Keyword(name) => name.get_word().to_string(),
             WordStream::NativeType(name) => name.get_word().to_string(),
             WordStream::Attribute(name) => name.get_word().to_string(),
+            WordStream::NewLine(_) => "".to_owned(),
             WordStream::CurlyBracketBody(_)
             | WordStream::ParenthesisBody(_)
             | WordStream::SquareBracketBody(_) => "".to_owned(),
@@ -273,9 +268,11 @@ impl ContextStream {
                         '{' => context.consume_body(lines, &mut brackets_word_stream)?,
                         sw => {
                             return Err(ScError::InvalidCharacter(WordRange {
-                                line: context.cur_line,
-                                index: context.cur_char,
-                                length: 1,
+                                range: Range::new_with_length(
+                                    context.cur_line,
+                                    context.cur_char,
+                                    1,
+                                ),
                                 word: sw,
                             }))
                         }
@@ -305,9 +302,7 @@ impl ContextStream {
                 Some(m) => {
                     let comment = m.as_str().to_owned();
                     word_stream.push(WordStream::Comment(WordRange {
-                        index: self.cur_char,
-                        length: comment.len(),
-                        line: self.cur_line,
+                        range: Range::new_with_length(self.cur_line, self.cur_char, comment.len()),
                         word: comment,
                     }));
                     self.next_line(word_stream);
@@ -315,18 +310,14 @@ impl ContextStream {
                 }
                 None => {
                     return Err(ScError::InvalidComment(WordRange {
-                        line: self.cur_line,
-                        index: self.cur_char,
-                        length: text.len(),
+                        range: Range::new_with_length(self.cur_line, self.cur_char, text.len()),
                         word: text,
                     }));
                 }
             },
             None => {
                 return Err(ScError::InvalidComment(WordRange {
-                    line: self.cur_line,
-                    index: self.cur_char,
-                    length: text.len(),
+                    range: Range::new_with_length(self.cur_line, self.cur_char, text.len()),
                     word: text,
                 }));
             }
@@ -349,16 +340,12 @@ impl ContextStream {
 
                 match caps.get(1) {
                     Some(m) => word_stream.push(WordStream::StringBody(WordRange {
-                        index: self.cur_char,
-                        length: match_len,
-                        line: self.cur_line,
+                        range: Range::new_with_length(self.cur_line, self.cur_char, match_len),
                         word: m.as_str().to_owned(),
                     })),
                     None => {
                         return Err(ScError::InvalidString(WordRange {
-                            line: self.cur_line,
-                            index: self.cur_char,
-                            length: text.len(),
+                            range: Range::new_with_length(self.cur_line, self.cur_char, text.len()),
                             word: text,
                         }));
                     }
@@ -367,9 +354,7 @@ impl ContextStream {
             }
             None => {
                 return Err(ScError::InvalidString(WordRange {
-                    line: self.cur_line,
-                    index: self.cur_char,
-                    length: text.len(),
+                    range: Range::new_with_length(self.cur_line, self.cur_char, text.len()),
                     word: text,
                 }));
             }
@@ -424,9 +409,7 @@ impl ContextStream {
                         ',' => self.push_comma(&mut brackets_word_stream),
                         sw => {
                             return Err(ScError::InvalidCharacter(WordRange {
-                                line: self.cur_line,
-                                index: self.cur_char,
-                                length: 1,
+                                range: Range::new_with_length(self.cur_line, self.cur_char, 1),
                                 word: sw,
                             }));
                         }
@@ -438,9 +421,7 @@ impl ContextStream {
 
         Err(ScError::SymbolMissing(WordStream::RightSquareBracket(
             WordRange {
-                line: self.cur_line,
-                index: self.cur_char,
-                length: 1,
+                range: Range::new_with_length(self.cur_line, self.cur_char, 1),
                 word: ']',
             },
         )))
@@ -493,9 +474,7 @@ impl ContextStream {
                         ',' => self.push_comma(&mut parens_word_stream),
                         sw => {
                             return Err(ScError::InvalidCharacter(WordRange {
-                                line: self.cur_line,
-                                index: self.cur_char,
-                                length: 1,
+                                range: Range::new_with_length(self.cur_line, self.cur_char, 1),
                                 word: sw,
                             }));
                         }
@@ -507,9 +486,7 @@ impl ContextStream {
 
         Err(ScError::SymbolMissing(WordStream::RightParenthesis(
             WordRange {
-                line: self.cur_line,
-                index: self.cur_char,
-                length: 1,
+                range: Range::new_with_length(self.cur_line, self.cur_char, 1),
                 word: ')',
             },
         )))
@@ -567,9 +544,7 @@ impl ContextStream {
                         }
                         sw => {
                             return Err(ScError::InvalidCharacter(WordRange {
-                                line: self.cur_line,
-                                index: self.cur_char,
-                                length: 1,
+                                range: Range::new_with_length(self.cur_line, self.cur_char, 1),
                                 word: sw,
                             }));
                         }
@@ -581,9 +556,7 @@ impl ContextStream {
 
         Err(ScError::SymbolMissing(WordStream::RightCurlyBracket(
             WordRange {
-                line: self.cur_line,
-                index: self.cur_char,
-                length: 1,
+                range: Range::new_with_length(self.cur_line, self.cur_char, 1),
                 word: '}',
             },
         )))
@@ -595,6 +568,7 @@ impl ContextStream {
         word_stream: &mut Vec<WordStream>,
     ) -> Result<(), ScError> {
         let mut ident = String::new();
+        let index = self.cur_char;
 
         while let Some(ch) = line_text.chars().nth(self.cur_char) {
             // Looks for a correct word, until it finds a whitespace.
@@ -621,9 +595,7 @@ impl ContextStream {
             };
 
             let word_range = WordRange {
-                index: self.cur_char - ident.len(),
-                length: ident.len(),
-                line: self.cur_line,
+                range: Range::new_with_length(self.cur_line, index, ident.len()),
                 word: keyword,
             };
 
@@ -640,9 +612,7 @@ impl ContextStream {
             };
 
             let word_range = WordRange {
-                index: self.cur_char - ident.len(),
-                length: ident.len(),
-                line: self.cur_line,
+                range: Range::new_with_length(self.cur_line, index, ident.len()),
                 word: native_type,
             };
 
@@ -654,18 +624,14 @@ impl ContextStream {
             };
 
             let word_range = WordRange {
-                index: self.cur_char - ident.len(),
-                length: ident.len(),
-                line: self.cur_line,
+                range: Range::new_with_length(self.cur_line, index, ident.len()),
                 word: attribute_name,
             };
 
             word_stream.push(WordStream::Attribute(word_range));
         } else {
             let word_range = WordRange {
-                index: self.cur_char - ident.len(),
-                length: ident.len(),
-                line: self.cur_line,
+                range: Range::new_with_length(self.cur_line, index, ident.len()),
                 word: ident.to_owned(),
             };
 
@@ -724,9 +690,7 @@ impl ContextStream {
         }
 
         let word_range = WordRange {
-            index: cur_char - ident.len(),
-            length: ident.len(),
-            line: self.cur_line,
+            range: Range::new_with_length(self.cur_line, self.cur_char, ident.len()),// TODO
             word: ident.to_owned(),
         };
 
@@ -743,18 +707,14 @@ impl ContextStream {
         }
 
         return Err(ScError::InvalidString(WordRange {
-            length: ident.len(),
-            line: self.cur_line,
-            index: self.cur_char,
+            range: Range::new_with_length(self.cur_line, self.cur_char, ident.len()),
             word: ident,
         }));
     }
 
     fn push_comma(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::Comma(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: ',',
         }));
         self.cur_char += 1;
@@ -762,9 +722,7 @@ impl ContextStream {
 
     fn push_hyphen(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::Hyphen(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: '-',
         }));
         self.cur_char += 1;
@@ -772,9 +730,7 @@ impl ContextStream {
 
     fn push_greater_than(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::GreaterThan(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: '>',
         }));
         self.cur_char += 1;
@@ -782,9 +738,7 @@ impl ContextStream {
 
     fn push_left_square_bracket(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::LeftSquareBracket(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: '[',
         }));
         self.cur_char += 1;
@@ -792,9 +746,7 @@ impl ContextStream {
 
     fn push_right_square_bracket(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::RightSquareBracket(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: ']',
         }));
         self.cur_char += 1;
@@ -802,9 +754,7 @@ impl ContextStream {
 
     fn push_left_curly_bracket(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::LeftCurlyBracket(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: '{',
         }));
         self.cur_char += 1;
@@ -812,9 +762,7 @@ impl ContextStream {
 
     fn push_right_curly_bracket(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::RightCurlyBracket(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: '}',
         }));
         self.cur_char += 1;
@@ -822,9 +770,7 @@ impl ContextStream {
 
     fn push_left_paren(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::LeftParenthesis(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: '(',
         }));
         self.cur_char += 1;
@@ -832,9 +778,7 @@ impl ContextStream {
 
     fn push_right_paren(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::RightParenthesis(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: ')',
         }));
         self.cur_char += 1;
@@ -842,9 +786,7 @@ impl ContextStream {
 
     fn push_colon(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::Colon(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: ':',
         }));
         self.cur_char += 1;
@@ -852,9 +794,7 @@ impl ContextStream {
 
     fn push_assignment(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::Assignment(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: '=',
         }));
         self.cur_char += 1;
@@ -862,9 +802,7 @@ impl ContextStream {
 
     fn push_semi_colon(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::SemiColon(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: ';',
         }));
         self.cur_char += 1;
@@ -872,9 +810,7 @@ impl ContextStream {
 
     fn next_line(&mut self, word_stream: &mut Vec<WordStream>) {
         word_stream.push(WordStream::NewLine(WordRange {
-            line: self.cur_line,
-            index: self.cur_char,
-            length: 1,
+            range: Range::new_with_length(self.cur_line, self.cur_char, 1),
             word: '\n',
         }));
         self.cur_line += 1;

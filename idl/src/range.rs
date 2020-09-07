@@ -1,5 +1,3 @@
-use super::scanner::{WRange, WordRange};
-
 #[derive(Debug, Copy, Clone, Default)]
 pub struct Range {
     pub start: Position,
@@ -7,33 +5,6 @@ pub struct Range {
 }
 
 impl Range {
-    pub(super) fn from_word_range<T>(value: &WordRange<T>) -> Self {
-        let line = value.line;
-        let index = value.index;
-        let length = value.length;
-
-        Self {
-            start: Position { line, index },
-            end: Position {
-                line,
-                index: index + length,
-            },
-        }
-    }
-
-    pub(super) fn from_wrange(value: WRange) -> Self {
-        Self {
-            start: Position {
-                index: value.index,
-                line: value.line,
-            },
-            end: Position {
-                line: value.line,
-                index: value.index + value.length,
-            },
-        }
-    }
-
     pub(super) fn merge(self, range: Range) -> Self {
         Self {
             start: self.start,
