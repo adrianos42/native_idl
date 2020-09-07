@@ -1,9 +1,10 @@
 use super::idl_types;
 use super::module;
 use super::parser::{self, Range};
+use super::reserved::{
+    field_name_is_valid, is_reserved_type, is_reserved_word, type_name_is_valid, NameError,
+};
 use super::scanner;
-
-use regex::Regex;
 use std::convert::From;
 use std::fmt;
 use std::sync::Arc;
@@ -49,6 +50,7 @@ impl fmt::Display for ReferenceError {
 #[derive(Debug)]
 pub enum FactoryErrorKind {
     DoesNotReturnInterface,
+    ReferenceError(ReferenceError),
 }
 
 impl From<FactoryError> for AnalyzerError {
@@ -63,36 +65,19 @@ pub struct FactoryError(FactoryErrorKind, Range);
 impl fmt::Display for FactoryError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match &self.0 {
-            FactoryErrorKind::DoesNotReturnInterface => "Field does not return an interface.",
+            FactoryErrorKind::DoesNotReturnInterface => {
+                "Field does not return an interface.".to_owned()
+            }
+            FactoryErrorKind::ReferenceError(err) => err.to_string(),
         };
 
         write!(f, "{}", errstr)
     }
 }
-
-#[derive(Debug)]
-pub struct NameError(NameErrorKind, Range, String);
 
 impl From<NameError> for AnalyzerError {
     fn from(value: NameError) -> Self {
         AnalyzerError::NameError(value)
-    }
-}
-
-#[derive(Debug)]
-pub enum NameErrorKind {
-    InvalidFieldName,
-    InvalidTypeName,
-}
-
-impl fmt::Display for NameError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let errstr = match &self.0 {
-            NameErrorKind::InvalidFieldName => format!("Invalid field name `{}`", self.2),
-            NameErrorKind::InvalidTypeName => format!("Invalid type name `{}`", self.2),
-        };
-
-        write!(f, "{}", errstr)
     }
 }
 
@@ -172,8 +157,8 @@ struct AnalyzerItems {
     type_lists: Vec<String>,
     factories: Vec<String>,
     streams: Vec<String>,
-    library_name: Option<idl_types::LibraryName>,
-    imports: Option<idl_types::Imports>,
+    library_name: Option<String>,
+    imports: Option<Vec<String>>,
 }
 
 impl Analyzer {
@@ -213,7 +198,11 @@ impl Analyzer {
                             )))
                         }
                     };
-                    Self::type_name_is_valid(ident.as_str(), value.range)?;
+
+                    type_name_is_valid(ident.as_str(), value.range)?;
+                    is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
+                    is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
+
                     items.interfaces.push(ident);
                 }
                 parser::ParserNode::Struct(value) => {
@@ -227,7 +216,11 @@ impl Analyzer {
                             )))
                         }
                     };
-                    Self::type_name_is_valid(ident.as_str(), value.range)?;
+
+                    type_name_is_valid(ident.as_str(), value.range)?;
+                    is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
+                    is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
+
                     items.structs.push(ident);
                 }
                 parser::ParserNode::Enum(value) => {
@@ -241,7 +234,11 @@ impl Analyzer {
                             )))
                         }
                     };
-                    Self::type_name_is_valid(ident.as_str(), value.range)?;
+
+                    type_name_is_valid(ident.as_str(), value.range)?;
+                    is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
+                    is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
+
                     items.enums.push(ident);
                 }
                 parser::ParserNode::Const(value) => {
@@ -255,7 +252,11 @@ impl Analyzer {
                             )))
                         }
                     };
-                    Self::type_name_is_valid(ident.as_str(), value.range)?;
+
+                    type_name_is_valid(ident.as_str(), value.range)?;
+                    is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
+                    is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
+
                     items.consts.push(ident);
                 }
                 parser::ParserNode::TypeList(value) => {
@@ -269,7 +270,11 @@ impl Analyzer {
                             )))
                         }
                     };
-                    Self::type_name_is_valid(ident.as_str(), value.range)?;
+
+                    type_name_is_valid(ident.as_str(), value.range)?;
+                    is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
+                    is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
+
                     items.type_lists.push(ident);
                 }
                 parser::ParserNode::Factory(value) => {
@@ -283,7 +288,11 @@ impl Analyzer {
                             )))
                         }
                     };
-                    Self::type_name_is_valid(ident.as_str(), value.range)?;
+
+                    type_name_is_valid(ident.as_str(), value.range)?;
+                    is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
+                    is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
+
                     items.factories.push(ident);
                 }
                 parser::ParserNode::Stream(value) => {
@@ -297,7 +306,11 @@ impl Analyzer {
                             )))
                         }
                     };
-                    Self::type_name_is_valid(ident.as_str(), value.range)?;
+
+                    type_name_is_valid(ident.as_str(), value.range)?;
+                    is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
+                    is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
+
                     items.streams.push(ident);
                 }
                 _ => {}
@@ -383,6 +396,10 @@ impl Analyzer {
 
                                 let field_ident = interface_field.ident.to_owned();
 
+                                field_name_is_valid(field_ident.as_str(), interface_field.range)?;
+                                is_reserved_type(field_ident.as_str(), interface_field.range)?;
+                                is_reserved_word(field_ident.as_str(), interface_field.range)?;
+
                                 if fields.iter().any(|v| {
                                     if let idl_types::InterfaceNode::InterfaceField(in_field) = v {
                                         if in_field.ident.as_str() == field_ident.as_str() {
@@ -398,10 +415,6 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                Self::field_name_is_valid(
-                                    field_ident.as_str(),
-                                    interface_field.range,
-                                )?;
                                 let interface_field = Box::new(idl_types::InterfaceField {
                                     attributes: vec![],
                                     ident: field_ident,
@@ -445,6 +458,10 @@ impl Analyzer {
 
                                 let field_ident = struct_field.ident.to_owned();
 
+                                field_name_is_valid(field_ident.as_str(), struct_field.range)?;
+                                is_reserved_type(field_ident.as_str(), struct_field.range)?;
+                                is_reserved_word(field_ident.as_str(), struct_field.range)?;
+
                                 if fields.iter().any(|v| {
                                     if let idl_types::StructNode::StructField(in_field) = v {
                                         if in_field.ident.as_str() == field_ident.as_str() {
@@ -460,10 +477,6 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                Self::field_name_is_valid(
-                                    field_ident.as_str(),
-                                    struct_field.range,
-                                )?;
                                 fields.push(idl_types::StructNode::StructField(Box::new(
                                     idl_types::StructField {
                                         ident: field_ident,
@@ -499,6 +512,10 @@ impl Analyzer {
                             parser::EnumNode::EnumField(enum_field) => {
                                 let field_ident = enum_field.ident.to_owned();
 
+                                type_name_is_valid(ident.as_str(), value.range)?;
+                                is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
+                                is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
+
                                 if fields.iter().any(|v| {
                                     if let idl_types::EnumNode::EnumField(in_field) = v {
                                         if in_field.ident.as_str() == field_ident.as_str() {
@@ -514,7 +531,6 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                Self::type_name_is_valid(field_ident.as_str(), enum_field.range)?;
                                 fields.push(idl_types::EnumNode::EnumField(Box::new(
                                     idl_types::EnumField { ident: field_ident },
                                 )))
@@ -545,6 +561,10 @@ impl Analyzer {
                             parser::ConstNode::ConstField(const_field) => {
                                 let field_ident = const_field.ident.to_owned();
 
+                                field_name_is_valid(field_ident.as_str(), const_field.range)?;
+                                is_reserved_type(field_ident.as_str(), const_field.range)?;
+                                is_reserved_word(field_ident.as_str(), const_field.range)?;
+
                                 if fields.iter().any(|v| {
                                     if let idl_types::ConstNode::ConstField(in_field) = v {
                                         if in_field.ident.as_str() == field_ident.as_str() {
@@ -560,7 +580,6 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                Self::field_name_is_valid(field_ident.as_str(), const_field.range)?;
                                 fields.push(idl_types::ConstNode::ConstField(Box::new(
                                     idl_types::ConstField {
                                         ident: field_ident,
@@ -607,11 +626,15 @@ impl Analyzer {
                                     Err(err) => return Err(err.into()),
                                 };
 
+                                let ident = ty_list_field.ident.to_owned();
+
+                                type_name_is_valid(ident.as_str(), value.range)?;
+                                is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
+                                is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
+
                                 if ty_list.iter().any(|v| {
                                     if let idl_types::TypeListNode::TypeListField(in_field) = v {
-                                        if in_field.ty.get_type_reference()
-                                            == ty.get_type_reference().as_str()
-                                        {
+                                        if in_field.ident.as_str() == ident {
                                             return true;
                                         }
                                     }
@@ -625,7 +648,7 @@ impl Analyzer {
                                 }
 
                                 ty_list.push(idl_types::TypeListNode::TypeListField(Box::new(
-                                    idl_types::TypeListField { ty },
+                                    idl_types::TypeListField { ty, ident },
                                 )));
                             }
                         }
@@ -659,6 +682,10 @@ impl Analyzer {
 
                                 let field_ident = stream_field.ident.to_owned();
 
+                                field_name_is_valid(field_ident.as_str(), stream_field.range)?;
+                                is_reserved_type(field_ident.as_str(), stream_field.range)?;
+                                is_reserved_word(field_ident.as_str(), stream_field.range)?;
+
                                 if fields.iter().any(|v| {
                                     if let idl_types::StreamNode::StreamField(in_field) = v {
                                         if in_field.ident.as_str() == field_ident.as_str() {
@@ -674,10 +701,6 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                Self::field_name_is_valid(
-                                    field_ident.as_str(),
-                                    stream_field.range,
-                                )?;
                                 fields.push(idl_types::StreamNode::StreamField(Box::new(
                                     idl_types::StreamField {
                                         ident: field_ident,
@@ -718,6 +741,10 @@ impl Analyzer {
 
                                 let field_ident = factory_field.ident.to_owned();
 
+                                field_name_is_valid(field_ident.as_str(), factory_field.range)?;
+                                is_reserved_type(field_ident.as_str(), factory_field.range)?;
+                                is_reserved_word(field_ident.as_str(), factory_field.range)?;
+
                                 if fields.iter().any(|v| {
                                     if let idl_types::FactoryNode::FactoryField(in_field) = v {
                                         if in_field.ident.as_str() == field_ident.as_str() {
@@ -733,10 +760,6 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                Self::field_name_is_valid(
-                                    field_ident.as_str(),
-                                    factory_field.range,
-                                )?;
                                 let factory_field = Box::new(idl_types::FactoryField {
                                     attributes: vec![],
                                     ident: field_ident,
@@ -772,161 +795,87 @@ impl Analyzer {
         for node in nodes {
             match node {
                 idl_types::TypeNode::TypeInterface(value) => {
-                    let range = parsers.get_range_from_type_name(value.ident.as_str());
-
                     for interface_node in value.fields.iter() {
                         if let idl_types::InterfaceNode::InterfaceField(interface_field) =
                             interface_node
                         {
-                            if Self::has_idl_interface(&interface_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesInterface,
-                                    range,
-                                    interface_field.ty.get_type_reference(),
-                                ));
-                            } else if Self::has_idl_factory(&interface_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesFactory,
-                                    range,
-                                    interface_field.ty.get_type_reference(),
-                                ));
-                            } else {
-                                let ty_ref = interface_field.ty.get_type_reference();
-                                match &interface_field.ty {
-                                    idl_types::TypeName::TypeMap(map) => {
-                                        if Self::has_idl_stream(&map.map_ty) {
-                                            return Err(ReferenceError(
-                                                ReferenceErrorKind::ReferencesStream,
-                                                range,
-                                                ty_ref,
-                                            ));
-                                        }
-                                    }
-                                    idl_types::TypeName::TypeArray(array) => {
-                                        if Self::has_idl_stream(&array.ty) {
-                                            return Err(ReferenceError(
-                                                ReferenceErrorKind::ReferencesStream,
-                                                range,
-                                                ty_ref,
-                                            ));
-                                        }
-                                    }
-                                    _ => {}
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                interface_field.ident.as_str(),
+                            );
+
+                            Self::references_factory(&interface_field.ty, range)?;
+                            Self::references_interface(&interface_field.ty, range)?;
+
+                            match &interface_field.ty {
+                                idl_types::TypeName::StreamTypeName(_) => {}
+                                idl_types::TypeName::TypeFunction(function) => {
+                                    Self::references_stream(&function.args, range)?
                                 }
+                                idl_types::TypeName::TypeOption(_) => {}
+                                idl_types::TypeName::TypeResult(result) => {
+                                    Self::references_stream(&result.err_ty, range)?
+                                }
+                                ty => Self::references_stream(ty, range)?,
                             }
                         }
                     }
                 }
                 idl_types::TypeNode::TypeFactory(value) => {
-                    let range = parsers.get_range_from_type_name(value.ident.as_str());
-
                     for interface_node in value.fields.iter() {
                         if let idl_types::FactoryNode::FactoryField(factory_field) = interface_node
                         {
-                            let ty_ref = factory_field.ty.get_type_reference();
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                factory_field.ident.as_str(),
+                            );
 
-                            if Self::has_idl_factory(&factory_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesFactory,
-                                    range,
-                                    ty_ref,
-                                ));
-                            } else if Self::has_idl_stream(&factory_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesStream,
-                                    range,
-                                    ty_ref,
-                                ));
-                            }
+                            Self::references_factory(&factory_field.ty, range)?;
+                            Self::references_stream(&factory_field.ty, range)?;
                         }
                     }
                 }
                 idl_types::TypeNode::TypeStruct(value) => {
-                    let range = parsers.get_range_from_type_name(value.ident.as_str());
-
                     for struct_node in value.fields.iter() {
                         if let idl_types::StructNode::StructField(struct_field) = struct_node {
-                            let ty_ref = struct_field.ty.get_type_reference();
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                struct_field.ident.as_str(),
+                            );
 
-                            if Self::has_idl_interface(&struct_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesInterface,
-                                    range,
-                                    ty_ref,
-                                ));
-                            } else if Self::has_idl_factory(&struct_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesFactory,
-                                    range,
-                                    ty_ref,
-                                ));
-                            } else if Self::has_idl_stream(&struct_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesStream,
-                                    range,
-                                    ty_ref,
-                                ));
-                            }
+                            Self::references_factory(&struct_field.ty, range)?;
+                            Self::references_interface(&struct_field.ty, range)?;
+                            Self::references_stream(&struct_field.ty, range)?;
                         }
                     }
                 }
                 idl_types::TypeNode::TypeList(value) => {
-                    let range = parsers.get_range_from_type_name(value.ident.as_str());
-
                     for type_list_node in value.ty_list.iter() {
                         if let idl_types::TypeListNode::TypeListField(type_list_field) =
                             type_list_node
                         {
-                            let ty_ref = type_list_field.ty.get_type_reference();
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                type_list_field.ident.as_str(),
+                            );
 
-                            if Self::has_idl_interface(&type_list_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesInterface,
-                                    range,
-                                    ty_ref,
-                                ));
-                            } else if Self::has_idl_factory(&type_list_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesFactory,
-                                    range,
-                                    ty_ref,
-                                ));
-                            } else if Self::has_idl_stream(&type_list_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesStream,
-                                    range,
-                                    ty_ref,
-                                ));
-                            }
+                            Self::references_factory(&type_list_field.ty, range)?;
+                            Self::references_interface(&type_list_field.ty, range)?;
+                            Self::references_stream(&type_list_field.ty, range)?;
                         }
                     }
                 }
                 idl_types::TypeNode::TypeStream(value) => {
-                    let range = parsers.get_range_from_type_name(value.ident.as_str());
-
                     for stream_node in value.fields.iter() {
                         if let idl_types::StreamNode::StreamField(stream_field) = stream_node {
-                            let ty_ref = stream_field.ty.get_type_reference();
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                stream_field.ident.as_str(),
+                            );
 
-                            if Self::has_idl_interface(&stream_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesInterface,
-                                    range,
-                                    ty_ref,
-                                ));
-                            } else if Self::has_idl_factory(&stream_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesFactory,
-                                    range,
-                                    ty_ref,
-                                ));
-                            } else if Self::has_idl_stream(&stream_field.ty) {
-                                return Err(ReferenceError(
-                                    ReferenceErrorKind::ReferencesStream,
-                                    range,
-                                    ty_ref,
-                                ));
-                            }
+                            Self::references_factory(&stream_field.ty, range)?;
+                            Self::references_interface(&stream_field.ty, range)?;
+                            Self::references_stream(&stream_field.ty, range)?;
                         }
                     }
                 }
@@ -937,64 +886,93 @@ impl Analyzer {
         Ok(())
     }
 
-    fn has_idl_interface(ty: &idl_types::TypeName) -> bool {
+    fn references_interface(ty: &idl_types::TypeName, range: Range) -> Result<(), ReferenceError> {
         match ty {
-            idl_types::TypeName::InterfaceTypeName(_) => true,
+            idl_types::TypeName::InterfaceTypeName(_) => Err(ReferenceError(
+                ReferenceErrorKind::ReferencesInterface,
+                range,
+                ty.get_type_reference(),
+            )),
             idl_types::TypeName::TypeFunction(function) => {
-                Self::has_idl_interface(&function.return_ty)
-                    || Self::has_idl_interface(&function.args)
+                Self::references_interface(&function.return_ty, range)?;
+                Self::references_interface(&function.args, range)
             }
             idl_types::TypeName::TypeTuple(tuple) => {
                 for tuple_ty in tuple.ty_list.iter() {
-                    if Self::has_idl_interface(&tuple_ty.ty) {
-                        return true;
-                    }
+                    Self::references_interface(&tuple_ty.ty, range)?;
                 }
-                false
+                Ok(())
             }
-            idl_types::TypeName::TypeMap(map) => Self::has_idl_interface(&map.map_ty),
-            idl_types::TypeName::TypeArray(array) => Self::has_idl_interface(&array.ty),
-            _ => false,
+            idl_types::TypeName::TypeMap(map) => Self::references_interface(&map.map_ty, range),
+            idl_types::TypeName::TypeArray(array) => Self::references_interface(&array.ty, range),
+            idl_types::TypeName::TypeOption(option) => {
+                Self::references_interface(&option.some_ty, range)
+            }
+            idl_types::TypeName::TypeResult(result) => {
+                Self::references_interface(&result.ok_ty, range)?;
+                Self::references_interface(&result.err_ty, range)
+            }
+            _ => Ok(()),
         }
     }
 
-    fn has_idl_factory(ty: &idl_types::TypeName) -> bool {
+    fn references_factory(ty: &idl_types::TypeName, range: Range) -> Result<(), ReferenceError> {
         match ty {
-            idl_types::TypeName::FactoryTypeName(_) => true,
+            idl_types::TypeName::FactoryTypeName(_) => Err(ReferenceError(
+                ReferenceErrorKind::ReferencesFactory,
+                range,
+                ty.get_type_reference(),
+            )),
             idl_types::TypeName::TypeFunction(function) => {
-                Self::has_idl_factory(&function.return_ty) || Self::has_idl_factory(&function.args)
+                Self::references_factory(&function.return_ty, range)?;
+                Self::references_factory(&function.args, range)
             }
             idl_types::TypeName::TypeTuple(tuple) => {
                 for tuple_ty in tuple.ty_list.iter() {
-                    if Self::has_idl_factory(&tuple_ty.ty) {
-                        return true;
-                    }
+                    Self::references_factory(&tuple_ty.ty, range)?;
                 }
-                false
+                Ok(())
             }
-            idl_types::TypeName::TypeMap(map) => Self::has_idl_factory(&map.map_ty),
-            idl_types::TypeName::TypeArray(array) => Self::has_idl_factory(&array.ty),
-            _ => false,
+            idl_types::TypeName::TypeMap(map) => Self::references_factory(&map.map_ty, range),
+            idl_types::TypeName::TypeArray(array) => Self::references_factory(&array.ty, range),
+            idl_types::TypeName::TypeOption(option) => {
+                Self::references_factory(&option.some_ty, range)
+            }
+            idl_types::TypeName::TypeResult(result) => {
+                Self::references_factory(&result.ok_ty, range)?;
+                Self::references_factory(&result.err_ty, range)
+            }
+            _ => Ok(()),
         }
     }
 
-    fn has_idl_stream(ty: &idl_types::TypeName) -> bool {
+    fn references_stream(ty: &idl_types::TypeName, range: Range) -> Result<(), ReferenceError> {
         match ty {
-            idl_types::TypeName::StreamTypeName(_) => true,
+            idl_types::TypeName::StreamTypeName(_) => Err(ReferenceError(
+                ReferenceErrorKind::ReferencesStream,
+                range,
+                ty.get_type_reference(),
+            )),
             idl_types::TypeName::TypeFunction(function) => {
-                Self::has_idl_stream(&function.return_ty) || Self::has_idl_stream(&function.args)
+                Self::references_stream(&function.return_ty, range)?;
+                Self::references_stream(&function.args, range)
             }
             idl_types::TypeName::TypeTuple(tuple) => {
                 for tuple_ty in tuple.ty_list.iter() {
-                    if Self::has_idl_stream(&tuple_ty.ty) {
-                        return true;
-                    }
+                    Self::references_stream(&tuple_ty.ty, range)?;
                 }
-                false
+                Ok(())
             }
-            idl_types::TypeName::TypeMap(map) => Self::has_idl_stream(&map.map_ty),
-            idl_types::TypeName::TypeArray(array) => Self::has_idl_stream(&array.ty),
-            _ => false,
+            idl_types::TypeName::TypeMap(map) => Self::references_stream(&map.map_ty, range),
+            idl_types::TypeName::TypeArray(array) => Self::references_stream(&array.ty, range),
+            idl_types::TypeName::TypeOption(option) => {
+                Self::references_stream(&option.some_ty, range)
+            }
+            idl_types::TypeName::TypeResult(result) => {
+                Self::references_stream(&result.ok_ty, range)?;
+                Self::references_stream(&result.err_ty, range)
+            }
+            _ => Ok(()),
         }
     }
 
@@ -1005,21 +983,80 @@ impl Analyzer {
         for node in nodes {
             match node {
                 idl_types::TypeNode::TypeFactory(value) => {
-                    let range = parsers.get_range_from_type_name(value.ident.as_str());
-
                     for factory_node in &value.fields {
                         if let idl_types::FactoryNode::FactoryField(field) = factory_node {
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                field.ident.as_str(),
+                            );
+
                             let ty = &field.ty;
 
                             let has_interface_return = match ty {
+                                idl_types::TypeName::TypeTuple(_) => false,
                                 idl_types::TypeName::TypeFunction(function) => {
-                                    Self::has_idl_interface(&function.return_ty)
+                                    if Self::references_interface(&function.args, Range::default())
+                                        .is_err()
+                                    {
+                                        return Err(FactoryError(
+                                            FactoryErrorKind::ReferenceError(ReferenceError(
+                                                ReferenceErrorKind::ReferencesInterface,
+                                                range,
+                                                "".to_owned(),
+                                            )), //TODO
+                                            range,
+                                        ));
+                                    }
+
+                                    match &function.return_ty {
+                                        idl_types::TypeName::TypeResult(result) => {
+                                            if Self::references_interface(
+                                                &result.err_ty,
+                                                Range::default(),
+                                            )
+                                            .is_err()
+                                            {
+                                                return Err(FactoryError(
+                                                    FactoryErrorKind::ReferenceError(
+                                                        ReferenceError(
+                                                            ReferenceErrorKind::ReferencesInterface,
+                                                            range,
+                                                            "".to_owned(),
+                                                        ),
+                                                    ), //TODO
+                                                    range,
+                                                ));
+                                            }
+
+                                            Self::references_interface(
+                                                &result.ok_ty,
+                                                Range::default(),
+                                            )
+                                            .is_err()
+                                        }
+                                        ty => Self::references_interface(ty, Range::default())
+                                            .is_err(),
+                                    }
                                 }
-                                idl_types::TypeName::TypeArray(array) => {
-                                    Self::has_idl_interface(&array.ty)
+                                idl_types::TypeName::TypeResult(result) => {
+                                    // Of course, interface cannot be returned as an error.
+                                    if Self::references_interface(&result.err_ty, Range::default())
+                                        .is_err()
+                                    {
+                                        return Err(FactoryError(
+                                            FactoryErrorKind::ReferenceError(ReferenceError(
+                                                ReferenceErrorKind::ReferencesInterface,
+                                                range,
+                                                "".to_owned(),
+                                            )), //TODO
+                                            range,
+                                        ));
+                                    }
+
+                                    Self::references_interface(&result.ok_ty, Range::default())
+                                        .is_err()
                                 }
-                                idl_types::TypeName::InterfaceTypeName(_) => true,
-                                _ => false,
+                                ty => Self::references_interface(ty, Range::default()).is_err(),
                             };
 
                             if !has_interface_return {
@@ -1206,38 +1243,6 @@ impl Analyzer {
             _ => false,
         }
     }
-
-    fn type_name_is_valid(name: &str, range: Range) -> Result<(), NameError> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^[A-Z](?:[a-z0-9][A-Z]?)+$").unwrap();
-        }
-
-        if RE.is_match(name) {
-            Ok(())
-        } else {
-            Err(NameError(
-                NameErrorKind::InvalidTypeName,
-                range,
-                name.to_owned(),
-            ))
-        }
-    }
-
-    fn field_name_is_valid(name: &str, range: Range) -> Result<(), NameError> {
-        lazy_static! {
-            static ref RE: Regex = Regex::new(r"^([a-z]+(?:_[a-z0-9]+)*)$").unwrap();
-        }
-
-        if RE.is_match(name) {
-            Ok(())
-        } else {
-            Err(NameError(
-                NameErrorKind::InvalidFieldName,
-                range,
-                name.to_owned(),
-            ))
-        }
-    }
 }
 
 impl AnalyzerItems {
@@ -1309,6 +1314,17 @@ impl AnalyzerItems {
                     map_ty: self.get_type(map.m_ty.clone())?,
                 })))
             }
+            parser::Type::Result(result) => Ok(idl_types::TypeName::TypeResult(Box::new(
+                idl_types::TypeResult {
+                    ok_ty: self.get_type(result.ok_ty.clone())?,
+                    err_ty: self.get_type(result.err_ty.clone())?,
+                },
+            ))),
+            parser::Type::Option(option) => Ok(idl_types::TypeName::TypeOption(Box::new(
+                idl_types::TypeOption {
+                    some_ty: self.get_type(option.some_ty.clone())?,
+                },
+            ))),
         }
     }
 }

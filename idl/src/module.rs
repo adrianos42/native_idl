@@ -4,16 +4,13 @@ use super::idl_types;
 use super::parser;
 
 use dashmap::{
-    mapref::one::{Ref, RefMut},
     DashMap,
 };
-use std::borrow::Borrow;
 use std::sync::Arc;
 
 #[derive(Debug)]
 pub enum ModuleError {
     Abort,
-    CouldNotReadDirectory,
 }
 
 #[derive(Debug)]

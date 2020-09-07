@@ -224,8 +224,8 @@ fn get_type_fields(value: &[parser::TypeListNode]) -> Vec<DocumentSymbol> {
         .filter_map(|node| match node {
             parser::TypeListNode::TypeListField(value) => {
                 let range = get_range_from_parser(value.range);
-                let name = value.ty.to_string();
-                let detail = None;
+                let name = value.ident.to_owned();
+                let detail = Some(value.ty.to_string());
                 let selection_range = range;
                 Some(create_document_symbol(
                     SymbolKind::EnumMember,

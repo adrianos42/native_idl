@@ -13,139 +13,9 @@ static KEYWORDS: &'static [&str] = &[
     "const",
 ];
 
-static RESERVED: &'static [&str] = &[
-    "abstract",
-    "as",
-    "assert",
-    "async",
-    "attribute",
-    "await",
-    "become",
-    "box",
-    "break",
-    "case",
-    "catch",
-    "class",
-    "continue",
-    "covariant",
-    "crate",
-    "default",
-    "deferred",
-    "do",
-    "dyn",
-    "dynamic",
-    "else",
-    "export",
-    "extends",
-    "extension",
-    "external",
-    "false",
-    "final",
-    "finally",
-    "fn",
-    "for",
-    "get",
-    "hashcode",
-    "hide",
-    "if",
-    "impl",
-    "implements",
-    "in",
-    "instance",
-    "is",
-    "let",
-    "loop",
-    "macro",
-    "match",
-    "mixin",
-    "mod",
-    "move",
-    "mut",
-    "new",
-    "nosuchfunction",
-    "null",
-    "on",
-    "operator",
-    "override",
-    "part",
-    "priv",
-    "private",
-    "pub",
-    "public",
-    "ref",
-    "rethrow",
-    "return",
-    "runtimetype",
-    "self",
-    "service",
-    "set",
-    "show",
-    "static",
-    "structure",
-    "super",
-    "switch",
-    "this",
-    "throw",
-    "time",
-    "tostring",
-    "trait",
-    "true",
-    "try",
-    "typedef",
-    "typeof",
-    "unsafe",
-    "unsized",
-    "use",
-    "value",
-    "var",
-    "version",
-    "virtual",
-    "void",
-    "where",
-    "while",
-    "with",
-    "yield",
-];
-
 static NATIVE_TYPES: &'static [&str] = &["int", "float", "bool", "string", "bytes", "none"];
 
-static RESERVED_TYPES: &'static [&str] = &[
-    "uint", "i8", "i16", "i32", "i64", "i128", "u8", "u16", "u32", "u64", "u128", "f32", "f64",
-    "double", "void", "date", "time", "char", "decimal",
-];
-
 static ATTRIBUTES_NAMES: &'static [&str] = &["deprecated"];
-
-static RESERVED_ATTRIBUTES_NAMES: &'static [&str] = &[
-    "abstract",
-    "assert",
-    "attribute",
-    "const",
-    "default",
-    "deferred",
-    "dynamic",
-    "export",
-    "extends",
-    "extension",
-    "external",
-    "hide",
-    "implements",
-    "in",
-    "is",
-    "new",
-    "null",
-    "on",
-    "operator",
-    "private",
-    "public",
-    "return",
-    "service",
-    "static",
-    "time",
-    "value",
-    "version",
-    "void",
-];
 
 #[derive(Debug, Copy, Clone)]
 pub enum Keywords {
@@ -205,23 +75,13 @@ impl fmt::Display for NativeTypes {
 
 #[derive(Debug, Copy, Clone)]
 pub enum AttributeNames {
-    Get,
-    Set,
-    Stream,
-    Factory,
-    Sync,
-    Async,
+    Deprecated,
 }
 
 impl fmt::Display for AttributeNames {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let name = match self {
-            AttributeNames::Async => "async",
-            AttributeNames::Sync => "sync",
-            AttributeNames::Stream => "stream",
-            AttributeNames::Set => "set",
-            AttributeNames::Get => "get",
-            AttributeNames::Factory => "factory",
+            AttributeNames::Deprecated => "deprecated",
         };
 
         write!(f, "{}", name)
@@ -243,56 +103,44 @@ pub(super) struct WRange {
     pub(super) length: usize,
 }
 
+impl WRange {
+    fn new(line: usize, index: usize, length: usize) -> Self {
+        WRange {
+            line,
+            index,
+            length,
+        }
+    }
+}
+
 impl<T> WordRange<T> {
     pub(super) fn get_word(&self) -> &T {
         &self.word
     }
 }
 
-impl<T: fmt::Display> fmt::Display for WordRange<T> {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // On the editor, lines and columns start at index 1 :\
-        write!(
-            f,
-            "WordRange {{Word: {}, Line {}, Column {}, Length {}}}",
-            self.word,
-            self.line + 1,
-            self.index + 1,
-            self.length
-        )
-    }
-}
-
-// impl fmt::Display for WRange {
-//     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-//         write!(f, "{{Line {}, Column {}}}", self. + 1, self.1 + 1)
-//     }
-// }
-
 #[derive(Debug)]
 pub(super) enum WordStream {
-    LeftSquareBracket(WRange),
-    RightSquareBracket(WRange),
+    LeftSquareBracket(WordRange<char>),
+    RightSquareBracket(WordRange<char>),
     SquareBracketBody(Vec<WordStream>),
-    LeftCurlyBracket(WRange),
-    RightCurlyBracket(WRange),
+    LeftCurlyBracket(WordRange<char>),
+    RightCurlyBracket(WordRange<char>),
     CurlyBracketBody(Vec<WordStream>),
-    LeftParenthesis(WRange),
-    RightParenthesis(WRange),
+    LeftParenthesis(WordRange<char>),
+    RightParenthesis(WordRange<char>),
     ParenthesisBody(Vec<WordStream>),
-    Comma(WRange),
-    Assignment(WRange),
-    Colon(WRange),
-    Hyphen(WRange),
-    GreaterThan(WRange),
-    NewLine(WRange),
-    SemiColon(WRange),
+    Comma(WordRange<char>),
+    Assignment(WordRange<char>),
+    Colon(WordRange<char>),
+    Hyphen(WordRange<char>),
+    GreaterThan(WordRange<char>),
+    NewLine(WordRange<char>),
+    SemiColon(WordRange<char>),
     Identifier(WordRange<String>),
     Keyword(WordRange<Keywords>),
     NativeType(WordRange<NativeTypes>),
     Attribute(WordRange<AttributeNames>),
-    ReservedType(WordRange<String>),
-    ReservedAttribute(WordRange<String>),
     TypeName(WordRange<String>),
     Comment(WordRange<String>),
     StringBody(WordRange<String>),
@@ -303,50 +151,32 @@ pub(super) enum WordStream {
 impl WordStream {
     pub(super) fn get_range(&self) -> WRange {
         match self {
-            WordStream::LeftCurlyBracket(i_source)
-            | WordStream::RightSquareBracket(i_source)
-            | WordStream::LeftSquareBracket(i_source)
-            | WordStream::RightCurlyBracket(i_source)
-            | WordStream::LeftParenthesis(i_source)
-            | WordStream::RightParenthesis(i_source)
-            | WordStream::Comma(i_source)
-            | WordStream::Assignment(i_source)
-            | WordStream::Colon(i_source)
-            | WordStream::NewLine(i_source)
-            | WordStream::Hyphen(i_source)
-            | WordStream::GreaterThan(i_source)
-            | WordStream::SemiColon(i_source) => *i_source,
-            WordStream::Identifier(w_range)
-            | WordStream::ReservedType(w_range)
-            | WordStream::ReservedAttribute(w_range)
-            | WordStream::TypeName(w_range)
-            | WordStream::Comment(w_range)
-            | WordStream::StringBody(w_range)
-            | WordStream::FloatValue(w_range)
-            | WordStream::IntegerValue(w_range) => WRange {
-                index: w_range.index,
-                line: w_range.line,
-                length: w_range.length,
-            },
-            WordStream::Keyword(w_range) => WRange {
-                index: w_range.index,
-                line: w_range.line,
-                length: w_range.length,
-            },
-            WordStream::NativeType(w_range) => WRange {
-                index: w_range.index,
-                line: w_range.line,
-                length: w_range.length,
-            },
-            WordStream::Attribute(w_range) => WRange {
-                index: w_range.index,
-                line: w_range.line,
-                length: w_range.length,
-            },
+            WordStream::LeftCurlyBracket(value)
+            | WordStream::RightSquareBracket(value)
+            | WordStream::LeftSquareBracket(value)
+            | WordStream::RightCurlyBracket(value)
+            | WordStream::LeftParenthesis(value)
+            | WordStream::RightParenthesis(value)
+            | WordStream::Comma(value)
+            | WordStream::Assignment(value)
+            | WordStream::Colon(value)
+            | WordStream::NewLine(value)
+            | WordStream::Hyphen(value)
+            | WordStream::GreaterThan(value)
+            | WordStream::SemiColon(value) => WRange::new(value.line, value.index, value.length),
+            WordStream::Identifier(value)
+            | WordStream::TypeName(value)
+            | WordStream::Comment(value)
+            | WordStream::StringBody(value)
+            | WordStream::FloatValue(value)
+            | WordStream::IntegerValue(value) => WRange::new(value.line, value.index, value.length),
+            WordStream::Keyword(value) => WRange::new(value.line, value.index, value.length),
+            WordStream::NativeType(value) => WRange::new(value.line, value.index, value.length),
+            WordStream::Attribute(value) => WRange::new(value.line, value.index, value.length),
             WordStream::CurlyBracketBody(w_streams)
             | WordStream::ParenthesisBody(w_streams)
             | WordStream::SquareBracketBody(w_streams) => match w_streams.first() {
-                Some(w_range) => w_range.get_range(),
+                Some(value) => value.get_range(),
                 None => WRange::default(),
             },
         }
@@ -356,43 +186,39 @@ impl WordStream {
 impl fmt::Display for WordStream {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let strname = match self {
-            WordStream::LeftCurlyBracket(_) => "{".to_owned(),
-            WordStream::RightSquareBracket(_) => "]".to_owned(),
-            WordStream::LeftSquareBracket(_) => "[".to_owned(),
-            WordStream::RightCurlyBracket(_) => "}".to_owned(),
-            WordStream::LeftParenthesis(_) => "(".to_owned(),
-            WordStream::RightParenthesis(_) => ")".to_owned(),
-            WordStream::Comma(_) => ",".to_owned(),
-            WordStream::Assignment(_) => "=".to_owned(),
-            WordStream::Colon(_) => ":".to_owned(),
-            WordStream::NewLine(_) => "\n".to_owned(),
-            WordStream::Hyphen(_) => "-".to_owned(),
-            WordStream::GreaterThan(_) => ">".to_owned(),
-            WordStream::SemiColon(_) => ";".to_owned(),
+            WordStream::LeftCurlyBracket(name)
+            | WordStream::RightSquareBracket(name)
+            | WordStream::LeftSquareBracket(name)
+            | WordStream::RightCurlyBracket(name)
+            | WordStream::LeftParenthesis(name)
+            | WordStream::RightParenthesis(name)
+            | WordStream::Comma(name)
+            | WordStream::Assignment(name)
+            | WordStream::Colon(name)
+            | WordStream::Hyphen(name)
+            | WordStream::GreaterThan(name)
+            | WordStream::SemiColon(name) => name.get_word().to_string(),
+            WordStream::NewLine(_) => "\\n".to_owned(), // ??
             WordStream::Identifier(name)
-            | WordStream::ReservedType(name)
-            | WordStream::ReservedAttribute(name)
             | WordStream::TypeName(name)
             | WordStream::Comment(name)
             | WordStream::StringBody(name)
             | WordStream::FloatValue(name)
             | WordStream::IntegerValue(name) => name.get_word().to_owned(),
-            WordStream::Keyword(name) => name.get_word().to_string().to_owned(),
-            WordStream::NativeType(name) => name.get_word().to_string().to_owned(),
-            WordStream::Attribute(name) => name.get_word().to_string().to_owned(),
+            WordStream::Keyword(name) => name.get_word().to_string(),
+            WordStream::NativeType(name) => name.get_word().to_string(),
+            WordStream::Attribute(name) => name.get_word().to_string(),
             WordStream::CurlyBracketBody(_)
             | WordStream::ParenthesisBody(_)
             | WordStream::SquareBracketBody(_) => "".to_owned(),
         };
 
-        // On the editor, lines and columns start at index 1 :\
         write!(f, "{}", strname)
     }
 }
 
 pub(super) enum ScError {
     SymbolMissing(WordStream),
-    ReservedWord(WordRange<String>),
     Name(WordStream),
     InvalidCharacter(WordRange<char>),
     InvalidComment(WordRange<String>),
@@ -470,7 +296,6 @@ impl ContextStream {
         word_stream: &mut Vec<WordStream>,
     ) -> Result<(), ScError> {
         lazy_static! {
-            // static ref RE: Regex = Regex::new(r"\A(?=--)-*(.*)").unwrap(); // DOES NOT SUPPORT LOOKAROUND????
             static ref RE: Regex = Regex::new(r"\A(?:--)(.*)").unwrap();
         }
 
@@ -578,6 +403,7 @@ impl ContextStream {
                             return Ok(());
                         }
                         '(' => self.consume_parenthesis(lines, &mut brackets_word_stream)?,
+                        ';' => self.push_semi_colon(&mut brackets_word_stream),
                         '"' => self.consume_string(line_str, &mut brackets_word_stream)?,
                         '-' => {
                             if self
@@ -611,10 +437,11 @@ impl ContextStream {
         }
 
         Err(ScError::SymbolMissing(WordStream::RightSquareBracket(
-            WRange {
+            WordRange {
                 line: self.cur_line,
                 index: self.cur_char,
                 length: 1,
+                word: ']',
             },
         )))
     }
@@ -645,6 +472,7 @@ impl ContextStream {
                         }
                         '[' => self.consume_brackets(lines, &mut parens_word_stream)?,
                         '"' => self.consume_string(line_str, &mut parens_word_stream)?,
+                        ';' => self.push_semi_colon(&mut parens_word_stream),
                         ':' => self.push_colon(&mut parens_word_stream),
                         '-' => {
                             if self
@@ -664,7 +492,6 @@ impl ContextStream {
                         }
                         ',' => self.push_comma(&mut parens_word_stream),
                         sw => {
-                            let text = sw.to_string();
                             return Err(ScError::InvalidCharacter(WordRange {
                                 line: self.cur_line,
                                 index: self.cur_char,
@@ -679,10 +506,11 @@ impl ContextStream {
         }
 
         Err(ScError::SymbolMissing(WordStream::RightParenthesis(
-            WRange {
+            WordRange {
                 line: self.cur_line,
                 index: self.cur_char,
                 length: 1,
+                word: ')',
             },
         )))
     }
@@ -718,6 +546,7 @@ impl ContextStream {
                         '(' => self.consume_parenthesis(lines, &mut brackets_word_stream)?,
                         ',' => self.push_comma(&mut brackets_word_stream),
                         ':' => self.push_colon(&mut brackets_word_stream),
+                        ';' => self.push_semi_colon(&mut brackets_word_stream),
                         '=' => self.push_assignment(&mut brackets_word_stream),
                         '"' => self.consume_string(line_str, &mut brackets_word_stream)?,
                         '-' => {
@@ -751,10 +580,11 @@ impl ContextStream {
         }
 
         Err(ScError::SymbolMissing(WordStream::RightCurlyBracket(
-            WRange {
+            WordRange {
                 line: self.cur_line,
                 index: self.cur_char,
                 length: 1,
+                word: '}',
             },
         )))
     }
@@ -819,12 +649,7 @@ impl ContextStream {
             word_stream.push(WordStream::NativeType(word_range));
         } else if ATTRIBUTES_NAMES.contains(&ident.as_str()) {
             let attribute_name = match ident.as_str() {
-                "get" => AttributeNames::Get,
-                "set" => AttributeNames::Set,
-                "stream" => AttributeNames::Stream,
-                "factory" => AttributeNames::Factory,
-                "sync" => AttributeNames::Sync,
-                "async" => AttributeNames::Async,
+                "deprecated" => AttributeNames::Deprecated,
                 _ => panic!("Not an attribute name."),
             };
 
@@ -844,45 +669,26 @@ impl ContextStream {
                 word: ident.to_owned(),
             };
 
-            ///if RESERVED_TYPES.contains(&ident.as_str()) {
-            // word_stream.push(WordStream::ReservedType(word_range));
-            //} //else if RESERVED_ATTRIBUTES_NAMES.contains(&ident.as_str()) {
-            //word_stream.push(WordStream::ReservedAttribute(word_range));
-            //} else
-            {
-                // let cmp_ident = ident.to_owned().to_lowercase();
-                // if RESERVED.contains(&cmp_ident.as_str()) {
-                //     return Err(ScError::ReservedWord(word_range));
-                // } else if KEYWORDS.contains(&cmp_ident.as_str())
-                //     || NATIVE_TYPES.contains(&cmp_ident.as_str())
-                //     || RESERVED_TYPES.contains(&cmp_ident.as_str())
-                //     || ATTRIBUTES_NAMES.contains(&cmp_ident.as_str())
-                //     || RESERVED_ATTRIBUTES_NAMES.contains(&cmp_ident.as_str())
-                // {
-                //     return Err(ScError::Name(WordStream::Identifier(word_range)));
-                // }
+            lazy_static! {
+                static ref RE: Regex =
+                    Regex::new(r"^(?:([A-Z](?:[a-z0-9][A-Z]?)*)|([a-z]+(?:_[a-z0-9]+)*))$")
+                        .unwrap();
+            }
 
-                lazy_static! {
-                    static ref RE: Regex =
-                        Regex::new(r"^(?:([A-Z](?:[a-z0-9][A-Z]?)*)|([a-z]+(?:_[a-z0-9]+)*))$")
-                            .unwrap();
-                }
-
-                match RE.captures(ident.as_str()) {
-                    Some(caps) => {
-                        if caps.get(1).is_some() {
-                            // Pascal case, user type name.
-                            word_stream.push(WordStream::TypeName(word_range));
-                        } else if caps.get(2).is_some() {
-                            // All lower case, field name or library name.
-                            word_stream.push(WordStream::Identifier(word_range));
-                        } else {
-                            return Err(ScError::Name(WordStream::Identifier(word_range)));
-                        }
-                    }
-                    None => {
+            match RE.captures(ident.as_str()) {
+                Some(caps) => {
+                    if caps.get(1).is_some() {
+                        // Pascal case, user type name.
+                        word_stream.push(WordStream::TypeName(word_range));
+                    } else if caps.get(2).is_some() {
+                        // All lower case, field name or library name.
+                        word_stream.push(WordStream::Identifier(word_range));
+                    } else {
                         return Err(ScError::Name(WordStream::Identifier(word_range)));
                     }
+                }
+                None => {
+                    return Err(ScError::Name(WordStream::Identifier(word_range)));
                 }
             }
         }
@@ -945,118 +751,131 @@ impl ContextStream {
     }
 
     fn push_comma(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::Comma(WRange {
+        word_stream.push(WordStream::Comma(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: ',',
         }));
         self.cur_char += 1;
     }
 
     fn push_hyphen(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::Hyphen(WRange {
+        word_stream.push(WordStream::Hyphen(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: '-',
         }));
         self.cur_char += 1;
     }
 
     fn push_greater_than(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::GreaterThan(WRange {
+        word_stream.push(WordStream::GreaterThan(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: '>',
         }));
         self.cur_char += 1;
     }
 
     fn push_left_square_bracket(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::LeftSquareBracket(WRange {
+        word_stream.push(WordStream::LeftSquareBracket(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: '[',
         }));
         self.cur_char += 1;
     }
 
     fn push_right_square_bracket(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::RightSquareBracket(WRange {
+        word_stream.push(WordStream::RightSquareBracket(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: ']',
         }));
         self.cur_char += 1;
     }
 
     fn push_left_curly_bracket(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::LeftCurlyBracket(WRange {
+        word_stream.push(WordStream::LeftCurlyBracket(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: '{',
         }));
         self.cur_char += 1;
     }
 
     fn push_right_curly_bracket(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::RightCurlyBracket(WRange {
+        word_stream.push(WordStream::RightCurlyBracket(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: '}',
         }));
         self.cur_char += 1;
     }
 
     fn push_left_paren(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::LeftParenthesis(WRange {
+        word_stream.push(WordStream::LeftParenthesis(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: '(',
         }));
         self.cur_char += 1;
     }
 
     fn push_right_paren(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::RightParenthesis(WRange {
+        word_stream.push(WordStream::RightParenthesis(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: ')',
         }));
         self.cur_char += 1;
     }
 
     fn push_colon(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::Colon(WRange {
+        word_stream.push(WordStream::Colon(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: ':',
         }));
         self.cur_char += 1;
     }
 
     fn push_assignment(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::Assignment(WRange {
+        word_stream.push(WordStream::Assignment(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: '=',
         }));
         self.cur_char += 1;
     }
 
     fn push_semi_colon(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::SemiColon(WRange {
+        word_stream.push(WordStream::SemiColon(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: ';',
         }));
         self.cur_char += 1;
     }
 
     fn next_line(&mut self, word_stream: &mut Vec<WordStream>) {
-        word_stream.push(WordStream::NewLine(WRange {
+        word_stream.push(WordStream::NewLine(WordRange {
             line: self.cur_line,
             index: self.cur_char,
             length: 1,
+            word: '\n',
         }));
         self.cur_line += 1;
         self.cur_char = 0;

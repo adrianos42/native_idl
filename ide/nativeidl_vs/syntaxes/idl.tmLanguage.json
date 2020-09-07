@@ -1,0 +1,61 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "IdlNative",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#comments"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"match": "\\b(enum|struct|interface|import|library|get|set|stream|async|sync|factory|type|const)\\b",
+					"name": "keyword.control.idl"
+				},
+				{
+					"match": "(?<!\\$)\\b(0x[0-9A-F]*)|([0-9]+\\.?[0-9]*)\\b(?!\\$)",
+					"name": "constant.numeric.idl"
+				},
+				{
+					"match": "(?<!\\$)\\b(?:bool|int|float|string|bytes|null|nil|empty|none)\\b(?!\\$)",
+					"name": "storage.type.primitive.idl"
+				},
+				{
+					"match": "(?<!\\$)\\b(true|false)\\b(?!\\$)",
+					"name": "constant.language.idl"
+				},
+				{
+					"match": "(?<!\\$)\\b([A-Z][a-z]+(?:[A-Z][a-z]+)*)\\b(?!\\$)",
+					"name": "entity.name.class.idl"
+				}
+			]
+		},
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.idl",
+					"match": "(--).*$\n?"
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.idl",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.idl",
+					"match": "\\\\."
+				}
+			]
+		}
+	},
+	"scopeName": "source.idl"
+}

@@ -22,48 +22,39 @@ pub enum Types {
 }
 
 #[derive(Debug, Copy, Clone)]
-pub enum InterfaceAttributes {
-  
-}
+pub enum InterfaceAttributes {}
 
 #[derive(Debug)]
 pub enum TypeNode {
-    LibraryName(LibraryName),
-    Imports(Imports),
-    Comment(Comment),
-    InterfaceComment(InterfaceComment),
+    LibraryName(String),
+    Imports(Vec<String>),
+    Comment(String),
+    InterfaceComment(String),
     TypeInterface(Box<TypeInterface>),
     StructComment(StructComment),
     TypeStruct(Box<TypeStruct>),
-    EnumComment(EnumComment),
+    EnumComment(String),
     TypeEnum(Box<TypeEnum>),
-    TypeListComment(TypeListComment),
+    TypeListComment(String),
     TypeList(Box<TypeList>),
-    ConstComment(ConstComment),
+    ConstComment(String),
     TypeConst(Box<TypeConst>),
-    StreamComment(StreamComment),
+    StreamComment(String),
     TypeStream(Box<TypeStream>),
-    FactoryComment(FactoryComment),
+    FactoryComment(String),
     TypeFactory(Box<TypeFactory>),
 }
 
-pub type LibraryName = String;
-pub type Imports = Vec<String>;
-pub type Comment = String;
-
-pub type FactoryComment = String;
-pub type FactoryTypeName = String;
-
 #[derive(Debug)]
 pub struct TypeFactory {
-    pub ident: FactoryTypeName,
+    pub ident: String,
     pub fields: Vec<FactoryNode>,
 }
 
 #[derive(Debug)]
 pub enum FactoryNode {
     FactoryField(Box<FactoryField>),
-    Comment(Comment),
+    Comment(String),
 }
 
 #[derive(Debug)]
@@ -73,19 +64,16 @@ pub struct FactoryField {
     pub ty: TypeName,
 }
 
-pub type InterfaceComment = String;
-pub type InterfaceTypeName = String;
-
 #[derive(Debug)]
 pub struct TypeInterface {
-    pub ident: InterfaceTypeName,
+    pub ident: String,
     pub fields: Vec<InterfaceNode>,
 }
 
 #[derive(Debug)]
 pub enum InterfaceNode {
     InterfaceField(Box<InterfaceField>),
-    Comment(Comment),
+    Comment(String),
 }
 
 #[derive(Debug)]
@@ -107,7 +95,7 @@ pub struct TypeStruct {
 #[derive(Debug)]
 pub enum StructNode {
     StructField(Box<StructField>),
-    Comment(Comment),
+    Comment(String),
 }
 
 #[derive(Debug)]
@@ -116,19 +104,16 @@ pub struct StructField {
     pub ty: TypeName,
 }
 
-pub type StreamComment = String;
-pub type StreamTypeName = String;
-
 #[derive(Debug)]
 pub struct TypeStream {
-    pub ident: StreamTypeName,
+    pub ident: String,
     pub fields: Vec<StreamNode>,
 }
 
 #[derive(Debug)]
 pub enum StreamNode {
     StreamField(Box<StreamField>),
-    Comment(Comment),
+    Comment(String),
 }
 
 #[derive(Debug)]
@@ -137,39 +122,34 @@ pub struct StreamField {
     pub ty: TypeName,
 }
 
-pub type TypeListComment = String;
-pub type ListTypeName = String;
-
 #[derive(Debug)]
 pub struct TypeList {
-    pub ident: ListTypeName,
+    pub ident: String,
     pub ty_list: Vec<TypeListNode>,
 }
 
 #[derive(Debug)]
 pub enum TypeListNode {
     TypeListField(Box<TypeListField>),
-    Comment(Comment),
+    Comment(String),
 }
 
 #[derive(Debug)]
 pub struct TypeListField {
+    pub ident: String,
     pub ty: TypeName,
 }
 
-pub type EnumComment = String;
-pub type EnumTypeName = String;
-
 #[derive(Debug)]
 pub struct TypeEnum {
-    pub ident: EnumTypeName,
+    pub ident: String,
     pub fields: Vec<EnumNode>,
 }
 
 #[derive(Debug)]
 pub enum EnumNode {
     EnumField(Box<EnumField>),
-    Comment(Comment),
+    Comment(String),
 }
 
 #[derive(Debug)]
@@ -177,12 +157,9 @@ pub struct EnumField {
     pub ident: String,
 }
 
-pub type ConstComment = String;
-pub type ConstTypeName = String;
-
 #[derive(Debug)]
 pub struct TypeConst {
-    pub ident: ConstTypeName,
+    pub ident: String,
     pub fields: Vec<ConstNode>,
     pub const_type: ConstTypes,
 }
@@ -197,7 +174,7 @@ pub enum ConstTypes {
 #[derive(Debug)]
 pub enum ConstNode {
     ConstField(Box<ConstField>),
-    Comment(Comment),
+    Comment(String),
 }
 
 #[derive(Debug)]
@@ -225,12 +202,14 @@ pub enum TypeName {
     TypeTuple(Box<TypeTuple>),
     TypeArray(Box<TypeArray>),
     TypeMap(Box<TypeMap>),
-    ListTypeName(ListTypeName),
-    EnumTypeName(EnumTypeName),
+    TypeResult(Box<TypeResult>),
+    TypeOption(Box<TypeOption>),
+    ListTypeName(String),
+    EnumTypeName(String),
     StructTypeName(StructTypeName),
-    InterfaceTypeName(InterfaceTypeName),
-    ConstTypeName(ConstTypeName),
-    FactoryTypeName(FactoryTypeName),
+    InterfaceTypeName(String),
+    ConstTypeName(String),
+    FactoryTypeName(String),
     StreamTypeName(StructTypeName),
 }
 
@@ -260,4 +239,15 @@ pub struct TypeTuple {
 pub struct TupleEntry {
     pub ident: String,
     pub ty: TypeName,
+}
+
+#[derive(Debug)]
+pub struct TypeResult {
+    pub ok_ty: TypeName,
+    pub err_ty: TypeName,
+}
+
+#[derive(Debug)]
+pub struct TypeOption {
+    pub some_ty: TypeName,
 }

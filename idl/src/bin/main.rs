@@ -20,7 +20,7 @@ async fn main() {
                 );
               //  println!("Parsed: {:?}", parser);
             }
-            Err(err) => println!("Parser error: {:?}", err),
+            Err((_, err)) => println!("Parser error: {:?}", err),
         }
     }
 }
