@@ -11,20 +11,20 @@ pub use super::scanner::{AttributeNames, Keywords, NativeTypes};
 pub enum ParserNode {
     Library(String),
     Imports(Vec<String>),
-    Comment(String),
-    InterfaceComment(String),
+    Comment(Vec<String>),
+    InterfaceComment(Vec<String>),
     Interface(Interface),
-    StructComment(String),
+    StructComment(Vec<String>),
     Struct(Struct),
-    EnumComment(String),
+    EnumComment(Vec<String>),
     Enum(Enum),
-    TypeListComment(String),
+    TypeListComment(Vec<String>),
     TypeList(TypeList),
-    ConstComment(String),
+    ConstComment(Vec<String>),
     Const(Const),
-    StreamComment(String),
+    StreamComment(Vec<String>),
     Stream(Stream),
-    FactoryComment(String),
+    FactoryComment(Vec<String>),
     Factory(Factory),
 }
 
@@ -38,7 +38,7 @@ pub struct Interface {
 #[derive(Debug)]
 pub enum InterfaceNode {
     InterfaceField(Box<InterfaceField>),
-    Comment(String),
+    Comment(Vec<String>),
 }
 
 #[derive(Debug)]
@@ -253,7 +253,7 @@ pub struct TypeList {
 #[derive(Debug)]
 pub enum TypeListNode {
     TypeListField(TypeListField),
-    Comment(String),
+    Comment(Vec<String>),
 }
 
 #[derive(Debug)]
@@ -286,7 +286,7 @@ pub struct Struct {
 #[derive(Debug)]
 pub enum StructNode {
     StructField(Box<StructField>),
-    Comment(String),
+    Comment(Vec<String>),
 }
 
 #[derive(Debug)]
@@ -319,7 +319,7 @@ pub struct Enum {
 #[derive(Debug)]
 pub enum EnumNode {
     EnumField(Box<EnumField>),
-    Comment(String),
+    Comment(Vec<String>),
 }
 
 #[derive(Debug)]
@@ -390,7 +390,7 @@ pub struct Const {
 #[derive(Debug)]
 pub enum ConstNode {
     ConstField(ConstField),
-    Comment(String),
+    Comment(Vec<String>),
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -1372,8 +1372,9 @@ impl Parser {
 
                     match &keyword.get_word() {
                         Keywords::Interface => {
-                            for comment in comments {
-                                context.nodes.push(ParserNode::InterfaceComment(comment));
+                            if !comments.is_empty() {
+                                context.nodes.push(ParserNode::InterfaceComment(comments));
+                                comments = vec![];
                             }
 
                             if let Err(err) =
@@ -1383,9 +1384,11 @@ impl Parser {
                             }
                         }
                         Keywords::Struct => {
-                            for comment in comments {
-                                context.nodes.push(ParserNode::StructComment(comment));
+                            if !comments.is_empty() {
+                                context.nodes.push(ParserNode::StructComment(comments));
+                                comments = vec![];
                             }
+
                             if let Err(err) =
                                 context.consume_struct(&mut word_stream, start_position)
                             {
@@ -1393,18 +1396,21 @@ impl Parser {
                             }
                         }
                         Keywords::Enum => {
-                            for comment in comments {
-                                context.nodes.push(ParserNode::EnumComment(comment));
+                            if !comments.is_empty() {
+                                context.nodes.push(ParserNode::EnumComment(comments));
+                                comments = vec![];
                             }
+
                             if let Err(err) = context.consume_enum(&mut word_stream, start_position)
                             {
                                 return Err((context, err.into()));
                             }
                         }
                         Keywords::Library => {
-                            for comment in comments {
-                                context.nodes.push(ParserNode::Comment(comment));
+                            if !comments.is_empty() {
+                                return Err((context, ParserError::Undefined(Range::default())));
                             }
+
                             if let Err(err) =
                                 context.consume_library(&mut word_stream, start_position)
                             {
@@ -1412,9 +1418,10 @@ impl Parser {
                             }
                         }
                         Keywords::Import => {
-                            for comment in comments {
-                                context.nodes.push(ParserNode::Comment(comment));
+                            if !comments.is_empty() {
+                                return Err((context, ParserError::Undefined(Range::default())));
                             }
+
                             if let Err(err) =
                                 context.consume_import(&mut word_stream, start_position)
                             {
@@ -1422,18 +1429,22 @@ impl Parser {
                             }
                         }
                         Keywords::Type => {
-                            for comment in comments {
-                                context.nodes.push(ParserNode::TypeListComment(comment));
+                            if !comments.is_empty() {
+                                context.nodes.push(ParserNode::TypeListComment(comments));
+                                comments = vec![];
                             }
+
                             if let Err(err) = context.consume_type(&mut word_stream, start_position)
                             {
                                 return Err((context, err.into()));
                             }
                         }
                         Keywords::Const => {
-                            for comment in comments {
-                                context.nodes.push(ParserNode::ConstComment(comment));
+                            if !comments.is_empty() {
+                                context.nodes.push(ParserNode::ConstComment(comments));
+                                comments = vec![];
                             }
+
                             if let Err(err) =
                                 context.consume_const(&mut word_stream, start_position)
                             {
@@ -1441,9 +1452,11 @@ impl Parser {
                             }
                         }
                         Keywords::Stream => {
-                            for comment in comments {
-                                context.nodes.push(ParserNode::StreamComment(comment));
+                            if !comments.is_empty() {
+                                context.nodes.push(ParserNode::StreamComment(comments));
+                                comments = vec![];
                             }
+
                             if let Err(err) =
                                 context.consume_stream(&mut word_stream, start_position)
                             {
@@ -1451,8 +1464,9 @@ impl Parser {
                             }
                         }
                         Keywords::Factory => {
-                            for comment in comments {
-                                context.nodes.push(ParserNode::StreamComment(comment));
+                            if !comments.is_empty() {
+                                context.nodes.push(ParserNode::FactoryComment(comments));
+                                comments = vec![];
                             }
 
                             if let Err(err) =
@@ -1462,10 +1476,10 @@ impl Parser {
                             }
                         }
                     }
-                    comments = vec![];
                 }
                 WordStream::Comment(comment) => {
                     comments.push(comment.get_word().to_owned());
+                    // Skips the the new line after the comment.
                     if let Some(c_stream) = word_stream.next() {
                         match c_stream {
                             WordStream::NewLine(_) => {}
@@ -1475,10 +1489,10 @@ impl Parser {
                 }
                 // This should mean only a new line before any other declaration.
                 WordStream::NewLine(_) => {
-                    for comment in comments {
-                        context.nodes.push(ParserNode::Comment(comment));
+                    if !comments.is_empty() {
+                        context.nodes.push(ParserNode::Comment(comments));
+                        comments = vec![];
                     }
-                    comments = vec![];
                 }
                 sw => return Err((context, ParserError::Undefined(sw.get_range()))),
             }
@@ -1752,6 +1766,7 @@ impl Parser {
         let mut ty: Option<Type> = None;
         let mut field_range = Range::default();
         let mut last_range = Range::default();
+        let mut comments = vec![];
 
         while let Some(n_stream) = word_stream.next() {
             match n_stream {
@@ -1760,6 +1775,43 @@ impl Parser {
 
                     // [attribute...] identifer : (identifier: type) -> type | type | [type],
                     while let Some(w_stream) = curly_word_stream.next() {
+                        if let WordStream::Comment(comment) = w_stream {
+                            let range = comment.range;
+                            let comment_txt = comment.get_word().to_owned();
+                            match parsing {
+                                InterfaceFieldParsing::ExpectingAttribute => {
+                                    last_range = range.end_as_range();
+                                    comments.push(comment_txt);
+
+                                    // Skips the the new line after the comment.
+                                    if let Some(c_stream) = word_stream.next() {
+                                        match c_stream {
+                                            WordStream::NewLine(_) => {}
+                                            _ => {
+                                                return Err(InterfaceFieldError(
+                                                    InterfaceFieldErrorKind::Undefined,
+                                                    last_range,
+                                                ))
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    return Err(InterfaceFieldError(
+                                        InterfaceFieldErrorKind::IncompleteField,
+                                        last_range.merge(range),
+                                    ))
+                                }
+                            }
+
+                            continue;
+                        }
+
+                        if !comments.is_empty() {
+                            fields.push(InterfaceNode::Comment(comments));
+                            comments = vec![];
+                        }
+
                         match w_stream {
                             WordStream::Comma(cm) => {
                                 let range = cm.range;
@@ -2145,23 +2197,6 @@ impl Parser {
                                 }
                             }
                             WordStream::NewLine(_) => {}
-                            // New line after a comment is not relevant among fields.
-                            WordStream::Comment(comment) => {
-                                let range = comment.range;
-                                let comment_txt = comment.get_word().to_owned();
-                                match parsing {
-                                    InterfaceFieldParsing::ExpectingAttribute => {
-                                        last_range = range.end_as_range();
-                                        fields.push(InterfaceNode::Comment(comment_txt));
-                                    }
-                                    _ => {
-                                        return Err(InterfaceFieldError(
-                                            InterfaceFieldErrorKind::IncompleteField,
-                                            last_range.merge(range),
-                                        ))
-                                    }
-                                }
-                            }
                             sw => {
                                 return Err(InterfaceFieldError(
                                     InterfaceFieldErrorKind::InvalidSymbol,
@@ -2272,7 +2307,7 @@ impl Parser {
                                     cl.range,
                                 ));
                             }
-                            WordStream::StringBody(str_body) => {
+                            WordStream::Literal(str_body) => {
                                 if attribute.is_some() {
                                     return Err(AttributeError(
                                         AttributeErrorKind::MissingComma,
@@ -2526,6 +2561,7 @@ impl Parser {
                                     return Err(TypeError(TypeErrorKind::Undefined, op_range));
                                 }
                             }
+                            WordStream::NewLine(_) => {}
                             sw => {
                                 return Err(TypeError(
                                     TypeErrorKind::InvalidType(sw.to_string()),
@@ -2727,6 +2763,7 @@ impl Parser {
                                     }
                                 }
                             }
+                            WordStream::NewLine(_) => {}
                             sw => {
                                 return Err(TypeTupleError(
                                     TypeTupleErrorKind::Undefined,
@@ -2922,6 +2959,7 @@ impl Parser {
         let mut field_name: Option<String> = None;
         let mut field_range = Range::default();
         let mut last_range = Range::default();
+        let mut comments = vec![];
 
         while let Some(n_stream) = word_stream.next() {
             match n_stream {
@@ -2929,6 +2967,43 @@ impl Parser {
                     let mut curly_word_stream = curly_body.iter();
 
                     while let Some(w_stream) = curly_word_stream.next() {
+                        if let WordStream::Comment(comment) = w_stream {
+                            let range = comment.range;
+                            let comment_txt = comment.get_word().to_owned();
+                            match parsing {
+                                StructFieldParsing::ExpectingIdentifier => {
+                                    last_range = range.end_as_range();
+                                    comments.push(comment_txt);
+
+                                    // Skips the the new line after the comment.
+                                    if let Some(c_stream) = word_stream.next() {
+                                        match c_stream {
+                                            WordStream::NewLine(_) => {}
+                                            _ => {
+                                                return Err(StructFieldError(
+                                                    StructFieldErrorKind::Undefined,
+                                                    last_range,
+                                                ))
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    return Err(StructFieldError(
+                                        StructFieldErrorKind::IncompleteField,
+                                        last_range.merge(range),
+                                    ))
+                                }
+                            }
+
+                            continue;
+                        }
+
+                        if !comments.is_empty() {
+                            fields.push(StructNode::Comment(comments));
+                            comments = vec![];
+                        }
+
                         match w_stream {
                             WordStream::Comma(cm) => {
                                 let range = cm.range;
@@ -3089,22 +3164,6 @@ impl Parser {
                                 }
                             }
                             WordStream::NewLine(_) => {}
-                            WordStream::Comment(comment) => {
-                                let range = comment.range;
-                                let comment_txt = comment.get_word().to_owned();
-                                match parsing {
-                                    StructFieldParsing::ExpectingIdentifier => {
-                                        fields.push(StructNode::Comment(comment_txt));
-                                        last_range = range.end_as_range();
-                                    }
-                                    _ => {
-                                        return Err(StructFieldError(
-                                            StructFieldErrorKind::IncompleteField,
-                                            last_range.merge(range),
-                                        ))
-                                    }
-                                }
-                            }
                             sw => {
                                 return Err(StructFieldError(
                                     StructFieldErrorKind::InvalidSymbol,
@@ -3238,8 +3297,43 @@ impl Parser {
         let mut field_name: Option<String> = None;
         let mut field_range = Range::default();
         let mut last_range = Range::default();
+        let mut comments = vec![];
 
         while let Some(n_stream) = word_stream.next() {
+            if let WordStream::Comment(comment) = n_stream {
+                let range = comment.range;
+                let comment_txt = comment.get_word().to_owned();
+                if field_name.is_none() {
+                    last_range = range.end_as_range();
+                    comments.push(comment_txt);
+
+                    // Skips the the new line after the comment.
+                    if let Some(c_stream) = word_stream.next() {
+                        match c_stream {
+                            WordStream::NewLine(_) => {}
+                            _ => {
+                                return Err(EnumFieldError(
+                                    EnumFieldErrorKind::Undefined,
+                                    last_range,
+                                ))
+                            }
+                        }
+                    }
+                } else {
+                    return Err(EnumFieldError(
+                        EnumFieldErrorKind::Undefined,
+                        last_range.merge(range),
+                    ));
+                }
+
+                continue;
+            }
+
+            if !comments.is_empty() {
+                fields.push(EnumNode::Comment(comments));
+                comments = vec![];
+            }
+
             match n_stream {
                 WordStream::CurlyBracketBody(curly_body) => {
                     let mut curly_word_stream = curly_body.iter();
@@ -3279,11 +3373,6 @@ impl Parser {
                                 field_name = Some(ident.get_word().to_owned());
                             }
                             WordStream::NewLine(_) => {}
-                            WordStream::Comment(comment) => {
-                                last_range = comment.range;
-                                let comment = comment.get_word().to_owned();
-                                fields.push(EnumNode::Comment(comment));
-                            }
                             sw => {
                                 return Err(EnumFieldError(
                                     EnumFieldErrorKind::InvalidSymbol,
@@ -3408,6 +3497,7 @@ impl Parser {
         let mut ty_ident: Option<String> = None;
         let mut ty_range = Range::default();
         let mut last_range = Range::default();
+        let mut comments = vec![];
 
         while let Some(n_stream) = word_stream.next() {
             match n_stream {
@@ -3415,6 +3505,43 @@ impl Parser {
                     let mut curly_word_stream = curly_body.iter();
 
                     while let Some(w_stream) = curly_word_stream.next() {
+                        if let WordStream::Comment(comment) = w_stream {
+                            let range = comment.range;
+                            let comment_txt = comment.get_word().to_owned();
+                            match parsing {
+                                TypeListFieldParsing::ExpectingIdentifier => {
+                                    last_range = range.end_as_range();
+                                    comments.push(comment_txt);
+
+                                    // Skips the the new line after the comment.
+                                    if let Some(c_stream) = word_stream.next() {
+                                        match c_stream {
+                                            WordStream::NewLine(_) => {}
+                                            _ => {
+                                                return Err(TypeListFieldError(
+                                                    TypeListFieldErrorKind::Undefined,
+                                                    last_range,
+                                                ))
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    return Err(TypeListFieldError(
+                                        TypeListFieldErrorKind::IncompleteField,
+                                        last_range.merge(range),
+                                    ))
+                                }
+                            }
+
+                            continue;
+                        }
+
+                        if !comments.is_empty() {
+                            fields.push(TypeListNode::Comment(comments));
+                            comments = vec![];
+                        }
+
                         match w_stream {
                             WordStream::Comma(cm) => {
                                 let range = cm.range;
@@ -3544,22 +3671,6 @@ impl Parser {
                                 };
                             }
                             WordStream::NewLine(_) => {}
-                            WordStream::Comment(comment) => {
-                                let range = comment.range;
-                                let comment_txt = comment.get_word().to_owned();
-                                match parsing {
-                                    TypeListFieldParsing::ExpectingIdentifier => {
-                                        fields.push(TypeListNode::Comment(comment_txt));
-                                        last_range = range.end_as_range();
-                                    }
-                                    _ => {
-                                        return Err(TypeListFieldError(
-                                            TypeListFieldErrorKind::Undefined,
-                                            last_range.merge(range),
-                                        ))
-                                    }
-                                }
-                            }
                             sw => {
                                 return Err(TypeListFieldError(
                                     TypeListFieldErrorKind::InvalidSymbol,
@@ -3700,6 +3811,7 @@ impl Parser {
         let mut const_type: Option<ConstType> = None;
         let mut field_range = Range::default();
         let mut last_range = Range::default();
+        let mut comments = vec![];
 
         while let Some(n_stream) = word_stream.next() {
             match n_stream {
@@ -3707,6 +3819,43 @@ impl Parser {
                     let mut curly_word_stream = curly_body.iter();
 
                     while let Some(w_stream) = curly_word_stream.next() {
+                        if let WordStream::Comment(comment) = w_stream {
+                            let range = comment.range;
+                            let comment_txt = comment.get_word().to_owned();
+                            match parsing {
+                                ConstFieldParsing::ExpectingIdentifier => {
+                                    last_range = range.end_as_range();
+                                    comments.push(comment_txt);
+
+                                    // Skips the the new line after the comment.
+                                    if let Some(c_stream) = word_stream.next() {
+                                        match c_stream {
+                                            WordStream::NewLine(_) => {}
+                                            _ => {
+                                                return Err(ConstFieldError(
+                                                    ConstFieldErrorKind::Undefined,
+                                                    last_range,
+                                                ))
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => {
+                                    return Err(ConstFieldError(
+                                        ConstFieldErrorKind::IncompleteField,
+                                        last_range.merge(range),
+                                    ))
+                                }
+                            }
+
+                            continue;
+                        }
+
+                        if !comments.is_empty() {
+                            fields.push(ConstNode::Comment(comments));
+                            comments = vec![];
+                        }
+
                         match w_stream {
                             WordStream::Comma(cm) => {
                                 let range = cm.range;
@@ -3770,13 +3919,13 @@ impl Parser {
                                     }
                                 }
                             }
-                            WordStream::StringBody(s_body)
+                            WordStream::Literal(s_body)
                             | WordStream::FloatValue(s_body)
                             | WordStream::IntegerValue(s_body) => {
                                 let range = s_body.range;
 
                                 const_type = match w_stream {
-                                    WordStream::StringBody(_) => match const_type {
+                                    WordStream::Literal(_) => match const_type {
                                         Some(ConstType::String) | None => Some(ConstType::String),
                                         _ => {
                                             return Err(ConstFieldError(
@@ -3835,21 +3984,6 @@ impl Parser {
                                 }
                             }
                             WordStream::NewLine(_) => {}
-                            WordStream::Comment(comment) => {
-                                let range = comment.range;
-                                let comment_txt = comment.get_word().to_owned();
-                                match parsing {
-                                    ConstFieldParsing::ExpectingIdentifier => {
-                                        fields.push(ConstNode::Comment(comment_txt));
-                                    }
-                                    _ => {
-                                        return Err(ConstFieldError(
-                                            ConstFieldErrorKind::IncompleteField,
-                                            last_range.merge(range),
-                                        ))
-                                    }
-                                }
-                            }
                             sw => {
                                 return Err(ConstFieldError(
                                     ConstFieldErrorKind::InvalidSymbol,

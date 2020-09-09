@@ -3,9 +3,7 @@ use super::completion;
 use super::idl_types;
 use super::parser;
 
-use dashmap::{
-    DashMap,
-};
+use dashmap::DashMap;
 use std::sync::Arc;
 
 #[derive(Debug)]

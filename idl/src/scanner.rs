@@ -138,7 +138,7 @@ pub(super) enum WordStream {
     Attribute(WordRange<AttributeNames>),
     TypeName(WordRange<String>),
     Comment(WordRange<String>),
-    StringBody(WordRange<String>),
+    Literal(WordRange<String>),
     FloatValue(WordRange<String>),
     IntegerValue(WordRange<String>),
 }
@@ -162,7 +162,7 @@ impl WordStream {
             WordStream::Identifier(value)
             | WordStream::TypeName(value)
             | WordStream::Comment(value)
-            | WordStream::StringBody(value)
+            | WordStream::Literal(value)
             | WordStream::FloatValue(value)
             | WordStream::IntegerValue(value) => value.range,
             WordStream::Keyword(value) => value.range,
@@ -196,7 +196,7 @@ impl fmt::Display for WordStream {
             WordStream::Identifier(name)
             | WordStream::TypeName(name)
             | WordStream::Comment(name)
-            | WordStream::StringBody(name)
+            | WordStream::Literal(name)
             | WordStream::FloatValue(name)
             | WordStream::IntegerValue(name) => name.get_word().to_owned(),
             WordStream::Keyword(name) => name.get_word().to_string(),
@@ -339,7 +339,7 @@ impl ContextStream {
                 let match_len = caps.get(0).unwrap().as_str().len();
 
                 match caps.get(1) {
-                    Some(m) => word_stream.push(WordStream::StringBody(WordRange {
+                    Some(m) => word_stream.push(WordStream::Literal(WordRange {
                         range: Range::new_with_length(self.cur_line, self.cur_char, match_len),
                         word: m.as_str().to_owned(),
                     })),
@@ -637,7 +637,7 @@ impl ContextStream {
 
             lazy_static! {
                 static ref RE: Regex =
-                    Regex::new(r"^(?:([A-Z](?:[a-z0-9][A-Z]?)*)|([a-z]+(?:_[a-z0-9]+)*))$")
+                    Regex::new(r"^(?:([A-Z](?:[a-z0-9][A-Z]?)*)|((?:[a-z]+[0-9]*)+(?:_[a-z0-9]+)*))$")
                         .unwrap();
             }
 
@@ -683,9 +683,10 @@ impl ContextStream {
             }
         }
 
+        // TODO Use basic floating point notation.
         lazy_static! {
             static ref RE: Regex =
-                Regex::new(r"^(?:(-?(?:0x[0-9A-F]+|0x[0-9a-f]+|[0-9]+))|(-?(?:[0-9]+\.[0-9]+(?:[Ee][+-]?[0-9]+)?|[0-9]+[Ee][+-]?[0-9]+)))$")
+                Regex::new(r"^(?:(-?(?:0x[0-9A-F]+|0x[0-9a-f]+|[0-9]+))|(-?(?:[0-9]+\.)+[0-9]+))$")
                     .unwrap();
         }
 

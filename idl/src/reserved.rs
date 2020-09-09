@@ -204,7 +204,7 @@ pub(super) fn type_name_is_valid(name: &str, range: Range) -> Result<(), NameErr
 
 pub(super) fn field_name_is_valid(name: &str, range: Range) -> Result<(), NameError> {
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"^([a-z]+(?:_[a-z0-9]+)*)$").unwrap();
+        static ref RE: Regex = Regex::new(r"^((?:[a-z]+[0-9]*)+(?:_[a-z0-9]+)*)$").unwrap();
     }
 
     if RE.is_match(name) {

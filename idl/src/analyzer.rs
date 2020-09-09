@@ -145,7 +145,7 @@ impl fmt::Display for AnalyzerError {
 
 #[derive(Debug, Default)]
 pub struct Analyzer {
-    pub(super) nodes: Vec<idl_types::TypeNode>,
+    pub nodes: Vec<idl_types::TypeNode>,
 }
 
 #[derive(Debug, Default)]
@@ -591,9 +591,9 @@ impl Analyzer {
                     }
 
                     let const_type = match value.const_type {
-                        parser::ConstType::Int => idl_types::ConstTypes::NativeInt,
-                        parser::ConstType::String => idl_types::ConstTypes::NativeString,
-                        parser::ConstType::Float => idl_types::ConstTypes::NativeFloat,
+                        parser::ConstType::Int => idl_types::ConstTypes::NatInt,
+                        parser::ConstType::String => idl_types::ConstTypes::NatString,
+                        parser::ConstType::Float => idl_types::ConstTypes::NatFloat,
                     };
 
                     analyzer.nodes.push(idl_types::TypeNode::TypeConst(Box::new(
@@ -784,8 +784,67 @@ impl Analyzer {
         Self::references_invalid_type(&analyzer.nodes, parsers)?;
         Self::struct_has_recursive_reference(&analyzer.nodes, parsers)?;
         Self::factory_returns_invalid_type(&analyzer.nodes, parsers)?;
+        Self::tuple_has_duplicate_fields(&analyzer.nodes, parsers)?;
 
         Ok(analyzer)
+    }
+
+    fn tuple_has_duplicate_fields(
+        nodes: &[idl_types::TypeNode],
+        parsers: &parser::Parser,
+    ) -> Result<(), DuplicateFieldNameError> {
+        for node in nodes {
+            match node {
+                idl_types::TypeNode::TypeInterface(value) => {
+                    for interface_node in &value.fields {
+                        if let idl_types::InterfaceNode::InterfaceField(field) = interface_node {
+                            if Self::has_duplicate_in_tuple(&field.ty) {
+                                let range = parsers.get_range_from_field_name(
+                                    value.ident.as_str(),
+                                    field.ident.as_str(),
+                                );
+
+                                return Err(DuplicateFieldNameError(field.ident.to_owned(), range));
+                            }
+                        }
+                    }
+                }
+                idl_types::TypeNode::TypeFactory(value) => {
+                    for factory_node in &value.fields {
+                        if let idl_types::FactoryNode::FactoryField(field) = factory_node {
+                            if Self::has_duplicate_in_tuple(&field.ty) {
+                                let range = parsers.get_range_from_field_name(
+                                    value.ident.as_str(),
+                                    field.ident.as_str(),
+                                );
+
+                                return Err(DuplicateFieldNameError(field.ident.to_owned(), range));
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
+    fn has_duplicate_in_tuple(ty: &idl_types::TypeName) -> bool {
+        match ty {
+            idl_types::TypeName::TypeTuple(tuple) => !tuple.ty_list.iter().all(|entry| {
+                tuple
+                    .ty_list
+                    .iter()
+                    .filter(|v| &v.ident == &entry.ident)
+                    .count()
+                    == 1
+            }),
+            idl_types::TypeName::TypeFunction(funtion) => {
+                Self::has_duplicate_in_tuple(&funtion.args)
+            }
+            _ => false,
+        }
     }
 
     fn references_invalid_type(
@@ -1296,12 +1355,12 @@ impl AnalyzerItems {
                 },
             ))),
             parser::Type::Native(native) => Ok(idl_types::TypeName::Types(match native.ty {
-                scanner::NativeTypes::Bool => idl_types::Types::NativeBool,
-                scanner::NativeTypes::Int => idl_types::Types::NativeInt,
-                scanner::NativeTypes::Bytes => idl_types::Types::NativeBytes,
-                scanner::NativeTypes::String => idl_types::Types::NativeString,
-                scanner::NativeTypes::None => idl_types::Types::NativeNone,
-                scanner::NativeTypes::Float => idl_types::Types::NativeFloat,
+                scanner::NativeTypes::Bool => idl_types::Types::NatBool,
+                scanner::NativeTypes::Int => idl_types::Types::NatInt,
+                scanner::NativeTypes::Bytes => idl_types::Types::NatBytes,
+                scanner::NativeTypes::String => idl_types::Types::NatString,
+                scanner::NativeTypes::None => idl_types::Types::NatNone,
+                scanner::NativeTypes::Float => idl_types::Types::NatFloat,
             })),
             parser::Type::Array(array) => Ok(idl_types::TypeName::TypeArray(Box::new(
                 idl_types::TypeArray {

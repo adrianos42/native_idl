@@ -1,17 +1,4 @@
 #[derive(Debug, Copy, Clone)]
-pub enum Keywords {
-    Enum,
-    Struct,
-    Interface,
-    Import,
-    Library,
-    Type,
-    Const,
-    Stream,
-    Factory,
-}
-
-#[derive(Debug, Copy, Clone)]
 pub enum Types {
     NatInt,
     NatFloat,
