@@ -130,11 +130,11 @@ pub fn format_document(parser: &Parser) -> Option<String> {
                     }
                     ParserNode::TypeListComment(comment) => push_comment(&mut body, comment),
                     ParserNode::TypeList(value) => {
-                        if value.ty_list.len() == 1 {
+                        if value.fields.len() == 1 {
                             let type_body = format!("{} {} {{", Keywords::Type, value.ident);
                             body += type_body.as_str();
 
-                            match value.ty_list.first().unwrap() {
+                            match value.fields.first().unwrap() {
                                 TypeListNode::TypeListField(field) => {
                                     let field_str = format!(" {} ", field.ty);
                                     body += field_str.as_str();
@@ -146,7 +146,7 @@ pub fn format_document(parser: &Parser) -> Option<String> {
                                 format!("{} {}{}", Keywords::Type, value.ident, OPEN_NEW_LINE);
                             body += type_body.as_str();
 
-                            for type_node in value.ty_list.iter() {
+                            for type_node in value.fields.iter() {
                                 match type_node {
                                     TypeListNode::Comment(comment) => {
                                         push_field_comment(&mut body, comment)
@@ -159,44 +159,6 @@ pub fn format_document(parser: &Parser) -> Option<String> {
                             }
                         }
 
-                        body += CLOSE_NEW_LINE;
-                    }
-                    ParserNode::FactoryComment(comment) => push_comment(&mut body, comment),
-                    ParserNode::Factory(value) => {
-                        let type_body =
-                            format!("{} {}{}", Keywords::Factory, value.ident, OPEN_NEW_LINE);
-                        body += type_body.as_str();
-
-                        for factory_node in value.fields.iter() {
-                            match factory_node {
-                                InterfaceNode::Comment(comment) => {
-                                    push_field_comment(&mut body, comment)
-                                }
-                                InterfaceNode::InterfaceField(field) => {
-                                    let field_str = split_interface_field(field);
-                                    body += field_str.as_str();
-                                }
-                            }
-                        }
-                        body += CLOSE_NEW_LINE;
-                    }
-                    ParserNode::StreamComment(comment) => push_comment(&mut body, comment),
-                    ParserNode::Stream(value) => {
-                        let type_body =
-                            format!("{} {}{}", Keywords::Stream, value.ident, OPEN_NEW_LINE);
-                        body += type_body.as_str();
-
-                        for struct_node in value.fields.iter() {
-                            match struct_node {
-                                StructNode::Comment(comment) => {
-                                    push_field_comment(&mut body, comment)
-                                }
-                                StructNode::StructField(field) => {
-                                    let field_str = format!("{}{},\n", INDENT, field);
-                                    body += field_str.as_str();
-                                }
-                            }
-                        }
                         body += CLOSE_NEW_LINE;
                     }
                     _ => {}
@@ -278,17 +240,24 @@ fn split_interface_field(interface_field: &InterfaceField) -> String {
         result
     };
 
+    let static_mod = if interface_field.is_static {
+        " static "
+    } else {
+        " "
+    };
+
     let tryln = format!(
-        "{}{}: {},",
+        "{}{}:{}{},",
         INDENT,
         interface_field.ident.to_owned(),
+        static_mod,
         interface_field.ty.to_string()
     );
 
     if tryln.len() > MAX_LENGTH {
-        let indent_len = format!("{}{}: (", INDENT, interface_field.ident.to_owned()).len();
+        let indent_len = format!("{}{}:{}(", INDENT, interface_field.ident.to_owned(), static_mod).len();
         let ty_field = match &*interface_field.ty {
-            Type::Tuple(tuple) => split_tuple(indent_len, &tuple.ty_list),
+            Type::Tuple(tuple) => split_tuple(indent_len, &tuple.fields),
             Type::Function(function) => {
                 let tt = match &*function.args {
                     Type::Tuple(value) => value.clone(),
@@ -297,7 +266,7 @@ fn split_interface_field(interface_field: &InterfaceField) -> String {
 
                 format!(
                     "{} -> {}",
-                    split_tuple(indent_len, &*tt.ty_list),
+                    split_tuple(indent_len, &*tt.fields),
                     function.ret_ty.to_string()
                 )
             }
@@ -305,9 +274,10 @@ fn split_interface_field(interface_field: &InterfaceField) -> String {
         };
 
         format!(
-            "{}{}: {},\n",
+            "{}{}:{}{},\n",
             INDENT,
             interface_field.ident.to_owned(),
+            static_mod,
             ty_field
         )
     } else {

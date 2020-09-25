@@ -149,9 +149,40 @@ static RESERVED_ATTRIBUTES_NAMES: &'static [&str] = &[
 ];
 
 static RESERVED_TYPES: &'static [&str] = &[
-    "double", "void", "date", "time", "char", "decimal",
-    "uint", "i8", "i16", "i32", "i64", "i128", 
-    "u8", "u16", "u32", "u64", "u128", "f32", "f64",
+    "void",
+    "uint",
+    "time",
+    "u8",
+    "u16",
+    "u32",
+    "u64",
+    "u128",
+    "i8",
+    "i16",
+    "i32",
+    "i64",
+    "i128",
+    "f16",
+    "f32",
+    "f64",
+    "f128",
+    "double",
+    "decimal",
+    "date",
+    "char",
+    "arrayi8",
+    "arrayi16",
+    "arrayi32",
+    "arrayi64",
+    "arrayi128",
+    "arrayu8",
+    "arrayu16",
+    "arrayu32",
+    "arrayu64",
+    "arrayu128",
+    "arrayf16",
+    "arrayf32",
+    "arrayf64",
 ];
 
 #[derive(Debug)]
@@ -220,7 +251,11 @@ pub(super) fn field_name_is_valid(name: &str, range: Range) -> Result<(), NameEr
 
 pub(super) fn is_reserved_word(name: &str, range: Range) -> Result<(), NameError> {
     if RESERVED.contains(&name) {
-        Err(NameError(NameErrorKind::ReservedName, range, name.to_owned()))
+        Err(NameError(
+            NameErrorKind::ReservedName,
+            range,
+            name.to_owned(),
+        ))
     } else {
         Ok(())
     }
@@ -228,7 +263,11 @@ pub(super) fn is_reserved_word(name: &str, range: Range) -> Result<(), NameError
 
 pub(super) fn is_reserved_attribute(name: &str, range: Range) -> Result<(), NameError> {
     if RESERVED_ATTRIBUTES_NAMES.contains(&name) {
-        Err(NameError(NameErrorKind::ReservedAttributeName, range, name.to_owned()))
+        Err(NameError(
+            NameErrorKind::ReservedAttributeName,
+            range,
+            name.to_owned(),
+        ))
     } else {
         Ok(())
     }
@@ -236,7 +275,11 @@ pub(super) fn is_reserved_attribute(name: &str, range: Range) -> Result<(), Name
 
 pub(super) fn is_reserved_type(name: &str, range: Range) -> Result<(), NameError> {
     if RESERVED_TYPES.contains(&name) {
-        Err(NameError(NameErrorKind::ReservedType, range, name.to_owned()))
+        Err(NameError(
+            NameErrorKind::ReservedType,
+            range,
+            name.to_owned(),
+        ))
     } else {
         Ok(())
     }

@@ -13,9 +13,9 @@ use std::sync::Arc;
 pub enum ReferenceErrorKind {
     Invalid,
     ReferencesInterface,
-    ReferencesFactory,
     ReferencesStream,
     StructRecursiveReference,
+    ReferencesResult,
     UndefinedType,
 }
 
@@ -35,40 +35,12 @@ impl fmt::Display for ReferenceError {
         let errstr = match &self.0 {
             ReferenceErrorKind::Invalid => format!("Invalid type name `{}`.", name),
             ReferenceErrorKind::ReferencesInterface => format!("References interface `{}`.", name),
-            ReferenceErrorKind::ReferencesFactory => format!("References factory `{}`.", name),
             ReferenceErrorKind::ReferencesStream => format!("References stream `{}`.", name),
+            ReferenceErrorKind::ReferencesResult => format!("References result `{}`.", name),
             ReferenceErrorKind::StructRecursiveReference => {
                 format!("Recursive reference in struct `{}`.", name)
             }
             ReferenceErrorKind::UndefinedType => format!("Undefined type `{}`.", name),
-        };
-
-        write!(f, "{}", errstr)
-    }
-}
-
-#[derive(Debug)]
-pub enum FactoryErrorKind {
-    DoesNotReturnInterface,
-    ReferenceError(ReferenceError),
-}
-
-impl From<FactoryError> for AnalyzerError {
-    fn from(value: FactoryError) -> Self {
-        AnalyzerError::FactoryError(value)
-    }
-}
-
-#[derive(Debug)]
-pub struct FactoryError(FactoryErrorKind, Range);
-
-impl fmt::Display for FactoryError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let errstr = match &self.0 {
-            FactoryErrorKind::DoesNotReturnInterface => {
-                "Field does not return an interface.".to_owned()
-            }
-            FactoryErrorKind::ReferenceError(err) => err.to_string(),
         };
 
         write!(f, "{}", errstr)
@@ -105,7 +77,6 @@ pub enum AnalyzerError {
     MissingLibraryDefinition,
     DuplicateFieldNameError(DuplicateFieldNameError),
     NameError(NameError),
-    FactoryError(FactoryError),
     ReferenceError(ReferenceError),
 }
 
@@ -118,7 +89,6 @@ impl AnalyzerError {
             | AnalyzerError::LibraryDefinition
             | AnalyzerError::MissingLibraryDefinition => (self.to_string(), Range::default()),
             AnalyzerError::DuplicateFieldNameError(value) => (value.to_string(), value.1),
-            AnalyzerError::FactoryError(value) => (value.to_string(), value.1),
             AnalyzerError::ReferenceError(value) => (value.to_string(), value.1),
             AnalyzerError::NameError(value) => (value.to_string(), value.1),
         }
@@ -135,7 +105,6 @@ impl fmt::Display for AnalyzerError {
             AnalyzerError::MissingLibraryDefinition => "Missing library definition.".to_owned(),
             AnalyzerError::DuplicateFieldNameError(dup_err) => dup_err.to_string(),
             AnalyzerError::NameError(name_err) => name_err.to_string(),
-            AnalyzerError::FactoryError(fac_err) => fac_err.to_string(),
             AnalyzerError::ReferenceError(ref_err) => ref_err.to_string(),
         };
 
@@ -155,8 +124,6 @@ struct AnalyzerItems {
     enums: Vec<String>,
     consts: Vec<String>,
     type_lists: Vec<String>,
-    factories: Vec<String>,
-    streams: Vec<String>,
     library_name: Option<String>,
     imports: Option<Vec<String>>,
 }
@@ -164,6 +131,149 @@ struct AnalyzerItems {
 impl Analyzer {
     pub fn closed() -> Result<Self, AnalyzerError> {
         Err(AnalyzerError::Closed)
+    }
+
+    pub fn get_library_name(&self) -> String {
+        for node in &self.nodes {
+            match node {
+                idl_types::TypeNode::LibraryName(name) => return name.to_owned(),
+                _ => {}
+            }
+        }
+
+        panic!("Does not have a library name");
+    }
+
+    pub fn find_ty_struct(&self, name: &str) -> Option<&Box<idl_types::TypeStruct>> {
+        for node in &self.nodes {
+            match node {
+                idl_types::TypeNode::TypeStruct(value) => {
+                    if value.ident == name {
+                        return Some(value);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        None
+    }
+
+    pub fn find_ty_interface(&self, name: &str) -> Option<&Box<idl_types::TypeInterface>> {
+        for node in &self.nodes {
+            match node {
+                idl_types::TypeNode::TypeInterface(value) => {
+                    if value.ident == name {
+                        return Some(value);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        None
+    }
+
+    pub fn find_ty_enum(&self, name: &str) -> Option<&Box<idl_types::TypeEnum>> {
+        for node in &self.nodes {
+            match node {
+                idl_types::TypeNode::TypeEnum(value) => {
+                    if value.ident == name {
+                        return Some(value);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        None
+    }
+
+    pub fn find_ty_const(&self, name: &str) -> Option<&Box<idl_types::TypeConst>> {
+        for node in &self.nodes {
+            match node {
+                idl_types::TypeNode::TypeConst(value) => {
+                    if value.ident == name {
+                        return Some(value);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        None
+    }
+
+    pub fn find_ty_list(&self, name: &str) -> Option<&Box<idl_types::TypeList>> {
+        for node in &self.nodes {
+            match node {
+                idl_types::TypeNode::TypeList(value) => {
+                    if value.ident == name {
+                        return Some(value);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        None
+    }
+
+    pub fn interface_has_static_field(name: &idl_types::TypeInterface) -> bool {
+        if name.fields.iter().any(|node| {
+            if let idl_types::InterfaceNode::InterfaceField(field) = node {
+                field.is_static
+            } else {
+                false
+            }
+        }) {
+            return true;
+        }
+
+        false
+    }
+
+    pub fn interface_has_non_static_field(name: &idl_types::TypeInterface) -> bool {
+        if name.fields.iter().any(|node| {
+            if let idl_types::InterfaceNode::InterfaceField(field) = node {
+                !field.is_static
+            } else {
+                false
+            }
+        }) {
+            return true;
+        }
+
+        false
+    }
+
+    fn returns_interface(ty_name: &idl_types::TypeName) -> bool {
+        match ty_name {
+            // Result cannot be returned as an error
+            idl_types::TypeName::InterfaceTypeName(_) => true,
+            idl_types::TypeName::TypeFunction(value) => Self::returns_interface(&value.return_ty),
+            idl_types::TypeName::TypeArray(value) => Self::returns_interface(&value.ty),
+            idl_types::TypeName::TypeMap(value) => Self::returns_interface(&value.map_ty),
+            idl_types::TypeName::TypeOption(value) => Self::returns_interface(&value.some_ty),
+            idl_types::TypeName::TypeResult(value) => Self::returns_interface(&value.ok_ty), 
+            idl_types::TypeName::TypeStream(value) => Self::returns_interface(&value.s_ty),
+            _ => false,
+        }
+    }
+
+    pub fn interface_has_constructor_field(name: &idl_types::TypeInterface) -> bool {
+        for node in &name.fields {
+            match node {
+                idl_types::InterfaceNode::InterfaceField(field) => {
+                    if Self::returns_interface(&field.ty) {
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        false
     }
 
     pub fn resolve(
@@ -277,42 +387,6 @@ impl Analyzer {
 
                     items.type_lists.push(ident);
                 }
-                parser::ParserNode::Factory(value) => {
-                    let ident = match &*value.ident.clone() {
-                        parser::Type::Name(name) => name.ident.to_owned(),
-                        _ => {
-                            return Err(AnalyzerError::ReferenceError(ReferenceError(
-                                ReferenceErrorKind::Invalid,
-                                value.range,
-                                value.ident.to_string(),
-                            )))
-                        }
-                    };
-
-                    type_name_is_valid(ident.as_str(), value.range)?;
-                    is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
-                    is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
-
-                    items.factories.push(ident);
-                }
-                parser::ParserNode::Stream(value) => {
-                    let ident = match &*value.ident.clone() {
-                        parser::Type::Name(name) => name.ident.to_owned(),
-                        _ => {
-                            return Err(AnalyzerError::ReferenceError(ReferenceError(
-                                ReferenceErrorKind::Invalid,
-                                value.range,
-                                value.ident.to_string(),
-                            )))
-                        }
-                    };
-
-                    type_name_is_valid(ident.as_str(), value.range)?;
-                    is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
-                    is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
-
-                    items.streams.push(ident);
-                }
                 _ => {}
             }
         }
@@ -341,16 +415,6 @@ impl Analyzer {
                     analyzer
                         .nodes
                         .push(idl_types::TypeNode::EnumComment(value.to_owned()));
-                }
-                parser::ParserNode::FactoryComment(value) => {
-                    analyzer
-                        .nodes
-                        .push(idl_types::TypeNode::FactoryComment(value.to_owned()));
-                }
-                parser::ParserNode::StreamComment(value) => {
-                    analyzer
-                        .nodes
-                        .push(idl_types::TypeNode::StreamComment(value.to_owned()));
                 }
                 parser::ParserNode::InterfaceComment(value) => {
                     analyzer
@@ -395,6 +459,7 @@ impl Analyzer {
                                 };
 
                                 let field_ident = interface_field.ident.to_owned();
+                                let is_static = interface_field.is_static;
 
                                 field_name_is_valid(field_ident.as_str(), interface_field.range)?;
                                 is_reserved_type(field_ident.as_str(), interface_field.range)?;
@@ -418,6 +483,7 @@ impl Analyzer {
                                 let interface_field = Box::new(idl_types::InterfaceField {
                                     attributes: vec![],
                                     ident: field_ident,
+                                    is_static,
                                     ty,
                                 });
 
@@ -613,12 +679,12 @@ impl Analyzer {
                         Err(err) => return Err(err.into()),
                     };
 
-                    let mut ty_list = vec![];
+                    let mut fields = vec![];
 
-                    for field in value.ty_list.iter() {
+                    for field in value.fields.iter() {
                         match field {
                             parser::TypeListNode::Comment(comment) => {
-                                ty_list.push(idl_types::TypeListNode::Comment(comment.to_owned()))
+                                fields.push(idl_types::TypeListNode::Comment(comment.to_owned()))
                             }
                             parser::TypeListNode::TypeListField(ty_list_field) => {
                                 let ty = match items.get_type(ty_list_field.ty.clone()) {
@@ -632,7 +698,7 @@ impl Analyzer {
                                 is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
                                 is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
 
-                                if ty_list.iter().any(|v| {
+                                if fields.iter().any(|v| {
                                     if let idl_types::TypeListNode::TypeListField(in_field) = v {
                                         if in_field.ident.as_str() == ident {
                                             return true;
@@ -647,7 +713,7 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                ty_list.push(idl_types::TypeListNode::TypeListField(Box::new(
+                                fields.push(idl_types::TypeListNode::TypeListField(Box::new(
                                     idl_types::TypeListField { ty, ident },
                                 )));
                             }
@@ -655,127 +721,8 @@ impl Analyzer {
                     }
 
                     analyzer.nodes.push(idl_types::TypeNode::TypeList(Box::new(
-                        idl_types::TypeList { ident, ty_list },
+                        idl_types::TypeList { ident, fields },
                     )));
-                }
-                parser::ParserNode::Stream(value) => {
-                    let ident = match items.get_type(value.ident.clone()) {
-                        Ok(value) => match value {
-                            idl_types::TypeName::StreamTypeName(value) => value,
-                            _ => return Err(AnalyzerError::Undefined),
-                        },
-                        Err(err) => return Err(err.into()),
-                    };
-
-                    let mut fields = vec![];
-
-                    for field in value.fields.iter() {
-                        match field {
-                            parser::StructNode::Comment(comment) => {
-                                fields.push(idl_types::StreamNode::Comment(comment.to_owned()))
-                            }
-                            parser::StructNode::StructField(stream_field) => {
-                                let ty = match items.get_type(stream_field.ty.clone()) {
-                                    Ok(value) => value,
-                                    Err(err) => return Err(err.into()),
-                                };
-
-                                let field_ident = stream_field.ident.to_owned();
-
-                                field_name_is_valid(field_ident.as_str(), stream_field.range)?;
-                                is_reserved_type(field_ident.as_str(), stream_field.range)?;
-                                is_reserved_word(field_ident.as_str(), stream_field.range)?;
-
-                                if fields.iter().any(|v| {
-                                    if let idl_types::StreamNode::StreamField(in_field) = v {
-                                        if in_field.ident.as_str() == field_ident.as_str() {
-                                            return true;
-                                        }
-                                    }
-                                    false
-                                }) {
-                                    return Err(DuplicateFieldNameError(
-                                        field_ident,
-                                        stream_field.range,
-                                    )
-                                    .into());
-                                }
-
-                                fields.push(idl_types::StreamNode::StreamField(Box::new(
-                                    idl_types::StreamField {
-                                        ident: field_ident,
-                                        ty,
-                                    },
-                                )));
-                            }
-                        }
-                    }
-
-                    analyzer
-                        .nodes
-                        .push(idl_types::TypeNode::TypeStream(Box::new(
-                            idl_types::TypeStream { ident, fields },
-                        )))
-                }
-                parser::ParserNode::Factory(value) => {
-                    let ident = match items.get_type(value.ident.clone()) {
-                        Ok(value) => match value {
-                            idl_types::TypeName::FactoryTypeName(value) => value,
-                            _ => return Err(AnalyzerError::Undefined),
-                        },
-                        Err(err) => return Err(err.into()),
-                    };
-
-                    let mut fields = vec![];
-
-                    for field in value.fields.iter() {
-                        match field {
-                            parser::InterfaceNode::Comment(comment) => {
-                                fields.push(idl_types::FactoryNode::Comment(comment.to_owned()))
-                            }
-                            parser::InterfaceNode::InterfaceField(factory_field) => {
-                                let ty = match items.get_type(factory_field.ty.clone()) {
-                                    Ok(value) => value,
-                                    Err(err) => return Err(err.into()),
-                                };
-
-                                let field_ident = factory_field.ident.to_owned();
-
-                                field_name_is_valid(field_ident.as_str(), factory_field.range)?;
-                                is_reserved_type(field_ident.as_str(), factory_field.range)?;
-                                is_reserved_word(field_ident.as_str(), factory_field.range)?;
-
-                                if fields.iter().any(|v| {
-                                    if let idl_types::FactoryNode::FactoryField(in_field) = v {
-                                        if in_field.ident.as_str() == field_ident.as_str() {
-                                            return true;
-                                        }
-                                    }
-                                    false
-                                }) {
-                                    return Err(DuplicateFieldNameError(
-                                        field_ident,
-                                        factory_field.range,
-                                    )
-                                    .into());
-                                }
-
-                                let factory_field = Box::new(idl_types::FactoryField {
-                                    attributes: vec![],
-                                    ident: field_ident,
-                                    ty,
-                                });
-
-                                fields.push(idl_types::FactoryNode::FactoryField(factory_field));
-                            }
-                        }
-                    }
-
-                    analyzer
-                        .nodes
-                        .push(idl_types::TypeNode::TypeFactory(Box::new(
-                            idl_types::TypeFactory { ident, fields },
-                        )));
                 }
                 parser::ParserNode::Library(_) | parser::ParserNode::Imports(_) => {}
             }
@@ -783,36 +730,154 @@ impl Analyzer {
 
         Self::references_invalid_type(&analyzer.nodes, parsers)?;
         Self::struct_has_recursive_reference(&analyzer.nodes, parsers)?;
-        Self::factory_returns_invalid_type(&analyzer.nodes, parsers)?;
         Self::tuple_has_duplicate_fields(&analyzer.nodes, parsers)?;
+        Self::tuple_has_result_type(&analyzer.nodes, parsers)?;
+        Self::tuple_has_incorrect_stream_type(&analyzer.nodes, parsers)?;
 
         Ok(analyzer)
+    }
+
+    fn tuple_has_result_type(
+        nodes: &[idl_types::TypeNode],
+        parsers: &parser::Parser,
+    ) -> Result<(), ReferenceError> {
+        let refences_result = |ty: &idl_types::TypeName, range: Range| {
+            let tuple = match ty {
+                idl_types::TypeName::TypeFunction(value) => {
+                    if let idl_types::TypeName::TypeTuple(tul) = &value.args {
+                        Some(tul)
+                    } else {
+                        None
+                    }
+                }
+                idl_types::TypeName::TypeTuple(value) => Some(value),
+                _ => None,
+            };
+
+            if let Some(tuple) = tuple {
+                for t_ty in &tuple.fields {
+                    if let idl_types::TypeName::TypeResult(_) = &t_ty.ty {
+                        return Err(ReferenceError(
+                            ReferenceErrorKind::ReferencesResult,
+                            range,
+                            t_ty.ty.get_type_reference(),
+                        ));
+                    }
+                }
+            }
+
+            Ok(())
+        };
+
+        for node in nodes {
+            match node {
+                idl_types::TypeNode::TypeInterface(value) => {
+                    for interface_node in &value.fields {
+                        if let idl_types::InterfaceNode::InterfaceField(field) = interface_node {
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                field.ident.as_str(),
+                            );
+                            refences_result(&field.ty, range)?;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
+    fn tuple_has_incorrect_stream_type(
+        nodes: &[idl_types::TypeNode],
+        parsers: &parser::Parser,
+    ) -> Result<(), ReferenceError> {
+        let refences_stream = |ty: &idl_types::TypeName, range: Range| {
+            let tuple = match ty {
+                idl_types::TypeName::TypeFunction(value) => {
+                    if let idl_types::TypeName::TypeTuple(tul) = &value.args {
+                        Some(tul)
+                    } else {
+                        None
+                    }
+                }
+                idl_types::TypeName::TypeTuple(value) => Some(value),
+                _ => None,
+            };
+
+            if let Some(tuple) = tuple {
+                for t_ty in &tuple.fields[..tuple.fields.len() - 1] {
+                    if let idl_types::TypeName::TypeStream(st) = &t_ty.ty {
+                        return Err(ReferenceError(
+                            ReferenceErrorKind::ReferencesStream,
+                            range,
+                            format!("{:?}", st), // TODO
+                        ));
+                    }
+                }
+            }
+
+            Ok(())
+        };
+
+        for node in nodes {
+            match node {
+                idl_types::TypeNode::TypeInterface(value) => {
+                    for interface_node in &value.fields {
+                        if let idl_types::InterfaceNode::InterfaceField(field) = interface_node {
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                field.ident.as_str(),
+                            );
+                            refences_stream(&field.ty, range)?;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
     }
 
     fn tuple_has_duplicate_fields(
         nodes: &[idl_types::TypeNode],
         parsers: &parser::Parser,
     ) -> Result<(), DuplicateFieldNameError> {
+        let has_duplicate_in_tuple = |ty: &idl_types::TypeName| {
+            let tuple = match ty {
+                idl_types::TypeName::TypeFunction(value) => {
+                    if let idl_types::TypeName::TypeTuple(tul) = &value.args {
+                        Some(tul)
+                    } else {
+                        None
+                    }
+                }
+                idl_types::TypeName::TypeTuple(value) => Some(value),
+                _ => None,
+            };
+
+            if let Some(tuple) = tuple {
+                !tuple.fields.iter().all(|entry| {
+                    tuple
+                        .fields
+                        .iter()
+                        .filter(|v| &v.ident == &entry.ident)
+                        .count()
+                        == 1
+                })
+            } else {
+                false
+            }
+        };
+
         for node in nodes {
             match node {
                 idl_types::TypeNode::TypeInterface(value) => {
                     for interface_node in &value.fields {
                         if let idl_types::InterfaceNode::InterfaceField(field) = interface_node {
-                            if Self::has_duplicate_in_tuple(&field.ty) {
-                                let range = parsers.get_range_from_field_name(
-                                    value.ident.as_str(),
-                                    field.ident.as_str(),
-                                );
-
-                                return Err(DuplicateFieldNameError(field.ident.to_owned(), range));
-                            }
-                        }
-                    }
-                }
-                idl_types::TypeNode::TypeFactory(value) => {
-                    for factory_node in &value.fields {
-                        if let idl_types::FactoryNode::FactoryField(field) = factory_node {
-                            if Self::has_duplicate_in_tuple(&field.ty) {
+                            if has_duplicate_in_tuple(&field.ty) {
                                 let range = parsers.get_range_from_field_name(
                                     value.ident.as_str(),
                                     field.ident.as_str(),
@@ -828,23 +893,6 @@ impl Analyzer {
         }
 
         Ok(())
-    }
-
-    fn has_duplicate_in_tuple(ty: &idl_types::TypeName) -> bool {
-        match ty {
-            idl_types::TypeName::TypeTuple(tuple) => !tuple.ty_list.iter().all(|entry| {
-                tuple
-                    .ty_list
-                    .iter()
-                    .filter(|v| &v.ident == &entry.ident)
-                    .count()
-                    == 1
-            }),
-            idl_types::TypeName::TypeFunction(funtion) => {
-                Self::has_duplicate_in_tuple(&funtion.args)
-            }
-            _ => false,
-        }
     }
 
     fn references_invalid_type(
@@ -863,34 +911,9 @@ impl Analyzer {
                                 interface_field.ident.as_str(),
                             );
 
-                            Self::references_factory(&interface_field.ty, range)?;
-                            Self::references_interface(&interface_field.ty, range)?;
-
-                            match &interface_field.ty {
-                                idl_types::TypeName::StreamTypeName(_) => {}
-                                idl_types::TypeName::TypeFunction(function) => {
-                                    Self::references_stream(&function.args, range)?
-                                }
-                                idl_types::TypeName::TypeOption(_) => {}
-                                idl_types::TypeName::TypeResult(result) => {
-                                    Self::references_stream(&result.err_ty, range)?
-                                }
-                                ty => Self::references_stream(ty, range)?,
+                            if !interface_field.is_static {
+                                Self::references_interface(&interface_field.ty, range)?;
                             }
-                        }
-                    }
-                }
-                idl_types::TypeNode::TypeFactory(value) => {
-                    for interface_node in value.fields.iter() {
-                        if let idl_types::FactoryNode::FactoryField(factory_field) = interface_node
-                        {
-                            let range = parsers.get_range_from_field_name(
-                                value.ident.as_str(),
-                                factory_field.ident.as_str(),
-                            );
-
-                            Self::references_factory(&factory_field.ty, range)?;
-                            Self::references_stream(&factory_field.ty, range)?;
                         }
                     }
                 }
@@ -902,14 +925,12 @@ impl Analyzer {
                                 struct_field.ident.as_str(),
                             );
 
-                            Self::references_factory(&struct_field.ty, range)?;
                             Self::references_interface(&struct_field.ty, range)?;
-                            Self::references_stream(&struct_field.ty, range)?;
                         }
                     }
                 }
                 idl_types::TypeNode::TypeList(value) => {
-                    for type_list_node in value.ty_list.iter() {
+                    for type_list_node in value.fields.iter() {
                         if let idl_types::TypeListNode::TypeListField(type_list_field) =
                             type_list_node
                         {
@@ -918,23 +939,7 @@ impl Analyzer {
                                 type_list_field.ident.as_str(),
                             );
 
-                            Self::references_factory(&type_list_field.ty, range)?;
                             Self::references_interface(&type_list_field.ty, range)?;
-                            Self::references_stream(&type_list_field.ty, range)?;
-                        }
-                    }
-                }
-                idl_types::TypeNode::TypeStream(value) => {
-                    for stream_node in value.fields.iter() {
-                        if let idl_types::StreamNode::StreamField(stream_field) = stream_node {
-                            let range = parsers.get_range_from_field_name(
-                                value.ident.as_str(),
-                                stream_field.ident.as_str(),
-                            );
-
-                            Self::references_factory(&stream_field.ty, range)?;
-                            Self::references_interface(&stream_field.ty, range)?;
-                            Self::references_stream(&stream_field.ty, range)?;
                         }
                     }
                 }
@@ -957,7 +962,7 @@ impl Analyzer {
                 Self::references_interface(&function.args, range)
             }
             idl_types::TypeName::TypeTuple(tuple) => {
-                for tuple_ty in tuple.ty_list.iter() {
+                for tuple_ty in tuple.fields.iter() {
                     Self::references_interface(&tuple_ty.ty, range)?;
                 }
                 Ok(())
@@ -971,167 +976,11 @@ impl Analyzer {
                 Self::references_interface(&result.ok_ty, range)?;
                 Self::references_interface(&result.err_ty, range)
             }
-            _ => Ok(()),
-        }
-    }
-
-    fn references_factory(ty: &idl_types::TypeName, range: Range) -> Result<(), ReferenceError> {
-        match ty {
-            idl_types::TypeName::FactoryTypeName(_) => Err(ReferenceError(
-                ReferenceErrorKind::ReferencesFactory,
-                range,
-                ty.get_type_reference(),
-            )),
-            idl_types::TypeName::TypeFunction(function) => {
-                Self::references_factory(&function.return_ty, range)?;
-                Self::references_factory(&function.args, range)
-            }
-            idl_types::TypeName::TypeTuple(tuple) => {
-                for tuple_ty in tuple.ty_list.iter() {
-                    Self::references_factory(&tuple_ty.ty, range)?;
-                }
-                Ok(())
-            }
-            idl_types::TypeName::TypeMap(map) => Self::references_factory(&map.map_ty, range),
-            idl_types::TypeName::TypeArray(array) => Self::references_factory(&array.ty, range),
-            idl_types::TypeName::TypeOption(option) => {
-                Self::references_factory(&option.some_ty, range)
-            }
-            idl_types::TypeName::TypeResult(result) => {
-                Self::references_factory(&result.ok_ty, range)?;
-                Self::references_factory(&result.err_ty, range)
+            idl_types::TypeName::TypeStream(stream) => {
+                Self::references_interface(&stream.s_ty, range)
             }
             _ => Ok(()),
         }
-    }
-
-    fn references_stream(ty: &idl_types::TypeName, range: Range) -> Result<(), ReferenceError> {
-        match ty {
-            idl_types::TypeName::StreamTypeName(_) => Err(ReferenceError(
-                ReferenceErrorKind::ReferencesStream,
-                range,
-                ty.get_type_reference(),
-            )),
-            idl_types::TypeName::TypeFunction(function) => {
-                Self::references_stream(&function.return_ty, range)?;
-                Self::references_stream(&function.args, range)
-            }
-            idl_types::TypeName::TypeTuple(tuple) => {
-                for tuple_ty in tuple.ty_list.iter() {
-                    Self::references_stream(&tuple_ty.ty, range)?;
-                }
-                Ok(())
-            }
-            idl_types::TypeName::TypeMap(map) => Self::references_stream(&map.map_ty, range),
-            idl_types::TypeName::TypeArray(array) => Self::references_stream(&array.ty, range),
-            idl_types::TypeName::TypeOption(option) => {
-                Self::references_stream(&option.some_ty, range)
-            }
-            idl_types::TypeName::TypeResult(result) => {
-                Self::references_stream(&result.ok_ty, range)?;
-                Self::references_stream(&result.err_ty, range)
-            }
-            _ => Ok(()),
-        }
-    }
-
-    fn factory_returns_invalid_type(
-        nodes: &[idl_types::TypeNode],
-        parsers: &parser::Parser,
-    ) -> Result<(), FactoryError> {
-        for node in nodes {
-            match node {
-                idl_types::TypeNode::TypeFactory(value) => {
-                    for factory_node in &value.fields {
-                        if let idl_types::FactoryNode::FactoryField(field) = factory_node {
-                            let range = parsers.get_range_from_field_name(
-                                value.ident.as_str(),
-                                field.ident.as_str(),
-                            );
-
-                            let ty = &field.ty;
-
-                            let has_interface_return = match ty {
-                                idl_types::TypeName::TypeTuple(_) => false,
-                                idl_types::TypeName::TypeFunction(function) => {
-                                    if Self::references_interface(&function.args, Range::default())
-                                        .is_err()
-                                    {
-                                        return Err(FactoryError(
-                                            FactoryErrorKind::ReferenceError(ReferenceError(
-                                                ReferenceErrorKind::ReferencesInterface,
-                                                range,
-                                                "".to_owned(),
-                                            )), //TODO
-                                            range,
-                                        ));
-                                    }
-
-                                    match &function.return_ty {
-                                        idl_types::TypeName::TypeResult(result) => {
-                                            if Self::references_interface(
-                                                &result.err_ty,
-                                                Range::default(),
-                                            )
-                                            .is_err()
-                                            {
-                                                return Err(FactoryError(
-                                                    FactoryErrorKind::ReferenceError(
-                                                        ReferenceError(
-                                                            ReferenceErrorKind::ReferencesInterface,
-                                                            range,
-                                                            "".to_owned(),
-                                                        ),
-                                                    ), //TODO
-                                                    range,
-                                                ));
-                                            }
-
-                                            Self::references_interface(
-                                                &result.ok_ty,
-                                                Range::default(),
-                                            )
-                                            .is_err()
-                                        }
-                                        ty => Self::references_interface(ty, Range::default())
-                                            .is_err(),
-                                    }
-                                }
-                                idl_types::TypeName::TypeResult(result) => {
-                                    // Of course, interface cannot be returned as an error.
-                                    if Self::references_interface(&result.err_ty, Range::default())
-                                        .is_err()
-                                    {
-                                        return Err(FactoryError(
-                                            FactoryErrorKind::ReferenceError(ReferenceError(
-                                                ReferenceErrorKind::ReferencesInterface,
-                                                range,
-                                                "".to_owned(),
-                                            )), //TODO
-                                            range,
-                                        ));
-                                    }
-
-                                    Self::references_interface(&result.ok_ty, Range::default())
-                                        .is_err()
-                                }
-                                ty => Self::references_interface(ty, Range::default()).is_err(),
-                            };
-
-                            if !has_interface_return {
-                                return Err(FactoryError(
-                                    FactoryErrorKind::DoesNotReturnInterface,
-                                    range,
-                                ));
-                            }
-                        }
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        Ok(())
     }
 
     // Given a type name, find if any other type inside references it.
@@ -1266,7 +1115,7 @@ impl Analyzer {
                 for node in nodes {
                     if let idl_types::TypeNode::TypeList(value) = node {
                         if value.ident.as_str() == list_ident {
-                            for ty_node in value.ty_list.iter() {
+                            for ty_node in value.fields.iter() {
                                 if let idl_types::TypeListNode::TypeListField(field) = ty_node {
                                     if Self::has_type_reference(nodes, target, &field.ty) {
                                         return true;
@@ -1291,7 +1140,7 @@ impl Analyzer {
                     || Self::has_type_reference(nodes, target, &function.args)
             }
             idl_types::TypeName::TypeTuple(tuple) => {
-                for ty in tuple.ty_list.iter() {
+                for ty in tuple.fields.iter() {
                     if Self::has_type_reference(nodes, target, &ty.ty) {
                         return true;
                     }
@@ -1312,10 +1161,6 @@ impl AnalyzerItems {
                     Ok(idl_types::TypeName::InterfaceTypeName(
                         name.ident.to_owned(),
                     ))
-                } else if self.factories.contains(&name.ident) {
-                    Ok(idl_types::TypeName::FactoryTypeName(name.ident.to_owned()))
-                } else if self.streams.contains(&name.ident) {
-                    Ok(idl_types::TypeName::StreamTypeName(name.ident.to_owned()))
                 } else if self.structs.contains(&name.ident) {
                     Ok(idl_types::TypeName::StructTypeName(name.ident.to_owned()))
                 } else if self.enums.contains(&name.ident) {
@@ -1335,7 +1180,7 @@ impl AnalyzerItems {
             parser::Type::Tuple(tuple) => {
                 let mut tuple_list = vec![];
 
-                for t_list in tuple.ty_list.iter() {
+                for t_list in tuple.fields.iter() {
                     tuple_list.push(idl_types::TupleEntry {
                         ident: t_list.ident.to_owned(),
                         ty: self.get_type(t_list.ty.clone())?,
@@ -1343,9 +1188,7 @@ impl AnalyzerItems {
                 }
 
                 Ok(idl_types::TypeName::TypeTuple(Box::new(
-                    idl_types::TypeTuple {
-                        ty_list: tuple_list,
-                    },
+                    idl_types::TypeTuple { fields: tuple_list },
                 )))
             }
             parser::Type::Function(function) => Ok(idl_types::TypeName::TypeFunction(Box::new(
@@ -1379,6 +1222,11 @@ impl AnalyzerItems {
                     err_ty: self.get_type(result.err_ty.clone())?,
                 },
             ))),
+            parser::Type::Stream(stream) => Ok(idl_types::TypeName::TypeStream(Box::new(
+                idl_types::TypeStream {
+                    s_ty: self.get_type(stream.s_ty.clone())?,
+                },
+            ))),
             parser::Type::Option(option) => Ok(idl_types::TypeName::TypeOption(Box::new(
                 idl_types::TypeOption {
                     some_ty: self.get_type(option.some_ty.clone())?,
@@ -1395,9 +1243,7 @@ impl idl_types::TypeName {
             | idl_types::TypeName::InterfaceTypeName(value)
             | idl_types::TypeName::StructTypeName(value)
             | idl_types::TypeName::EnumTypeName(value)
-            | idl_types::TypeName::ListTypeName(value)
-            | idl_types::TypeName::FactoryTypeName(value)
-            | idl_types::TypeName::StreamTypeName(value) => value.to_owned(),
+            | idl_types::TypeName::ListTypeName(value) => value.to_owned(),
             _ => "".to_owned(),
         }
     }

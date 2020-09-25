@@ -22,10 +22,6 @@ pub enum ParserNode {
     TypeList(TypeList),
     ConstComment(Vec<String>),
     Const(Const),
-    StreamComment(Vec<String>),
-    Stream(Stream),
-    FactoryComment(Vec<String>),
-    Factory(Factory),
 }
 
 #[derive(Debug)]
@@ -37,7 +33,7 @@ pub struct Interface {
 
 #[derive(Debug)]
 pub enum InterfaceNode {
-    InterfaceField(Box<InterfaceField>),
+    InterfaceField(Arc<InterfaceField>),
     Comment(Vec<String>),
 }
 
@@ -45,6 +41,7 @@ pub enum InterfaceNode {
 pub struct InterfaceField {
     pub attributes: Vec<Attribute>,
     pub ident: String,
+    pub is_static: bool,
     pub ty: Arc<Type>,
     pub range: Range,
 }
@@ -77,6 +74,7 @@ pub enum Type {
     Map(Arc<TypeMap>),
     Result(Arc<TypeResult>),
     Option(Arc<TypeOption>),
+    Stream(Arc<TypeStream>),
 }
 
 impl Type {
@@ -90,6 +88,7 @@ impl Type {
             Type::Map(value) => value.range,
             Type::Result(value) => value.range,
             Type::Option(value) => value.range,
+            Type::Stream(value) => value.range,
         }
     }
 }
@@ -108,6 +107,7 @@ impl fmt::Display for Type {
                 Type::Name(value) => value.to_string(),
                 Type::Result(value) => value.to_string(),
                 Type::Option(value) => value.to_string(),
+                Type::Stream(value) => value.to_string(),
             }
         )
     }
@@ -145,6 +145,18 @@ pub struct TypeName {
 impl fmt::Display for TypeName {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{}", self.ident.as_str())
+    }
+}
+
+#[derive(Debug)]
+pub struct TypeStream {
+    pub s_ty: Arc<Type>,
+    pub range: Range,
+}
+
+impl fmt::Display for TypeStream {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "stream {}", self.s_ty)
     }
 }
 
@@ -213,7 +225,7 @@ impl fmt::Display for TypeFunction {
 
 #[derive(Debug)]
 pub struct TypeTuple {
-    pub ty_list: Vec<TupleEntry>,
+    pub fields: Vec<TupleEntry>,
     pub range: Range,
 }
 
@@ -222,7 +234,7 @@ impl fmt::Display for TypeTuple {
         write!(
             f,
             "({})",
-            self.ty_list.iter().fold("".to_owned(), |acc, li| {
+            self.fields.iter().fold("".to_owned(), |acc, li| {
                 let appn = if acc.is_empty() { "" } else { ", " };
                 acc + appn + li.to_string().as_str()
             })
@@ -246,7 +258,7 @@ impl fmt::Display for TupleEntry {
 #[derive(Debug)]
 pub struct TypeList {
     pub ident: Arc<Type>,
-    pub ty_list: Vec<TypeListNode>,
+    pub fields: Vec<TypeListNode>,
     pub range: Range,
 }
 
@@ -270,13 +282,6 @@ impl fmt::Display for TypeListField {
 }
 
 #[derive(Debug)]
-pub struct Stream {
-    pub ident: Arc<Type>,
-    pub fields: Vec<StructNode>,
-    pub range: Range,
-}
-
-#[derive(Debug)]
 pub struct Struct {
     pub ident: Arc<Type>,
     pub fields: Vec<StructNode>,
@@ -285,7 +290,7 @@ pub struct Struct {
 
 #[derive(Debug)]
 pub enum StructNode {
-    StructField(Box<StructField>),
+    StructField(Arc<StructField>),
     Comment(Vec<String>),
 }
 
@@ -303,13 +308,6 @@ impl fmt::Display for StructField {
 }
 
 #[derive(Debug)]
-pub struct Factory {
-    pub ident: Arc<Type>,
-    pub fields: Vec<InterfaceNode>,
-    pub range: Range,
-}
-
-#[derive(Debug)]
 pub struct Enum {
     pub ident: Arc<Type>,
     pub fields: Vec<EnumNode>,
@@ -318,7 +316,7 @@ pub struct Enum {
 
 #[derive(Debug)]
 pub enum EnumNode {
-    EnumField(Box<EnumField>),
+    EnumField(Arc<EnumField>),
     Comment(Vec<String>),
 }
 
@@ -507,36 +505,6 @@ impl From<EnumFieldError> for EnumError {
 }
 
 #[derive(Debug)]
-pub struct FactoryError(pub FactoryErrorKind, pub Range);
-
-impl fmt::Display for FactoryError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0)
-    }
-}
-
-impl fmt::Display for FactoryErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let errstr = match self {
-            FactoryErrorKind::TypeDeclaration => "Invalid type declaration.".to_owned(),
-            FactoryErrorKind::Undefined => "Factory error.".to_owned(),
-            FactoryErrorKind::InterfaceField(field) => field.to_string(),
-            FactoryErrorKind::MissingTypeName => "Missing type name.".to_owned(),
-        };
-
-        write!(f, "{}", errstr)
-    }
-}
-
-#[derive(Debug)]
-pub enum FactoryErrorKind {
-    Undefined,
-    MissingTypeName,
-    TypeDeclaration,
-    InterfaceField(InterfaceFieldErrorKind),
-}
-
-#[derive(Debug)]
 pub struct InterfaceError(pub InterfaceErrorKind, pub Range);
 
 impl fmt::Display for InterfaceError {
@@ -627,12 +595,6 @@ pub enum InterfaceFieldErrorKind {
 impl From<InterfaceFieldError> for InterfaceError {
     fn from(value: InterfaceFieldError) -> Self {
         InterfaceError(InterfaceErrorKind::InterfaceField(value.0), value.1)
-    }
-}
-
-impl From<InterfaceFieldError> for FactoryError {
-    fn from(value: InterfaceFieldError) -> Self {
-        FactoryError(FactoryErrorKind::InterfaceField(value.0), value.1)
     }
 }
 
@@ -1206,18 +1168,6 @@ impl From<ConstError> for ParserError {
     }
 }
 
-impl From<StreamError> for ParserError {
-    fn from(value: StreamError) -> Self {
-        ParserError::Stream(value)
-    }
-}
-
-impl From<FactoryError> for ParserError {
-    fn from(value: FactoryError) -> Self {
-        ParserError::Factory(value)
-    }
-}
-
 impl From<ScError> for ParserError {
     fn from(value: ScError) -> Self {
         let (kind, range) = match value {
@@ -1279,9 +1229,7 @@ pub enum ParserError {
     Undefined(Range),
     Enum(EnumError),
     Interface(InterfaceError),
-    Factory(FactoryError),
     Struct(StructError),
-    Stream(StreamError),
     Library(LibraryError),
     Imports(ImportsError),
     TypeList(TypeListError),
@@ -1302,8 +1250,6 @@ impl ParserError {
             ParserError::Library(LibraryError(kind, range)) => (kind.to_string(), *range),
             ParserError::Struct(StructError(kind, range)) => (kind.to_string(), *range),
             ParserError::TypeList(TypeListError(kind, range)) => (kind.to_string(), *range),
-            ParserError::Stream(StreamError(kind, range)) => (kind.to_string(), *range),
-            ParserError::Factory(FactoryError(kind, range)) => (kind.to_string(), *range),
         }
     }
 }
@@ -1451,30 +1397,7 @@ impl Parser {
                                 return Err((context, err.into()));
                             }
                         }
-                        Keywords::Stream => {
-                            if !comments.is_empty() {
-                                context.nodes.push(ParserNode::StreamComment(comments));
-                                comments = vec![];
-                            }
-
-                            if let Err(err) =
-                                context.consume_stream(&mut word_stream, start_position)
-                            {
-                                return Err((context, err.into()));
-                            }
-                        }
-                        Keywords::Factory => {
-                            if !comments.is_empty() {
-                                context.nodes.push(ParserNode::FactoryComment(comments));
-                                comments = vec![];
-                            }
-
-                            if let Err(err) =
-                                context.consume_factory(&mut word_stream, start_position)
-                            {
-                                return Err((context, err.into()));
-                            }
-                        }
+                        _ => return Err((context, ParserError::Undefined(Range::default()))),
                     }
                 }
                 WordStream::Comment(comment) => {
@@ -1632,65 +1555,6 @@ impl Parser {
         ))
     }
 
-    fn consume_factory<'a, I>(
-        &mut self,
-        word_stream: &mut I,
-        start_position: Position,
-    ) -> Result<(), FactoryError>
-    where
-        I: Iterator<Item = &'a WordStream>,
-    {
-        let mut factory_name: Option<String> = None;
-        let mut name_range = Range::default();
-        let last_range = start_position.as_range();
-
-        while let Some(w_stream) = word_stream.next() {
-            match w_stream {
-                WordStream::LeftCurlyBracket(lc) => match factory_name {
-                    Some(ident) => {
-                        let (fields, end_position) = Self::push_interface_fields(word_stream)?;
-
-                        self.nodes.push(ParserNode::Factory(Factory {
-                            ident: Arc::new(Type::Name(Arc::new(TypeName {
-                                ident,
-                                range: name_range,
-                            }))),
-                            fields,
-                            range: Range {
-                                start: start_position,
-                                end: end_position,
-                            },
-                        }));
-
-                        return Ok(());
-                    }
-                    None => {
-                        return Err(FactoryError(
-                            FactoryErrorKind::MissingTypeName,
-                            last_range.merge(lc.range),
-                        ))
-                    }
-                },
-                WordStream::TypeName(type_name) => {
-                    name_range = type_name.range;
-                    if factory_name.is_some() {
-                        return Err(FactoryError(FactoryErrorKind::TypeDeclaration, name_range));
-                    }
-
-                    factory_name = Some(type_name.get_word().to_owned());
-                }
-                sw => {
-                    return Err(FactoryError(
-                        FactoryErrorKind::TypeDeclaration,
-                        last_range.merge(sw.get_range()),
-                    ))
-                }
-            }
-        }
-
-        Err(FactoryError(FactoryErrorKind::Undefined, last_range))
-    }
-
     fn consume_interface<'a, I>(
         &mut self,
         word_stream: &mut I,
@@ -1768,6 +1632,11 @@ impl Parser {
         let mut last_range = Range::default();
         let mut comments = vec![];
 
+        // These are not part of the parsing enum because they are just modifiers
+        // and otherwise it would just make everything more complicated, but maybe
+        let mut returns_stream = false;
+        let mut is_static = false;
+
         while let Some(n_stream) = word_stream.next() {
             match n_stream {
                 WordStream::CurlyBracketBody(curly_body) => {
@@ -1820,11 +1689,43 @@ impl Parser {
                                     | InterfaceFieldParsing::Tuple
                                     | InterfaceFieldParsing::ReturnType
                                     | InterfaceFieldParsing::ExpectingComma => {
-                                        fields.push(InterfaceNode::InterfaceField(Box::new(
+                                        let t_ty = if returns_stream {
+                                            match ty.take().unwrap() {
+                                                Type::Function(function) => {
+                                                    Type::Function(Arc::new(TypeFunction {
+                                                        args: function.args.clone(),
+                                                        range: function.range,
+                                                        ret_ty: Arc::new(Type::Stream(Arc::new(
+                                                            TypeStream {
+                                                                range: function.ret_ty.get_range(),
+                                                                s_ty: function.ret_ty.clone(),
+                                                            },
+                                                        ))),
+                                                    }))
+                                                }
+                                                Type::Tuple(tuple) => {
+                                                    return Err(InterfaceFieldError(
+                                                        InterfaceFieldErrorKind::ExpectedType(
+                                                            tuple.to_string(),
+                                                        ),
+                                                        last_range.merge(range),
+                                                    ))
+                                                }
+                                                a_ty => Type::Stream(Arc::new(TypeStream {
+                                                    range: a_ty.get_range(),
+                                                    s_ty: Arc::new(a_ty),
+                                                })),
+                                            }
+                                        } else {
+                                            ty.take().unwrap()
+                                        };
+
+                                        fields.push(InterfaceNode::InterfaceField(Arc::new(
                                             InterfaceField {
                                                 attributes,
                                                 ident: name.take().unwrap(),
-                                                ty: Arc::new(ty.take().unwrap()),
+                                                is_static,
+                                                ty: Arc::new(t_ty),
                                                 range: field_range,
                                             },
                                         )));
@@ -1833,6 +1734,8 @@ impl Parser {
                                         field_range = Range::default();
                                         parsing = InterfaceFieldParsing::ExpectingAttribute;
                                         last_range = range.end_as_range();
+                                        returns_stream = false;
+                                        is_static = false;
                                     }
                                     InterfaceFieldParsing::ExpectingType => {
                                         return Err(InterfaceFieldError(
@@ -1843,6 +1746,30 @@ impl Parser {
                                     _ => {
                                         return Err(InterfaceFieldError(
                                             InterfaceFieldErrorKind::IncompleteField,
+                                            last_range.merge(range),
+                                        ))
+                                    }
+                                }
+                            }
+                            WordStream::Keyword(keyword) => {
+                                let range = keyword.range;
+                                match keyword.get_word() {
+                                    Keywords::Stream
+                                        if parsing
+                                            == InterfaceFieldParsing::ExpectingReturnType
+                                            || parsing == InterfaceFieldParsing::ExpectingType =>
+                                    {
+                                        returns_stream = true
+                                    }
+                                    Keywords::Static
+                                        if parsing == InterfaceFieldParsing::ExpectingType
+                                            && !returns_stream =>
+                                    {
+                                        is_static = true
+                                    }
+                                    _ => {
+                                        return Err(InterfaceFieldError(
+                                            InterfaceFieldErrorKind::InvalidSymbol,
                                             last_range.merge(range),
                                         ))
                                     }
@@ -2004,7 +1931,7 @@ impl Parser {
                                 let range = position.as_range();
 
                                 parsing = match parsing {
-                                    InterfaceFieldParsing::ExpectingType => {
+                                    InterfaceFieldParsing::ExpectingType if !returns_stream => {
                                         InterfaceFieldParsing::Tuple
                                     }
                                     InterfaceFieldParsing::ExpectingAttribute => {
@@ -2228,10 +2155,21 @@ impl Parser {
                         | InterfaceFieldParsing::ReturnType
                         | InterfaceFieldParsing::Tuple
                         | InterfaceFieldParsing::ExpectingComma => {
-                            fields.push(InterfaceNode::InterfaceField(Box::new(InterfaceField {
+                            let f_ty = Arc::new(ty.take().unwrap());
+
+                            let t_ty = if returns_stream {
+                                Arc::new(Type::Stream(Arc::new(TypeStream {
+                                    range: f_ty.get_range(),
+                                    s_ty: f_ty,
+                                })))
+                            } else {
+                                f_ty    
+                            };
+                            fields.push(InterfaceNode::InterfaceField(Arc::new(InterfaceField {
                                 attributes,
                                 ident: name.unwrap(),
-                                ty: Arc::new(ty.take().unwrap()),
+                                ty: t_ty,
+                                is_static,
                                 range: field_range,
                             })));
                             return Ok((fields, end_position));
@@ -2631,6 +2569,7 @@ impl Parser {
         let mut ty_name: Option<String> = None;
         let mut field_range = Range::default();
         let mut last_range = start_position.as_range();
+        let mut is_stream = false;
 
         while let Some(wb_stream) = word_stream.next() {
             match wb_stream {
@@ -2650,13 +2589,38 @@ impl Parser {
                                     field_range = range.merge(range);
                                     last_range = range.end_as_range();
                                 }
+                                TupleParsing::ExpectingType => {
+                                    let (r_ty, range) = Self::get_result_or_option(
+                                        &mut s_stream,
+                                        lq.range.as_position(),
+                                    )?;
+
+                                    ty = Some(r_ty);
+                                    field_range = field_range.merge(range);
+                                    last_range = range.end_as_range();
+                                    parsing = TupleParsing::Type;
+                                }
                                 _ => {
                                     return Err(TypeTupleError(
-                                        TypeTupleErrorKind::ExpectedType("".to_owned()),
+                                        TypeTupleErrorKind::ExpectedType(lq.get_word().to_string()),
                                         last_range.merge(lq.range),
                                     ))
                                 }
                             },
+                            WordStream::Keyword(value) => {
+                                let range = value.range;
+                                match value.get_word() {
+                                    Keywords::Stream if parsing == TupleParsing::ExpectingType => {
+                                        is_stream = true
+                                    }
+                                    _ => {
+                                        return Err(TypeTupleError(
+                                            TypeTupleErrorKind::Undefined,
+                                            last_range.merge(range),
+                                        ))
+                                    }
+                                }
+                            }
                             WordStream::NativeType(native_type) => {
                                 let range = native_type.range;
                                 parsing = match parsing {
@@ -2731,7 +2695,9 @@ impl Parser {
                                     }
                                     TupleParsing::ExpectingType => {
                                         return Err(TypeTupleError(
-                                            TypeTupleErrorKind::ExpectedType("".to_owned()),
+                                            TypeTupleErrorKind::ExpectedType(
+                                                cl.get_word().to_string(),
+                                            ),
                                             last_range.merge(range),
                                         ));
                                     }
@@ -2746,18 +2712,32 @@ impl Parser {
                             WordStream::Comma(cm) => {
                                 parsing = match parsing {
                                     TupleParsing::Type => {
+                                        let f_ty = Arc::new(ty.take().unwrap());
+
+                                        let t_ty = if is_stream {
+                                            Arc::new(Type::Stream(Arc::new(TypeStream {
+                                                range: field_range,
+                                                s_ty: f_ty,
+                                            })))
+                                        } else {
+                                            f_ty
+                                        };
+
                                         args.push(TupleEntry {
                                             ident: ty_name.take().unwrap(),
-                                            ty: Arc::new(ty.take().unwrap()),
+                                            ty: t_ty,
                                             range: field_range,
                                         });
                                         last_range = cm.range.end_as_range();
                                         field_range = Range::default();
+                                        is_stream = false;
                                         TupleParsing::ExpectingFieldName
                                     }
                                     _ => {
                                         return Err(TypeTupleError(
-                                            TypeTupleErrorKind::ExpectedType("".to_owned()),
+                                            TypeTupleErrorKind::ExpectedType(
+                                                cm.get_word().to_string(),
+                                            ),
                                             last_range.merge(cm.range),
                                         ));
                                     }
@@ -2778,14 +2758,25 @@ impl Parser {
 
                     match parsing {
                         TupleParsing::Type => {
+                            let f_ty = Arc::new(ty.take().unwrap());
+
+                            let t_ty = if is_stream {
+                                Arc::new(Type::Stream(Arc::new(TypeStream {
+                                    range: field_range,
+                                    s_ty: f_ty,
+                                })))
+                            } else {
+                                f_ty
+                            };
+
                             args.push(TupleEntry {
                                 ident: ty_name.take().unwrap(),
-                                ty: Arc::new(ty.take().unwrap()),
+                                ty: t_ty,
                                 range: field_range,
                             });
                             return Ok((
                                 Type::Tuple(Arc::new(TypeTuple {
-                                    ty_list: args,
+                                    fields: args,
                                     range: last_range,
                                 })),
                                 last_range,
@@ -2794,7 +2785,7 @@ impl Parser {
                         TupleParsing::ExpectingFieldName => {
                             return Ok((
                                 Type::Tuple(Arc::new(TypeTuple {
-                                    ty_list: args,
+                                    fields: args,
                                     range: last_range,
                                 })),
                                 last_range,
@@ -2824,67 +2815,6 @@ impl Parser {
         }
 
         return Err(TypeTupleError(TypeTupleErrorKind::Undefined, last_range));
-    }
-
-    fn consume_stream<'a, I>(
-        &mut self,
-        word_stream: &mut I,
-        start_position: Position,
-    ) -> Result<(), StreamError>
-    where
-        I: Iterator<Item = &'a WordStream>,
-    {
-        let mut stream_name: Option<String> = None;
-        let mut name_range = Range::default();
-        let mut last_range = start_position.as_range();
-
-        while let Some(w_stream) = word_stream.next() {
-            match w_stream {
-                WordStream::LeftCurlyBracket(lc) => match stream_name {
-                    Some(ident) => {
-                        // There's not much difference between structs and streams, yet.
-                        let (fields, end_position) = Self::push_struct_fields(word_stream)?;
-
-                        self.nodes.push(ParserNode::Stream(Stream {
-                            ident: Arc::new(Type::Name(Arc::new(TypeName {
-                                ident,
-                                range: name_range,
-                            }))),
-                            fields,
-                            range: Range {
-                                start: start_position,
-                                end: end_position,
-                            },
-                        }));
-
-                        return Ok(());
-                    }
-                    None => {
-                        return Err(StreamError(
-                            StreamErrorKind::MissingTypeName,
-                            last_range.merge(lc.range),
-                        ))
-                    }
-                },
-                WordStream::TypeName(type_name) => {
-                    name_range = type_name.range;
-                    if stream_name.is_some() {
-                        return Err(StreamError(StreamErrorKind::TypeDeclaration, name_range));
-                    }
-
-                    stream_name = Some(type_name.get_word().to_owned());
-                    last_range = name_range.end_as_range();
-                }
-                sw => {
-                    return Err(StreamError(
-                        StreamErrorKind::TypeDeclaration,
-                        last_range.merge(sw.get_range()),
-                    ))
-                }
-            }
-        }
-
-        Err(StreamError(StreamErrorKind::Undefined, last_range))
     }
 
     fn consume_struct<'a, I>(
@@ -3009,7 +2939,7 @@ impl Parser {
                                 let range = cm.range;
                                 match parsing {
                                     StructFieldParsing::Type => {
-                                        fields.push(StructNode::StructField(Box::new(
+                                        fields.push(StructNode::StructField(Arc::new(
                                             StructField {
                                                 ident: field_name.take().unwrap(),
                                                 ty: Arc::new(ty.take().unwrap()),
@@ -3178,7 +3108,7 @@ impl Parser {
                     let range = end_position.as_range();
                     match parsing {
                         StructFieldParsing::Type => {
-                            fields.push(StructNode::StructField(Box::new(StructField {
+                            fields.push(StructNode::StructField(Arc::new(StructField {
                                 ident: field_name.unwrap(),
                                 ty: Arc::new(ty.unwrap()),
                                 range: field_range,
@@ -3344,7 +3274,7 @@ impl Parser {
                                 let range = cm.range;
                                 match field_name.take() {
                                     Some(ident) => {
-                                        fields.push(EnumNode::EnumField(Box::new(EnumField {
+                                        fields.push(EnumNode::EnumField(Arc::new(EnumField {
                                             ident,
                                             range: field_range,
                                         })));
@@ -3388,7 +3318,7 @@ impl Parser {
 
                     match field_name {
                         Some(ident) => {
-                            fields.push(EnumNode::EnumField(Box::new(EnumField {
+                            fields.push(EnumNode::EnumField(Arc::new(EnumField {
                                 ident,
                                 range: field_range,
                             })));
@@ -3437,14 +3367,14 @@ impl Parser {
             match w_stream {
                 WordStream::LeftCurlyBracket(lc) => match type_list_name {
                     Some(ident) => {
-                        let (ty_list, end_position) = Self::push_type_list_fields(word_stream)?;
+                        let (fields, end_position) = Self::push_type_list_fields(word_stream)?;
 
                         self.nodes.push(ParserNode::TypeList(TypeList {
                             ident: Arc::new(Type::Name(Arc::new(TypeName {
                                 ident,
                                 range: name_range,
                             }))),
-                            ty_list,
+                            fields,
                             range: Range {
                                 start: start_position,
                                 end: end_position,

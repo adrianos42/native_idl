@@ -47,7 +47,7 @@ impl Parser {
                 }
                 ParserNode::TypeList(value) => {
                     if value.ident.to_string() == name {
-                        for field_node in value.ty_list.iter() {
+                        for field_node in value.fields.iter() {
                             if let TypeListNode::TypeListField(field) = field_node {
                                 if field.ident == field_name {
                                     return field.range;
@@ -60,28 +60,6 @@ impl Parser {
                     if value.ident.to_string() == name {
                         for field_node in value.fields.iter() {
                             if let ConstNode::ConstField(field) = field_node {
-                                if field.ident == field_name {
-                                    return field.range;
-                                }
-                            }
-                        }
-                    }
-                }
-                ParserNode::Stream(value) => {
-                    if value.ident.to_string() == name {
-                        for field_node in value.fields.iter() {
-                            if let StructNode::StructField(field) = field_node {
-                                if field.ident == field_name {
-                                    return field.range;
-                                }
-                            }
-                        }
-                    }
-                }
-                ParserNode::Factory(value) => {
-                    if value.ident.to_string() == name {
-                        for field_node in value.fields.iter() {
-                            if let InterfaceNode::InterfaceField(field) = field_node {
                                 if field.ident == field_name {
                                     return field.range;
                                 }
@@ -121,16 +99,6 @@ impl Parser {
                     }
                 }
                 ParserNode::Const(value) => {
-                    if value.ident.to_string() == name {
-                        return Some(value.ident.clone());
-                    }
-                }
-                ParserNode::Stream(value) => {
-                    if value.ident.to_string() == name {
-                        return Some(value.ident.clone());
-                    }
-                }
-                ParserNode::Factory(value) => {
                     if value.ident.to_string() == name {
                         return Some(value.ident.clone());
                     }

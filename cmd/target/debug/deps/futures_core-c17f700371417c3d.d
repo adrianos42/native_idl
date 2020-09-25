@@ -1,0 +1,11 @@
+/home/adriano/repos/native_idl/cmd/target/debug/deps/futures_core-c17f700371417c3d.rmeta: /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/lib.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/future.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/stream.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/mod.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/poll.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/__internal/mod.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/__internal/atomic_waker.rs
+
+/home/adriano/repos/native_idl/cmd/target/debug/deps/futures_core-c17f700371417c3d.d: /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/lib.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/future.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/stream.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/mod.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/poll.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/__internal/mod.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/__internal/atomic_waker.rs
+
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/lib.rs:
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/future.rs:
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/stream.rs:
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/mod.rs:
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/poll.rs:
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/__internal/mod.rs:
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/futures-core-0.3.5/src/task/__internal/atomic_waker.rs:

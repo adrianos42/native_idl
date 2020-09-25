@@ -17,32 +17,14 @@ type TypeNode {
     StructComment: string[],
     EnumComment: string[],
     ConstComment: string[],
-    FactoryComment: string[],
     StreamComment: string[],
     TypeListComment: string[],
     TypeStruct: TypeStruct,
     TypeStream: TypeStream,
-    TypeFactory: TypeFactory,
     TypeEnum: TypeEnum,
     TypeList: TypeList,
     TypeConst: TypeConst,
     TypeInterface: TypeInterface,
-}
-
-struct TypeFactory {
-    ident: string,
-    fields: FactoryNode[],
-}
-
-type FactoryNode {
-    FactoryField: FactoryField,
-    Comment: string[],
-}
-
-struct FactoryField {
-    attributes: Attributes[],
-    ident: string,
-    ty: TypeName,
 }
 
 struct TypeInterface {
@@ -58,6 +40,7 @@ type InterfaceNode {
 struct InterfaceField {
     attributes: Attributes[],
     ident: string,
+    is_static: bool,
     ty: TypeName,
 }
 
@@ -93,7 +76,7 @@ struct StreamField {
 
 struct TypeList {
     ident: string,
-    ty_list: TypeListNode[],
+    fields: TypeListNode[],
 }
 
 type TypeListNode {
@@ -169,7 +152,7 @@ type TypeName {
     StructTypeName: string,
     InterfaceTypeName: string,
     ConstTypeName: string,
-    FactoryTypeName: string,
+    StaticTypeName: string,
     StreamTypeName: string,
 }
 
@@ -188,7 +171,7 @@ struct TypeMap {
 }
 
 struct TypeTuple {
-    ty_list: TupleEntry[],
+    fields: TupleEntry[],
 }
 
 struct TupleEntry {

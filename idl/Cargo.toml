@@ -1,5 +1,5 @@
 [package]
-name = "native_idl"
+name = "idl"
 version = "0.1.0"
 authors = ["Adriano Souza"]
 edition = "2018"

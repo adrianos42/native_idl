@@ -9,7 +9,7 @@ static KEYWORDS: &'static [&str] = &[
     "interface",
     "import",
     "library",
-    "factory",
+    "static",
     "stream",
     "type",
     "const",
@@ -28,7 +28,7 @@ pub enum Keywords {
     Library,
     Type,
     Const,
-    Factory,
+    Static,
     Stream,
 }
 
@@ -42,7 +42,7 @@ impl fmt::Display for Keywords {
             Keywords::Library => "library",
             Keywords::Type => "type",
             Keywords::Const => "const",
-            Keywords::Factory => "factory",
+            Keywords::Static => "static",
             Keywords::Stream => "stream",
         };
 
@@ -590,7 +590,7 @@ impl ContextStream {
                 "type" => Keywords::Type,
                 "const" => Keywords::Const,
                 "stream" => Keywords::Stream,
-                "factory" => Keywords::Factory,
+                "static" => Keywords::Static,
                 _ => panic!("Not a keyword."),
             };
 

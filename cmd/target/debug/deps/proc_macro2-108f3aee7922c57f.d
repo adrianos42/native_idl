@@ -1,0 +1,12 @@
+/home/adriano/repos/native_idl/cmd/target/debug/deps/proc_macro2-108f3aee7922c57f.rmeta: /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/lib.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/marker.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/parse.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/detection.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/fallback.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/wrapper.rs
+
+/home/adriano/repos/native_idl/cmd/target/debug/deps/libproc_macro2-108f3aee7922c57f.rlib: /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/lib.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/marker.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/parse.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/detection.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/fallback.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/wrapper.rs
+
+/home/adriano/repos/native_idl/cmd/target/debug/deps/proc_macro2-108f3aee7922c57f.d: /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/lib.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/marker.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/parse.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/detection.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/fallback.rs /home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/wrapper.rs
+
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/lib.rs:
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/marker.rs:
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/parse.rs:
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/detection.rs:
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/fallback.rs:
+/home/adriano/.cargo/registry/src/github.com-1ecc6299db9ec823/proc-macro2-1.0.21/src/wrapper.rs:
