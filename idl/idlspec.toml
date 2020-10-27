@@ -1,0 +1,9 @@
+[library]
+name = "idl_types"
+version = "1.0"
+
+[server]
+layers = ["ffi"]
+
+[client]
+layers = ["ffi"]

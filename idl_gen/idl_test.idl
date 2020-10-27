@@ -1,0 +1,44 @@
+library idl_test
+
+interface Test {
+    value_int: (value: int) -> int,
+    value_bool: (value: bool) -> bool,
+    value_float: (value: float) -> float,
+    value_string: (value: string) -> string,
+    value_none: (value: none) -> none,
+    value_bytes: (value: bytes) -> bytes,
+    value_int_array: (value: int[]) -> int[],
+    value_point_struct: (value: Point) -> Point, 
+    value_int_map: (value: int[string]) -> int[string],
+    value_int_int_map: (value: int[int]) -> int[int],
+    value_types: (value: Types) -> Types,
+    value_option: (value: [int]) -> [int],
+    value_none_option:  [int],
+    value_result: (value: string) -> [string; bool],
+    value_result_err: [string; bool],
+    value_int_stream: stream string,
+    value_names: (value: Names) -> Names,
+    value_values: (value: Values) -> Values,
+    static_value_int: static (value: int) -> int,
+}
+
+struct Point {
+    x: int,
+    y: int,
+}
+
+type Types {
+    IntTy: int,
+    StringTy: string,
+}
+
+const Names {
+    name: "Adriano",
+    surname: "Souza",
+}
+
+const Values {
+    pi: 3.14,
+    sqrt: 2.55,
+    onedw: 122332.0,
+}
