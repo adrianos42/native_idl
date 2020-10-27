@@ -1,5 +1,6 @@
 use super::parser::Range;
 use regex::Regex;
+use thiserror::Error;
 use std::fmt;
 
 static RESERVED: &'static [&str] = &[
@@ -185,14 +186,14 @@ static RESERVED_TYPES: &'static [&str] = &[
     "arrayf64",
 ];
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct NameError(
     pub(super) NameErrorKind,
     pub(super) Range,
     pub(super) String,
 );
 
-#[derive(Debug)]
+#[derive(Debug, Copy, Clone)]
 pub enum NameErrorKind {
     InvalidFieldName,
     InvalidTypeName,

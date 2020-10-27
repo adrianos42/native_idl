@@ -109,4 +109,11 @@ impl Parser {
 
         None
     }
+
+    pub fn get_library_name(&self) -> Option<String> {
+        self.nodes.iter().find_map(|node| match node {
+            ParserNode::Library(name) => Some(name.to_owned()),
+            _ => None,
+        })
+    }
 }

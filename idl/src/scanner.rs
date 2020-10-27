@@ -212,6 +212,7 @@ impl fmt::Display for WordStream {
     }
 }
 
+#[derive(Debug)]
 pub(super) enum ScError {
     SymbolMissing(WordStream),
     Name(WordStream),
@@ -257,8 +258,8 @@ impl ContextStream {
                                 .consume_comment(line_str, &mut brackets_word_stream)
                                 .is_err()
                             {
-                                // Just try parsing a number in case it's not a number.
-                                // But find a number here? Maybe.
+                                // Parsing a number in case it's not a number.
+                                // But finding a number here? Maybe.
                                 context.push_numeric_string(line_str, &mut brackets_word_stream)?;
                             }
                         }

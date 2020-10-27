@@ -1,4 +1,6 @@
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Keywords {
     Enum,
     Struct,
@@ -11,7 +13,7 @@ pub enum Keywords {
     Static,
 }
 
-#[derive(Debug, Copy, Clone, Eq, PartialEq)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Types {
     NatInt,
     NatFloat,
@@ -21,7 +23,7 @@ pub enum Types {
     NatNone,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum TypeNode {
     LibraryName(String),
     Imports(Vec<String>),
@@ -38,19 +40,19 @@ pub enum TypeNode {
     TypeInterface(Box<TypeInterface>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeInterface {
     pub ident: String,
     pub fields: Vec<InterfaceNode>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum InterfaceNode {
     InterfaceField(Box<InterfaceField>),
     Comment(Vec<String>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct InterfaceField {
     pub attributes: Vec<Attributes>,
     pub ident: String,
@@ -58,103 +60,103 @@ pub struct InterfaceField {
     pub ty: TypeName,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeStruct {
     pub ident: String,
     pub fields: Vec<StructNode>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum StructNode {
     StructField(Box<StructField>),
     Comment(Vec<String>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct StructField {
     pub ident: String,
     pub ty: TypeName,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeList {
     pub ident: String,
     pub fields: Vec<TypeListNode>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum TypeListNode {
     TypeListField(Box<TypeListField>),
     Comment(Vec<String>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeListField {
     pub ident: String,
     pub ty: TypeName,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeEnum {
     pub ident: String,
     pub fields: Vec<EnumNode>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum EnumNode {
     EnumField(Box<EnumField>),
     Comment(Vec<String>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct EnumField {
     pub ident: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeConst {
     pub ident: String,
     pub fields: Vec<ConstNode>,
     pub const_type: ConstTypes,
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub enum ConstTypes {
     NatInt,
     NatFloat,
     NatString,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum ConstNode {
     ConstField(Box<ConstField>),
     Comment(Vec<String>),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ConstField {
     pub ident: String,
     pub value: String,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Attributes {
     pub field: Vec<AttributeNode>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum AttributeNode {
     Name(AttributeNames),
     UnknownName(String),
     StringField(String),
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Deserialize, Serialize)]
 pub enum AttributeNames {
     DeprecatedName,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum TypeName {
     Types(Types),
     TypeFunction(Box<TypeFunction>),
@@ -171,46 +173,46 @@ pub enum TypeName {
     ConstTypeName(String),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeFunction {
     pub args: TypeName,
     pub return_ty: TypeName,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeArray {
     pub ty: TypeName,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeMap {
     pub map_ty: TypeName,
     pub index_ty: TypeName,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeTuple {
     pub fields: Vec<TupleEntry>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeStream {
     pub s_ty: TypeName,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TupleEntry {
     pub ident: String,
     pub ty: TypeName,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeResult {
     pub ok_ty: TypeName,
     pub err_ty: TypeName,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct TypeOption {
     pub some_ty: TypeName,
 }

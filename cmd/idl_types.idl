@@ -1,5 +1,9 @@
 library idl_types
 
+interface Idl {
+    generate: int,
+}
+
 struct Point {
     x: int,
     y: int,

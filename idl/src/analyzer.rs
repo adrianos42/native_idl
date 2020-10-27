@@ -8,8 +8,9 @@ use super::scanner;
 use std::convert::From;
 use std::fmt;
 use std::sync::Arc;
+use thiserror::Error;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub enum ReferenceErrorKind {
     Invalid,
     ReferencesInterface,
@@ -19,13 +20,7 @@ pub enum ReferenceErrorKind {
     UndefinedType,
 }
 
-impl From<ReferenceError> for AnalyzerError {
-    fn from(value: ReferenceError) -> Self {
-        AnalyzerError::ReferenceError(value)
-    }
-}
-
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct ReferenceError(ReferenceErrorKind, Range, String);
 
 impl fmt::Display for ReferenceError {
@@ -33,12 +28,12 @@ impl fmt::Display for ReferenceError {
         let name = self.2.as_str();
 
         let errstr = match &self.0 {
-            ReferenceErrorKind::Invalid => format!("Invalid type name `{}`.", name),
-            ReferenceErrorKind::ReferencesInterface => format!("References interface `{}`.", name),
-            ReferenceErrorKind::ReferencesStream => format!("References stream `{}`.", name),
-            ReferenceErrorKind::ReferencesResult => format!("References result `{}`.", name),
+            ReferenceErrorKind::Invalid => format!("Invalid type name `{}`", name),
+            ReferenceErrorKind::ReferencesInterface => format!("References interface `{}`", name),
+            ReferenceErrorKind::ReferencesStream => format!("References stream `{}`", name),
+            ReferenceErrorKind::ReferencesResult => format!("References result `{}`", name),
             ReferenceErrorKind::StructRecursiveReference => {
-                format!("Recursive reference in struct `{}`.", name)
+                format!("Recursive reference in struct `{}`", name)
             }
             ReferenceErrorKind::UndefinedType => format!("Undefined type `{}`.", name),
         };
@@ -46,38 +41,33 @@ impl fmt::Display for ReferenceError {
         write!(f, "{}", errstr)
     }
 }
-
-impl From<NameError> for AnalyzerError {
-    fn from(value: NameError) -> Self {
-        AnalyzerError::NameError(value)
-    }
-}
-
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct DuplicateFieldNameError(String, Range);
-
-impl From<DuplicateFieldNameError> for AnalyzerError {
-    fn from(value: DuplicateFieldNameError) -> Self {
-        AnalyzerError::DuplicateFieldNameError(value)
-    }
-}
 
 impl fmt::Display for DuplicateFieldNameError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Duplicate field `{}`.", self.0)
+        write!(f, "Duplicate field `{}`", self.0)
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum AnalyzerError {
+    #[error("Undefined error")]
     Undefined,
+    #[error("Analyzer closed")]
     Closed,
+    #[error("Import redefinition")]
     ImportDefinition,
+    #[error("Library redefinition")]
     LibraryDefinition,
+    #[error("Missing library definition")]
     MissingLibraryDefinition,
-    DuplicateFieldNameError(DuplicateFieldNameError),
-    NameError(NameError),
-    ReferenceError(ReferenceError),
+    #[error("Duplicate name field `{0}`")]
+    DuplicateFieldNameError(#[from] DuplicateFieldNameError),
+    #[error("Name `{0}`")]
+    NameError(#[from] NameError),
+    #[error("Reference `{0}`")]
+    ReferenceError(#[from] ReferenceError),
 }
 
 impl AnalyzerError {
@@ -92,23 +82,6 @@ impl AnalyzerError {
             AnalyzerError::ReferenceError(value) => (value.to_string(), value.1),
             AnalyzerError::NameError(value) => (value.to_string(), value.1),
         }
-    }
-}
-
-impl fmt::Display for AnalyzerError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let errstr = match self {
-            AnalyzerError::Undefined => "Analyzer error.".to_owned(),
-            AnalyzerError::Closed => "Analyzer closed.".to_owned(),
-            AnalyzerError::ImportDefinition => "Import redefinition.".to_owned(),
-            AnalyzerError::LibraryDefinition => "Library redefinition.".to_owned(),
-            AnalyzerError::MissingLibraryDefinition => "Missing library definition.".to_owned(),
-            AnalyzerError::DuplicateFieldNameError(dup_err) => dup_err.to_string(),
-            AnalyzerError::NameError(name_err) => name_err.to_string(),
-            AnalyzerError::ReferenceError(ref_err) => ref_err.to_string(),
-        };
-
-        write!(f, "{}", errstr)
     }
 }
 
@@ -131,6 +104,12 @@ struct AnalyzerItems {
 impl Analyzer {
     pub fn closed() -> Result<Self, AnalyzerError> {
         Err(AnalyzerError::Closed)
+    }
+
+    pub fn from_nodes(nodes: Vec<idl_types::TypeNode>) -> Self {
+        Self {
+            nodes,
+        }
     }
 
     pub fn get_library_name(&self) -> String {
@@ -255,7 +234,7 @@ impl Analyzer {
             idl_types::TypeName::TypeArray(value) => Self::returns_interface(&value.ty),
             idl_types::TypeName::TypeMap(value) => Self::returns_interface(&value.map_ty),
             idl_types::TypeName::TypeOption(value) => Self::returns_interface(&value.some_ty),
-            idl_types::TypeName::TypeResult(value) => Self::returns_interface(&value.ok_ty), 
+            idl_types::TypeName::TypeResult(value) => Self::returns_interface(&value.ok_ty),
             idl_types::TypeName::TypeStream(value) => Self::returns_interface(&value.s_ty),
             _ => false,
         }
@@ -278,7 +257,7 @@ impl Analyzer {
 
     pub fn resolve(
         parsers: &parser::Parser,
-        parent_module: &module::Module,
+        module: &crate::module::Module,
     ) -> Result<Self, AnalyzerError> {
         let mut items = AnalyzerItems::default();
         let mut analyzer = Self::default();
@@ -746,7 +725,7 @@ impl Analyzer {
                 idl_types::TypeName::TypeFunction(value) => {
                     if let idl_types::TypeName::TypeTuple(tul) = &value.args {
                         Some(tul)
-                    } else {
+                    } else {    
                         None
                     }
                 }
@@ -807,13 +786,15 @@ impl Analyzer {
             };
 
             if let Some(tuple) = tuple {
-                for t_ty in &tuple.fields[..tuple.fields.len() - 1] {
-                    if let idl_types::TypeName::TypeStream(st) = &t_ty.ty {
-                        return Err(ReferenceError(
-                            ReferenceErrorKind::ReferencesStream,
-                            range,
-                            format!("{:?}", st), // TODO
-                        ));
+                if let Some(sl) = tuple.fields.get(..tuple.fields.len() - 1) {
+                    for t_ty in sl {
+                        if let idl_types::TypeName::TypeStream(st) = &t_ty.ty {
+                            return Err(ReferenceError(
+                                ReferenceErrorKind::ReferencesStream,
+                                range,
+                                format!("{:?}", st), // TODO
+                            ));
+                        }
                     }
                 }
             }

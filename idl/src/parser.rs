@@ -1,6 +1,7 @@
 use std::convert::From;
 use std::fmt;
 use std::sync::Arc;
+use thiserror::Error;
 
 use super::scanner::{ContextStream, ScError, WordStream};
 
@@ -434,7 +435,7 @@ impl fmt::Display for ConstField {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub struct EnumFieldError(pub EnumFieldErrorKind, pub Range);
 
 impl fmt::Display for EnumFieldError {
@@ -458,7 +459,7 @@ impl fmt::Display for EnumFieldErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EnumFieldErrorKind {
     Undefined,
     EmptyBody,
@@ -468,7 +469,7 @@ pub enum EnumFieldErrorKind {
     MissingCurlyBracket,
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct EnumError(pub EnumErrorKind, pub Range);
 
 impl fmt::Display for EnumError {
@@ -490,7 +491,7 @@ impl fmt::Display for EnumErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum EnumErrorKind {
     Undefined,
     MissingTypeName,
@@ -504,7 +505,7 @@ impl From<EnumFieldError> for EnumError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct InterfaceError(pub InterfaceErrorKind, pub Range);
 
 impl fmt::Display for InterfaceError {
@@ -526,7 +527,7 @@ impl fmt::Display for InterfaceErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum InterfaceErrorKind {
     Undefined,
     MissingTypeName,
@@ -534,7 +535,7 @@ pub enum InterfaceErrorKind {
     InterfaceField(InterfaceFieldErrorKind),
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub struct InterfaceFieldError(pub InterfaceFieldErrorKind, pub Range);
 
 impl fmt::Display for InterfaceFieldError {
@@ -571,7 +572,7 @@ impl fmt::Display for InterfaceFieldErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum InterfaceFieldErrorKind {
     Undefined,
     EmptyBody,
@@ -628,7 +629,7 @@ enum InterfaceFieldParsing {
     ReturnType,
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct StreamError(pub StreamErrorKind, pub Range);
 
 impl fmt::Display for StreamError {
@@ -650,7 +651,7 @@ impl fmt::Display for StreamErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StreamErrorKind {
     Undefined,
     MissingTypeName,
@@ -664,7 +665,7 @@ impl From<StructFieldError> for StreamError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct StructError(pub StructErrorKind, pub Range);
 
 impl fmt::Display for StructError {
@@ -686,7 +687,7 @@ impl fmt::Display for StructErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StructErrorKind {
     Undefined,
     MissingTypeName,
@@ -694,7 +695,7 @@ pub enum StructErrorKind {
     StructField(StructFieldErrorKind),
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub struct StructFieldError(pub StructFieldErrorKind, pub Range);
 
 impl fmt::Display for StructFieldError {
@@ -727,7 +728,7 @@ impl fmt::Display for StructFieldErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum StructFieldErrorKind {
     Undefined,
     EmptyBody,
@@ -764,7 +765,7 @@ impl From<TypeError> for StructFieldError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct TypeListError(pub TypeListErrorKind, pub Range);
 
 impl fmt::Display for TypeListError {
@@ -786,7 +787,7 @@ impl fmt::Display for TypeListErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TypeListErrorKind {
     Undefined,
     MissingTypeName,
@@ -794,7 +795,7 @@ pub enum TypeListErrorKind {
     TypeField(TypeListFieldErrorKind),
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub struct TypeListFieldError(pub TypeListFieldErrorKind, pub Range);
 
 impl fmt::Display for TypeListFieldError {
@@ -827,7 +828,7 @@ impl fmt::Display for TypeListFieldErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TypeListFieldErrorKind {
     Undefined,
     EmptyBody,
@@ -890,7 +891,7 @@ impl fmt::Display for TypeTupleErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TypeTupleErrorKind {
     Undefined,
     DuplicateIdentifier,
@@ -908,7 +909,7 @@ impl From<TypeError> for TypeTupleError {
     }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct TypeError(pub TypeErrorKind, pub Range);
 
 impl fmt::Display for TypeError {
@@ -933,7 +934,7 @@ impl fmt::Display for TypeErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum TypeErrorKind {
     Undefined,
     InvalidType(String),
@@ -952,7 +953,7 @@ enum TupleParsing {
     Type,
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug)]
 pub struct AttributeError(pub AttributeErrorKind, pub Range);
 
 impl fmt::Display for AttributeError {
@@ -976,7 +977,7 @@ impl fmt::Display for AttributeErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum AttributeErrorKind {
     Undefined,
     EmptyField,
@@ -986,7 +987,7 @@ pub enum AttributeErrorKind {
     InvalidField,
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct LibraryError(pub LibraryErrorKind, pub Range);
 
 impl fmt::Display for LibraryError {
@@ -1005,12 +1006,12 @@ impl fmt::Display for LibraryErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum LibraryErrorKind {
     InvalidLibraryDeclaration,
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct ImportsError(pub ImportsErrorKind, pub Range);
 
 impl fmt::Display for ImportsError {
@@ -1032,7 +1033,7 @@ impl fmt::Display for ImportsErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ImportsErrorKind {
     InvalidImportDeclaration,
     ExpectedIdentifier,
@@ -1040,7 +1041,7 @@ pub enum ImportsErrorKind {
     EmptyName,
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct ConstFieldError(pub ConstFieldErrorKind, pub Range);
 
 impl fmt::Display for ConstFieldError {
@@ -1068,7 +1069,7 @@ impl fmt::Display for ConstFieldErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ConstFieldErrorKind {
     Undefined,
     EmptyBody,
@@ -1082,7 +1083,7 @@ pub enum ConstFieldErrorKind {
     MissingCurlyBracket,
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct ConstError(pub ConstErrorKind, pub Range);
 
 impl fmt::Display for ConstError {
@@ -1104,7 +1105,7 @@ impl fmt::Display for ConstErrorKind {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum ConstErrorKind {
     Undefined,
     MissingTypeName,
@@ -1123,48 +1124,6 @@ enum ConstFieldParsing {
 impl From<ConstFieldError> for ConstError {
     fn from(value: ConstFieldError) -> Self {
         ConstError(ConstErrorKind::ConstField(value.0), value.1)
-    }
-}
-
-impl From<InterfaceError> for ParserError {
-    fn from(value: InterfaceError) -> Self {
-        ParserError::Interface(value)
-    }
-}
-
-impl From<StructError> for ParserError {
-    fn from(value: StructError) -> Self {
-        ParserError::Struct(value)
-    }
-}
-
-impl From<EnumError> for ParserError {
-    fn from(value: EnumError) -> Self {
-        ParserError::Enum(value)
-    }
-}
-
-impl From<LibraryError> for ParserError {
-    fn from(value: LibraryError) -> Self {
-        ParserError::Library(value)
-    }
-}
-
-impl From<ImportsError> for ParserError {
-    fn from(value: ImportsError) -> Self {
-        ParserError::Imports(value)
-    }
-}
-
-impl From<TypeListError> for ParserError {
-    fn from(value: TypeListError) -> Self {
-        ParserError::TypeList(value)
-    }
-}
-
-impl From<ConstError> for ParserError {
-    fn from(value: ConstError) -> Self {
-        ParserError::Const(value)
     }
 }
 
@@ -1211,29 +1170,27 @@ impl From<ScError> for ParserError {
     }
 }
 
-impl fmt::Display for ParserError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let errstr = match self {
-            ParserError::Undefined(_) => "Parser error.".to_owned(),
-            ParserError::Closed => "Closed.".to_owned(),
-            pr => pr.to_string(),
-        };
-
-        write!(f, "{}", errstr)
-    }
-}
-
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ParserError {
+    #[error("Closed")]
     Closed,
-    Undefined(Range),
-    Enum(EnumError),
-    Interface(InterfaceError),
-    Struct(StructError),
-    Library(LibraryError),
-    Imports(ImportsError),
-    TypeList(TypeListError),
-    Const(ConstError),
+    #[error("Undefined `{0}`")]
+    Undefined(String, Range),
+    #[error(transparent)]
+    Enum(#[from] EnumError),
+    #[error(transparent)]
+    Interface(#[from] InterfaceError),
+    #[error(transparent)]
+    Struct(#[from] StructError),
+    #[error(transparent)]
+    Library(#[from] LibraryError),
+    #[error(transparent)]
+    Imports(#[from] ImportsError),
+    #[error(transparent)]
+    TypeList(#[from] TypeListError),
+    #[error(transparent)]
+    Const(#[from] ConstError),
+    #[error(transparent)]
     Text(ScannerError),
 }
 
@@ -1241,7 +1198,7 @@ impl ParserError {
     pub fn get_message_with_range(&self) -> (String, Range) {
         match self {
             ParserError::Closed => (self.to_string(), Range::default()),
-            ParserError::Undefined(range) => (self.to_string(), *range),
+            ParserError::Undefined(_, range) => (self.to_string(), *range),
             ParserError::Text(ScannerError(kind, range)) => (kind.to_string(), *range),
             ParserError::Const(ConstError(kind, range)) => (kind.to_string(), *range),
             ParserError::Enum(EnumError(kind, range)) => (kind.to_string(), *range),
@@ -1252,9 +1209,24 @@ impl ParserError {
             ParserError::TypeList(TypeListError(kind, range)) => (kind.to_string(), *range),
         }
     }
+
+    pub fn get_range(&self) -> Range {
+        match self {
+            ParserError::Closed => Range::default(),
+            ParserError::Undefined(_, range) => *range,
+            ParserError::Text(ScannerError(_, range)) => *range,
+            ParserError::Const(ConstError(_, range)) => *range,
+            ParserError::Enum(EnumError(_, range)) => *range,
+            ParserError::Imports(ImportsError(_, range)) => *range,
+            ParserError::Interface(InterfaceError(_, range)) => *range,
+            ParserError::Library(LibraryError(_, range)) => *range,
+            ParserError::Struct(StructError(_, range)) => *range,
+            ParserError::TypeList(TypeListError(_, range)) => *range,
+        }
+    }
 }
 
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub struct ScannerError(pub ScannerErrorKind, pub Range);
 
 impl fmt::Display for ScannerError {
@@ -1263,28 +1235,19 @@ impl fmt::Display for ScannerError {
     }
 }
 
-impl fmt::Display for ScannerErrorKind {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let errstr = match &self {
-            ScannerErrorKind::InvalidCharacter => "Invalid character.".to_owned(),
-            ScannerErrorKind::InvalidComment => "Invalid comment.".to_owned(),
-            ScannerErrorKind::InvalidString => "Invalid string.".to_owned(),
-            ScannerErrorKind::Name(name) => format!("Invalid name: {}", name),
-            ScannerErrorKind::ReservedWord(word) => format!("Reserved word: {}", word),
-            ScannerErrorKind::SymbolMissing(symbol) => format!("Missing {}", symbol),
-        };
-
-        write!(f, "{}", errstr)
-    }
-}
-
-#[derive(Debug)]
+#[derive(Error, Debug, Clone)]
 pub enum ScannerErrorKind {
+    #[error("Symbol missing `{0}`")]
     SymbolMissing(String),
+    #[error("Reserved word `{0}`")]
     ReservedWord(String),
+    #[error("Invalid name `{0}`")]
     Name(String),
+    #[error("Invalid character")]
     InvalidCharacter,
+    #[error("Invalid comment")]
     InvalidComment,
+    #[error("Invalid string")]
     InvalidString,
 }
 
@@ -1354,7 +1317,10 @@ impl Parser {
                         }
                         Keywords::Library => {
                             if !comments.is_empty() {
-                                return Err((context, ParserError::Undefined(Range::default())));
+                                return Err((
+                                    context,
+                                    ParserError::Undefined("".to_owned(), Range::default()),
+                                ));
                             }
 
                             if let Err(err) =
@@ -1365,7 +1331,10 @@ impl Parser {
                         }
                         Keywords::Import => {
                             if !comments.is_empty() {
-                                return Err((context, ParserError::Undefined(Range::default())));
+                                return Err((
+                                    context,
+                                    ParserError::Undefined("".to_owned(), Range::default()),
+                                ));
                             }
 
                             if let Err(err) =
@@ -1397,7 +1366,12 @@ impl Parser {
                                 return Err((context, err.into()));
                             }
                         }
-                        _ => return Err((context, ParserError::Undefined(Range::default()))),
+                        _ => {
+                            return Err((
+                                context,
+                                ParserError::Undefined("".to_owned(), Range::default()),
+                            ))
+                        }
                     }
                 }
                 WordStream::Comment(comment) => {
@@ -1406,7 +1380,15 @@ impl Parser {
                     if let Some(c_stream) = word_stream.next() {
                         match c_stream {
                             WordStream::NewLine(_) => {}
-                            sw => return Err((context, ParserError::Undefined(sw.get_range()))),
+                            sw => {
+                                return Err((
+                                    context,
+                                    ParserError::Undefined(
+                                        format!("{}", sw.to_string()),
+                                        sw.get_range(),
+                                    ),
+                                ))
+                            }
                         }
                     }
                 }
@@ -1417,7 +1399,12 @@ impl Parser {
                         comments = vec![];
                     }
                 }
-                sw => return Err((context, ParserError::Undefined(sw.get_range()))),
+                sw => {
+                    return Err((
+                        context,
+                        ParserError::Undefined(format!("{}", sw.to_string()), sw.get_range()),
+                    ))
+                }
             }
         }
 
@@ -2163,7 +2150,7 @@ impl Parser {
                                     s_ty: f_ty,
                                 })))
                             } else {
-                                f_ty    
+                                f_ty
                             };
                             fields.push(InterfaceNode::InterfaceField(Arc::new(InterfaceField {
                                 attributes,
