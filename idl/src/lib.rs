@@ -11,5 +11,4 @@ pub mod formatting;
 pub mod idl_types;
 pub mod module;
 pub mod spec;
-pub mod completion;
 pub mod range;

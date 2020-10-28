@@ -13,7 +13,12 @@ static KEYWORDS: &'static [&str] = &[
     "stream",
     "type",
     "const",
+    "layer",
+    "server",
+    "client",
 ];
+
+static BOOLEAN_VALUES: &'static [&str] = &["false", "true"];
 
 static NATIVE_TYPES: &'static [&str] = &["int", "float", "bool", "string", "bytes", "none"];
 
@@ -30,6 +35,9 @@ pub enum Keywords {
     Const,
     Static,
     Stream,
+    Layer,
+    Server,
+    Client,
 }
 
 impl fmt::Display for Keywords {
@@ -44,6 +52,9 @@ impl fmt::Display for Keywords {
             Keywords::Const => "const",
             Keywords::Static => "static",
             Keywords::Stream => "stream",
+            Keywords::Layer => "layer",
+            Keywords::Server => "server",
+            Keywords::Client => "client",
         };
 
         write!(f, "{}", name)
@@ -141,6 +152,7 @@ pub(super) enum WordStream {
     Literal(WordRange<String>),
     FloatValue(WordRange<String>),
     IntegerValue(WordRange<String>),
+    BooleanValue(WordRange<String>),
 }
 
 impl WordStream {
@@ -164,6 +176,7 @@ impl WordStream {
             | WordStream::Comment(value)
             | WordStream::Literal(value)
             | WordStream::FloatValue(value)
+            |WordStream::BooleanValue(value)
             | WordStream::IntegerValue(value) => value.range,
             WordStream::Keyword(value) => value.range,
             WordStream::NativeType(value) => value.range,
@@ -198,6 +211,7 @@ impl fmt::Display for WordStream {
             | WordStream::Comment(name)
             | WordStream::Literal(name)
             | WordStream::FloatValue(name)
+            | WordStream::BooleanValue(name)
             | WordStream::IntegerValue(name) => name.get_word().to_owned(),
             WordStream::Keyword(name) => name.get_word().to_string(),
             WordStream::NativeType(name) => name.get_word().to_string(),
@@ -618,6 +632,14 @@ impl ContextStream {
             };
 
             word_stream.push(WordStream::NativeType(word_range));
+        } else if BOOLEAN_VALUES.contains(&ident.as_str()) {
+
+            let word_range = WordRange {
+                range: Range::new_with_length(self.cur_line, index, ident.len()),
+                word: ident.to_owned(),
+            };
+
+            word_stream.push(WordStream::BooleanValue(word_range));
         } else if ATTRIBUTES_NAMES.contains(&ident.as_str()) {
             let attribute_name = match ident.as_str() {
                 "deprecated" => AttributeNames::Deprecated,

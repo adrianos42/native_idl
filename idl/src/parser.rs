@@ -1127,7 +1127,7 @@ impl From<ConstFieldError> for ConstError {
     }
 }
 
-impl From<ScError> for ParserError {
+impl From<ScError> for ScannerError {
     fn from(value: ScError) -> Self {
         let (kind, range) = match value {
             ScError::InvalidCharacter(invalid_char) => {
@@ -1166,7 +1166,7 @@ impl From<ScError> for ParserError {
             },
         };
 
-        ParserError::Text(ScannerError(kind, range))
+        Self(kind, range)
     }
 }
 
@@ -1191,7 +1191,7 @@ pub enum ParserError {
     #[error(transparent)]
     Const(#[from] ConstError),
     #[error(transparent)]
-    Text(ScannerError),
+    Text(#[from] ScannerError),
 }
 
 impl ParserError {
@@ -1268,7 +1268,7 @@ impl Parser {
 
         let source_stream = match ContextStream::scan_text(&lines) {
             Ok(value) => value,
-            Err(err) => return Err((context, err.into())),
+            Err(err) => return Err((context, ScannerError::from(err).into())),
         };
 
         let mut word_stream = source_stream.word_streams.iter();
@@ -1319,7 +1319,10 @@ impl Parser {
                             if !comments.is_empty() {
                                 return Err((
                                     context,
-                                    ParserError::Undefined("".to_owned(), Range::default()),
+                                    ParserError::Undefined(
+                                        "Cannot have comment before declarion.".to_owned(),
+                                        keyword.range,
+                                    ),
                                 ));
                             }
 
@@ -1333,7 +1336,10 @@ impl Parser {
                             if !comments.is_empty() {
                                 return Err((
                                     context,
-                                    ParserError::Undefined("".to_owned(), Range::default()),
+                                    ParserError::Undefined(
+                                        "Cannot have comment before declarion.".to_owned(),
+                                        keyword.range,
+                                    ),
                                 ));
                             }
 
@@ -1369,7 +1375,10 @@ impl Parser {
                         _ => {
                             return Err((
                                 context,
-                                ParserError::Undefined("".to_owned(), Range::default()),
+                                ParserError::Undefined(
+                                    keyword.get_word().to_string(),
+                                    keyword.range,
+                                ),
                             ))
                         }
                     }
@@ -1402,7 +1411,7 @@ impl Parser {
                 sw => {
                     return Err((
                         context,
-                        ParserError::Undefined(format!("{}", sw.to_string()), sw.get_range()),
+                        ParserError::Undefined(sw.to_string(), sw.get_range()),
                     ))
                 }
             }

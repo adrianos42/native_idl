@@ -1,11 +1,9 @@
 use super::analyzer;
-use super::completion;
 use super::idl_types;
 use super::parser;
 use super::spec;
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -34,15 +32,15 @@ struct Document {
 
 #[derive(Debug)]
 pub struct Module {
-    documents: RefCell<HashMap<String, Document>>,
-    spec: RefCell<Arc<Result<spec::Spec, spec::SpecError>>>,
+    documents: RwLock<HashMap<String, Document>>,
+    spec: RwLock<Arc<Result<spec::parser::Parser, spec::parser::ParserError>>>,
 }
 
 impl Module {
     pub fn new() -> Module {
         Module {
-            documents: RefCell::new(HashMap::new()),
-            spec: RefCell::new(Arc::new(Err(spec::SpecError::Closed))),
+            documents: RwLock::new(HashMap::new()),
+            spec: RwLock::new(Arc::new(Err(spec::parser::ParserError::Closed))),
         }
     }
 
@@ -53,19 +51,19 @@ impl Module {
 
         let mut sc = self
             .spec
-            .try_borrow_mut()
+            .try_write()
             .map_err(|_| ModuleError::Abort("".to_owned()))?;
-        *sc = Arc::new(spec::Spec::new(text));
+        //*sc = Arc::new(spec::parser::SpecParser::new(text));
 
         Ok(())
     }
 
     pub fn update_library(&self) -> Result<(), ModuleError> {
-        if let Err(spec::SpecError::Closed) = self.spec.borrow().as_ref() {
+        if let Err(spec::parser::ParserError::Closed) = self.spec.read().unwrap().as_ref() {
             return Err(ModuleError::MissingSpec);
         }
 
-        let mut documents = self.documents.borrow_mut();
+        let mut documents = self.documents.write().unwrap();
 
         for doc in documents.values_mut() {
             if let Ok(parser) = doc.parser.clone().as_ref() {
@@ -78,7 +76,7 @@ impl Module {
 
     // Returns each document with an analyzer error
     pub fn get_analyze_errors(&self) -> HashMap<String, analyzer::AnalyzerError> {
-        let documents = self.documents.borrow();
+        let documents = self.documents.read().unwrap();
         let mut result = HashMap::new();
         for (name, doc) in documents.iter() {
             if let Ok(_) = &*doc.parser {
@@ -92,7 +90,7 @@ impl Module {
 
     // Returns each document parser error
     pub fn get_parser_errors(&self) -> HashMap<String, parser::ParserError> {
-        let documents = self.documents.borrow();
+        let documents = self.documents.read().unwrap();
         let mut result = HashMap::new();
         for (name, doc) in documents.iter() {
             if let Err(err) = &*doc.parser {
@@ -102,20 +100,20 @@ impl Module {
         result
     }
 
-    pub fn get_spec_error(&self) -> Option<spec::SpecError> {
-        if let Err(err) = self.spec.borrow().as_ref() {
+    pub fn get_spec_error(&self) -> Option<spec::parser::ParserError> {
+        if let Err(err) = self.spec.read().unwrap().as_ref() {
             return Some(err.clone())
         }
         None
     }
 
-    pub fn get_spec(&self) -> Arc<Result<spec::Spec, spec::SpecError>> {
-        self.spec.borrow().clone()
+    pub fn get_spec(&self) -> Arc<Result<spec::parser::Parser, spec::parser::ParserError>> {
+        self.spec.read().unwrap().clone()
     }
 
     pub fn get_document_names(&self) -> Vec<String> {
         self.documents
-            .borrow()
+            .read().unwrap()
             .keys()
             .map(|v| v.to_owned())
             .collect()
@@ -125,7 +123,8 @@ impl Module {
     // To get the library name, the spec should be used instead.
     pub fn document_library_name(&self) -> Option<String> {
         let spec = &*self.get_spec();
-        let library_name = spec.as_ref().ok()?.library.name.as_str();
+        //let library_name = spec.as_ref().ok()?.library.name.as_str();
+        let library_name = "idl_native"; // TODO
 
         self.get_document_names().into_iter().find_map(|name| {
             let parser_r = self.get_parser(&name)?;
@@ -140,13 +139,13 @@ impl Module {
     }
 
     pub fn get_document_text(&self, name: &str) -> Option<String> {
-        let documents = self.documents.borrow();
+        let documents = self.documents.read().unwrap();
         let doc = documents.get(name)?;
         Some(doc.text.as_ref()?.to_string())
     }
 
     pub fn add_document(&self, name: &str) -> Result<(), ModuleError> {
-        let mut documents = self.documents.borrow_mut();
+        let mut documents = self.documents.write().unwrap();
 
         if documents.contains_key(name) {
             return Err(ModuleError::DuplicateDocument);
@@ -167,7 +166,7 @@ impl Module {
 
     // Adds a document but also updates it with the source text
     pub fn add_document_and_update(&self, name: &str, text: &str) -> Result<(), ModuleError> {
-        let mut documents = self.documents.borrow_mut();
+        let mut documents = self.documents.write().unwrap();
 
         if documents.contains_key(name) {
             return Err(ModuleError::DuplicateDocument);
@@ -187,7 +186,7 @@ impl Module {
     }
 
     pub fn remove_document(&self, name: &str) -> Result<(), ModuleError> {
-        let mut documents = self.documents.borrow_mut();
+        let mut documents = self.documents.write().unwrap();
         match documents.remove(name) {
             Some(_) => Ok(()),
             None => Err(ModuleError::RemoveDocument),
@@ -195,7 +194,7 @@ impl Module {
     }
 
     pub fn update_parse(&self, name: &str, text: &str) {
-        let mut documents = self.documents.borrow_mut();
+        let mut documents = self.documents.write().unwrap();
 
         if let Some(mut doc) = documents.get_mut(name) {
             doc.text = Some(text.to_owned());
@@ -209,7 +208,7 @@ impl Module {
     }
 
     pub fn update_analyze(&self, name: &str) {
-        let mut documents = self.documents.borrow_mut();
+        let mut documents = self.documents.write().unwrap();
 
         if let Some(mut doc) = documents.get_mut(name) {
             if let Ok(parser) = doc.parser.clone().as_ref() {
@@ -220,11 +219,11 @@ impl Module {
 
     // Updates the entire module. The spec is required  for this.
     pub fn update_all_analyze(&self) -> Result<(), ModuleError> {
-        if let Err(spec::SpecError::Closed) = self.spec.borrow().as_ref() {
+        if let Err(spec::parser::ParserError::Closed) = self.spec.read().unwrap().as_ref() {
             return Err(ModuleError::MissingSpec);
         }
 
-        let mut documents = self.documents.borrow_mut();
+        let mut documents = self.documents.write().unwrap();
 
         for doc in documents.values_mut() {
             if let Ok(parser) = &*doc.parser {
@@ -239,7 +238,7 @@ impl Module {
         &self,
         name: &str,
     ) -> Option<Arc<Result<parser::Parser, (parser::Parser, parser::ParserError)>>> {
-        let documents = self.documents.borrow();
+        let documents = self.documents.read().unwrap();
         documents.get(name).map(|doc| doc.parser.clone())
     }
 
@@ -247,21 +246,12 @@ impl Module {
         &self,
         name: &str,
     ) -> Option<Arc<Result<analyzer::Analyzer, analyzer::AnalyzerError>>> {
-        let documents = self.documents.borrow();
+        let documents = self.documents.read().unwrap();
         documents.get(name).map(|doc| doc.analyzer.clone())
     }
 
-    pub fn try_completion(
-        &self,
-        name: &str,
-        text: &str,
-        pos: parser::Position,
-    ) -> Option<completion::Completion> {
-        return completion::Completion::try_complete(text, pos, self);
-    }
-
-    pub(super) fn get_all_struct_refs(&self) -> Vec<String> {
-        let documents = self.documents.borrow();
+    pub fn get_all_struct_refs(&self) -> Vec<String> {
+        let documents = self.documents.read().unwrap();
         let mut names = vec![];
 
         for doc in documents.values() {
@@ -294,8 +284,8 @@ impl Module {
         names
     }
 
-    pub(super) fn get_all_type_refs(&self) -> Vec<String> {
-        let documents = self.documents.borrow();
+    pub fn get_all_type_refs(&self) -> Vec<String> {
+        let documents = self.documents.read().unwrap();
         let mut names = vec![];
 
         for doc in documents.values() {
@@ -328,8 +318,8 @@ impl Module {
         names
     }
 
-    pub(super) fn get_all_enum_refs(&self) -> Vec<String> {
-        let documents = self.documents.borrow();
+    pub fn get_all_enum_refs(&self) -> Vec<String> {
+        let documents = self.documents.read().unwrap();
         let mut names = vec![];
 
         for doc in documents.values() {
@@ -362,8 +352,8 @@ impl Module {
         names
     }
 
-    pub(super) fn get_all_const_refs(&self) -> Vec<String> {
-        let documents = self.documents.borrow();
+    pub fn get_all_const_refs(&self) -> Vec<String> {
+        let documents = self.documents.read().unwrap();
         let mut names = vec![];
 
         for doc in documents.values() {
@@ -396,8 +386,8 @@ impl Module {
         names
     }
 
-    pub(super) fn get_all_interface_refs(&self) -> Vec<String> {
-        let documents = self.documents.borrow();
+    pub fn get_all_interface_refs(&self) -> Vec<String> {
+        let documents = self.documents.read().unwrap();
         let mut names = vec![];
 
         for doc in documents.values() {
@@ -430,7 +420,7 @@ impl Module {
         names
     }
 
-    pub(super) fn get_all_native_refs(&self) -> Vec<String> {
+    pub fn get_all_native_refs(&self) -> Vec<String> {
         vec![
             parser::NativeTypes::Int.to_string(),
             parser::NativeTypes::Float.to_string(),
