@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use idl::idl_types::*;
+use idl::idl::idl_types::*;
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct LanguageRequest {

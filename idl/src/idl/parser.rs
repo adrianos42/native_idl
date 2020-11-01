@@ -3,10 +3,10 @@ use std::fmt;
 use std::sync::Arc;
 use thiserror::Error;
 
-use super::scanner::{ContextStream, ScError, WordStream};
+use crate::scanner::{ContextStream, ScError, WordStream};
 
-pub use super::range::{Position, Range};
-pub use super::scanner::{AttributeNames, Keywords, NativeTypes};
+use crate::range::{Position, Range};
+pub use crate::scanner::{AttributeNames, Keywords, NativeTypes};
 
 #[derive(Debug)]
 pub enum ParserNode {
@@ -447,12 +447,12 @@ impl fmt::Display for EnumFieldError {
 impl fmt::Display for EnumFieldErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            EnumFieldErrorKind::Undefined => "Enum field error.",
-            EnumFieldErrorKind::EmptyBody => "Empty enum field.",
-            EnumFieldErrorKind::InvalidSymbol => "Invalid symbol.",
-            EnumFieldErrorKind::MissingComma => "Missing `,`.",
-            EnumFieldErrorKind::MissingCurlyBracket => "Missing `}`.",
-            EnumFieldErrorKind::MissingIdentifier => "Missing identifier.",
+            EnumFieldErrorKind::Undefined => "Enum field error",
+            EnumFieldErrorKind::EmptyBody => "Empty enum field",
+            EnumFieldErrorKind::InvalidSymbol => "Invalid symbol",
+            EnumFieldErrorKind::MissingComma => "Missing `,`",
+            EnumFieldErrorKind::MissingCurlyBracket => "Missing `}`",
+            EnumFieldErrorKind::MissingIdentifier => "Missing identifier",
         };
 
         write!(f, "{}", errstr)
@@ -481,9 +481,9 @@ impl fmt::Display for EnumError {
 impl fmt::Display for EnumErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            EnumErrorKind::Undefined => "Enum error.".to_owned(),
-            EnumErrorKind::MissingTypeName => "Missing type name.".to_owned(),
-            EnumErrorKind::TypeDeclaration => "Invalid type declaration.".to_owned(),
+            EnumErrorKind::Undefined => "Enum error".to_owned(),
+            EnumErrorKind::MissingTypeName => "Missing type name".to_owned(),
+            EnumErrorKind::TypeDeclaration => "Invalid type declaration".to_owned(),
             EnumErrorKind::EnumField(field) => field.to_string(),
         };
 
@@ -517,10 +517,10 @@ impl fmt::Display for InterfaceError {
 impl fmt::Display for InterfaceErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            InterfaceErrorKind::TypeDeclaration => "Invalid type declaration.".to_owned(),
-            InterfaceErrorKind::Undefined => "Interface error.".to_owned(),
+            InterfaceErrorKind::TypeDeclaration => "Invalid type declaration".to_owned(),
+            InterfaceErrorKind::Undefined => "Interface error".to_owned(),
             InterfaceErrorKind::InterfaceField(field) => field.to_string(),
-            InterfaceErrorKind::MissingTypeName => "Missing type name.".to_owned(),
+            InterfaceErrorKind::MissingTypeName => "Missing type name".to_owned(),
         };
 
         write!(f, "{}", errstr)
@@ -547,23 +547,23 @@ impl fmt::Display for InterfaceFieldError {
 impl fmt::Display for InterfaceFieldErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            InterfaceFieldErrorKind::Undefined => "Interface field error.".to_owned(),
+            InterfaceFieldErrorKind::Undefined => "Interface field error".to_owned(),
             InterfaceFieldErrorKind::Attribute(att) => att.to_string(),
-            InterfaceFieldErrorKind::EmptyBody => "Empty interface field.".to_owned(),
+            InterfaceFieldErrorKind::EmptyBody => "Empty interface field".to_owned(),
             InterfaceFieldErrorKind::ExpectedFunctionSyntax
-            | InterfaceFieldErrorKind::MissingArrowFunction => "Function syntax.".to_owned(),
-            InterfaceFieldErrorKind::IncompleteField => "Incomplete field.".to_owned(),
+            | InterfaceFieldErrorKind::MissingArrowFunction => "Function syntax".to_owned(),
+            InterfaceFieldErrorKind::IncompleteField => "Incomplete field".to_owned(),
             InterfaceFieldErrorKind::InvalidBracketPlacement => {
-                "Invalid bracket placement.".to_owned()
+                "Invalid bracket placement".to_owned()
             }
-            InterfaceFieldErrorKind::InvalidSymbol => "Invalid symbol.".to_owned(),
-            InterfaceFieldErrorKind::MissingAttribute => "Missing attribute.".to_owned(),
-            InterfaceFieldErrorKind::MissingColon => "Missing `:`.".to_owned(),
-            InterfaceFieldErrorKind::MissingCurlyBracket => "Missing `}`.".to_owned(),
-            InterfaceFieldErrorKind::MissingIdentifier => "Missing identifier.".to_owned(),
-            InterfaceFieldErrorKind::MultipleIdentifier => "Multiple identifier.".to_owned(),
+            InterfaceFieldErrorKind::InvalidSymbol => "Invalid symbol".to_owned(),
+            InterfaceFieldErrorKind::MissingAttribute => "Missing attribute".to_owned(),
+            InterfaceFieldErrorKind::MissingColon => "Missing `:`".to_owned(),
+            InterfaceFieldErrorKind::MissingCurlyBracket => "Missing `}`".to_owned(),
+            InterfaceFieldErrorKind::MissingIdentifier => "Missing identifier".to_owned(),
+            InterfaceFieldErrorKind::MultipleIdentifier => "Multiple identifier".to_owned(),
             InterfaceFieldErrorKind::Type(ty) => ty.to_string(),
-            InterfaceFieldErrorKind::TypeDeclaration => "Invalid type declaration.".to_owned(),
+            InterfaceFieldErrorKind::TypeDeclaration => "Invalid type declaration".to_owned(),
             InterfaceFieldErrorKind::TypeTuple(ty) => ty.to_string(),
             InterfaceFieldErrorKind::ExpectedType(ty) => ty.to_owned(),
         };
@@ -641,9 +641,9 @@ impl fmt::Display for StreamError {
 impl fmt::Display for StreamErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            StreamErrorKind::Undefined => "Stream error.".to_owned(),
-            StreamErrorKind::MissingTypeName => "Missing type name.".to_owned(),
-            StreamErrorKind::TypeDeclaration => "Type declaration.".to_owned(),
+            StreamErrorKind::Undefined => "Stream error".to_owned(),
+            StreamErrorKind::MissingTypeName => "Missing type name".to_owned(),
+            StreamErrorKind::TypeDeclaration => "Type declaration".to_owned(),
             StreamErrorKind::StructField(field) => field.to_string(),
         };
 
@@ -677,9 +677,9 @@ impl fmt::Display for StructError {
 impl fmt::Display for StructErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            StructErrorKind::Undefined => "Struct error.".to_owned(),
-            StructErrorKind::MissingTypeName => "Missing type name.".to_owned(),
-            StructErrorKind::TypeDeclaration => "Type declaration.".to_owned(),
+            StructErrorKind::Undefined => "Struct error".to_owned(),
+            StructErrorKind::MissingTypeName => "Missing type name".to_owned(),
+            StructErrorKind::TypeDeclaration => "Type declaration".to_owned(),
             StructErrorKind::StructField(field) => field.to_string(),
         };
 
@@ -707,21 +707,21 @@ impl fmt::Display for StructFieldError {
 impl fmt::Display for StructFieldErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            StructFieldErrorKind::Undefined => "Struct field error.".to_owned(),
-            StructFieldErrorKind::EmptyBody => "Field empty body.".to_owned(),
-            StructFieldErrorKind::IncompleteField => "Incomplete field.".to_owned(),
+            StructFieldErrorKind::Undefined => "Struct field error".to_owned(),
+            StructFieldErrorKind::EmptyBody => "Field empty body".to_owned(),
+            StructFieldErrorKind::IncompleteField => "Incomplete field".to_owned(),
             StructFieldErrorKind::ExpectedType(ident) => format!("Expected type, `{}`", ident),
             StructFieldErrorKind::InvalidBracketPlacement => {
-                "Invalid bracket placement.".to_owned()
+                "Invalid bracket placement".to_owned()
             }
-            StructFieldErrorKind::InvalidSymbol => "Invalid symbol.".to_owned(),
-            StructFieldErrorKind::MissingColon => "Missing `:`.".to_owned(),
-            StructFieldErrorKind::MissingComma => "Missing `,`.".to_owned(),
+            StructFieldErrorKind::InvalidSymbol => "Invalid symbol".to_owned(),
+            StructFieldErrorKind::MissingColon => "Missing `:`".to_owned(),
+            StructFieldErrorKind::MissingComma => "Missing `,`".to_owned(),
             StructFieldErrorKind::MissingCurlyBracket => "Missing `}`".to_owned(),
-            StructFieldErrorKind::MissingIdentifier => "Missing identifier.".to_owned(),
-            StructFieldErrorKind::MultipleIdentifier => "Multiple identifier.".to_owned(),
+            StructFieldErrorKind::MissingIdentifier => "Missing identifier".to_owned(),
+            StructFieldErrorKind::MultipleIdentifier => "Multiple identifier".to_owned(),
             StructFieldErrorKind::Type(ty) => ty.to_string(),
-            StructFieldErrorKind::TypeDeclaration => "Type declaration.".to_owned(),
+            StructFieldErrorKind::TypeDeclaration => "Type declaration".to_owned(),
         };
 
         write!(f, "{}", errstr)
@@ -777,9 +777,9 @@ impl fmt::Display for TypeListError {
 impl fmt::Display for TypeListErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            TypeListErrorKind::Undefined => "Type list error.".to_owned(),
-            TypeListErrorKind::TypeDeclaration => "Type declaration.".to_owned(),
-            TypeListErrorKind::MissingTypeName => "Missing type name.".to_owned(),
+            TypeListErrorKind::Undefined => "Type list error".to_owned(),
+            TypeListErrorKind::TypeDeclaration => "Type declaration".to_owned(),
+            TypeListErrorKind::MissingTypeName => "Missing type name".to_owned(),
             TypeListErrorKind::TypeField(ty) => ty.to_string(),
         };
 
@@ -807,21 +807,21 @@ impl fmt::Display for TypeListFieldError {
 impl fmt::Display for TypeListFieldErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            TypeListFieldErrorKind::Undefined => "Type list error.".to_owned(),
-            TypeListFieldErrorKind::EmptyBody => "Empty body.".to_owned(),
+            TypeListFieldErrorKind::Undefined => "Type list error".to_owned(),
+            TypeListFieldErrorKind::EmptyBody => "Empty body".to_owned(),
             TypeListFieldErrorKind::InvalidBracketPlacement => {
-                "Invalid bracket placement.".to_owned()
+                "Invalid bracket placement".to_owned()
             }
-            TypeListFieldErrorKind::InvalidSymbol => "Invalid symbol.".to_owned(),
-            TypeListFieldErrorKind::MissingCurlyBracket => "Missing `}`.".to_owned(),
+            TypeListFieldErrorKind::InvalidSymbol => "Invalid symbol".to_owned(),
+            TypeListFieldErrorKind::MissingCurlyBracket => "Missing `}`".to_owned(),
             TypeListFieldErrorKind::Type(ty) => ty.to_string(),
-            TypeListFieldErrorKind::TypeDeclaration => "Type declaration.".to_owned(),
-            TypeListFieldErrorKind::IncompleteField => "Incomplete field.".to_owned(),
-            TypeListFieldErrorKind::MultipleIdentifier => "Multiple identifier.".to_owned(),
-            TypeListFieldErrorKind::MissingIdentifier => "Missing identifier.".to_owned(),
-            TypeListFieldErrorKind::MissingColon => "Missing colon.".to_owned(),
-            TypeListFieldErrorKind::MissingComma => "Missing comma.".to_owned(),
-            TypeListFieldErrorKind::ExpectedType(name) => format!("Expected type `{}`.", name),
+            TypeListFieldErrorKind::TypeDeclaration => "Type declaration".to_owned(),
+            TypeListFieldErrorKind::IncompleteField => "Incomplete field".to_owned(),
+            TypeListFieldErrorKind::MultipleIdentifier => "Multiple identifier".to_owned(),
+            TypeListFieldErrorKind::MissingIdentifier => "Missing identifier".to_owned(),
+            TypeListFieldErrorKind::MissingColon => "Missing colon".to_owned(),
+            TypeListFieldErrorKind::MissingComma => "Missing comma".to_owned(),
+            TypeListFieldErrorKind::ExpectedType(name) => format!("Expected type `{}`", name),
         };
 
         write!(f, "{}", errstr)
@@ -877,13 +877,13 @@ impl fmt::Display for TypeTupleError {
 impl fmt::Display for TypeTupleErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            TypeTupleErrorKind::Undefined => "Type tuple error.".to_owned(),
-            TypeTupleErrorKind::DuplicateIdentifier => "Duplicate identifier.".to_owned(),
-            TypeTupleErrorKind::DuplicateType => "Duplicate type.".to_owned(),
-            TypeTupleErrorKind::InvalidTupleDeclaration => "Invalid declaration.".to_owned(),
-            TypeTupleErrorKind::MissingColon => "Missing `:`.".to_owned(),
-            TypeTupleErrorKind::MissingIdentifier => "Missing identifier.".to_owned(),
-            TypeTupleErrorKind::ExpectedType(name) => format!("Expected type `{}`.", name),
+            TypeTupleErrorKind::Undefined => "Type tuple error".to_owned(),
+            TypeTupleErrorKind::DuplicateIdentifier => "Duplicate identifier".to_owned(),
+            TypeTupleErrorKind::DuplicateType => "Duplicate type".to_owned(),
+            TypeTupleErrorKind::InvalidTupleDeclaration => "Invalid declaration".to_owned(),
+            TypeTupleErrorKind::MissingColon => "Missing `:`".to_owned(),
+            TypeTupleErrorKind::MissingIdentifier => "Missing identifier".to_owned(),
+            TypeTupleErrorKind::ExpectedType(name) => format!("Expected type `{}`", name),
             TypeTupleErrorKind::Type(ty) => ty.to_string(),
         };
 
@@ -921,13 +921,13 @@ impl fmt::Display for TypeError {
 impl fmt::Display for TypeErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            TypeErrorKind::Undefined => "Type error.".to_owned(),
-            TypeErrorKind::ArrayOfMapIsNotAllowed => "Array of map is not allowed.".to_owned(),
-            TypeErrorKind::InvalidMapDeclaration => "Invalid map declaration.".to_owned(),
-            TypeErrorKind::InvalidMapType(name) => format!("Invalid map type `{}`.", name),
-            TypeErrorKind::InvalidType(name) => format!("Invalid type `{}`.", name),
-            TypeErrorKind::MapOfArrayIsNotAllowed => "Map of array is not allowed.".to_owned(),
-            TypeErrorKind::WrongNumberOfTypes => "Wrong number of types.".to_owned(),
+            TypeErrorKind::Undefined => "Type error".to_owned(),
+            TypeErrorKind::ArrayOfMapIsNotAllowed => "Array of map is not allowed".to_owned(),
+            TypeErrorKind::InvalidMapDeclaration => "Invalid map declaration".to_owned(),
+            TypeErrorKind::InvalidMapType(name) => format!("Invalid map type `{}`", name),
+            TypeErrorKind::InvalidType(name) => format!("Invalid type `{}`", name),
+            TypeErrorKind::MapOfArrayIsNotAllowed => "Map of array is not allowed".to_owned(),
+            TypeErrorKind::WrongNumberOfTypes => "Wrong number of types".to_owned(),
         };
 
         write!(f, "{}", errstr)
@@ -965,12 +965,12 @@ impl fmt::Display for AttributeError {
 impl fmt::Display for AttributeErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            AttributeErrorKind::Undefined => "Attribute error.".to_owned(),
-            AttributeErrorKind::Empty => "Empty attribute.".to_owned(),
-            AttributeErrorKind::EmptyField => "Empty field.".to_owned(),
-            AttributeErrorKind::InvalidField => "Invalid field.".to_owned(),
-            AttributeErrorKind::MissingBracket => "Missing bracket.".to_owned(),
-            AttributeErrorKind::MissingComma => "Missing `,`.".to_owned(),
+            AttributeErrorKind::Undefined => "Attribute error".to_owned(),
+            AttributeErrorKind::Empty => "Empty attribute".to_owned(),
+            AttributeErrorKind::EmptyField => "Empty field".to_owned(),
+            AttributeErrorKind::InvalidField => "Invalid field".to_owned(),
+            AttributeErrorKind::MissingBracket => "Missing bracket".to_owned(),
+            AttributeErrorKind::MissingComma => "Missing `,`".to_owned(),
         };
 
         write!(f, "{}", errstr)
@@ -999,7 +999,7 @@ impl fmt::Display for LibraryError {
 impl fmt::Display for LibraryErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            LibraryErrorKind::InvalidLibraryDeclaration => "Invalid declaration.",
+            LibraryErrorKind::InvalidLibraryDeclaration => "Invalid declaration",
         };
 
         write!(f, "{}", errstr)
@@ -1023,10 +1023,10 @@ impl fmt::Display for ImportsError {
 impl fmt::Display for ImportsErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            ImportsErrorKind::ExpectedBody => "Empty body.",
-            ImportsErrorKind::EmptyName => "Empty name.",
-            ImportsErrorKind::ExpectedIdentifier => "Missing identifier.",
-            ImportsErrorKind::InvalidImportDeclaration => "Invalid declaration.",
+            ImportsErrorKind::ExpectedBody => "Empty body",
+            ImportsErrorKind::EmptyName => "Empty name",
+            ImportsErrorKind::ExpectedIdentifier => "Missing identifier",
+            ImportsErrorKind::InvalidImportDeclaration => "Invalid declaration",
         };
 
         write!(f, "{}", errstr)
@@ -1053,16 +1053,16 @@ impl fmt::Display for ConstFieldError {
 impl fmt::Display for ConstFieldErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            ConstFieldErrorKind::Undefined => "Const field error.",
-            ConstFieldErrorKind::ConstTypeMustBeUnique => "Const type must be unique.",
-            ConstFieldErrorKind::EmptyBody => "Empty body.",
-            ConstFieldErrorKind::IncompleteField => "Incomplete field.",
-            ConstFieldErrorKind::InvalidSymbol => "Invalid symbol.",
-            ConstFieldErrorKind::MissingAssignment => "Missing `=`.",
-            ConstFieldErrorKind::MissingComma => "Missing `,`.",
-            ConstFieldErrorKind::MissingCurlyBracket => "Missing `}`.",
-            ConstFieldErrorKind::MissingIdentifier => "Missing identifier.",
-            ConstFieldErrorKind::MultipleIdentifier => "Multiple identifier.",
+            ConstFieldErrorKind::Undefined => "Const field error",
+            ConstFieldErrorKind::ConstTypeMustBeUnique => "Const type must be unique",
+            ConstFieldErrorKind::EmptyBody => "Empty body",
+            ConstFieldErrorKind::IncompleteField => "Incomplete field",
+            ConstFieldErrorKind::InvalidSymbol => "Invalid symbol",
+            ConstFieldErrorKind::MissingColon => "Missing `:`",
+            ConstFieldErrorKind::MissingComma => "Missing `,`",
+            ConstFieldErrorKind::MissingCurlyBracket => "Missing `}`",
+            ConstFieldErrorKind::MissingIdentifier => "Missing identifier",
+            ConstFieldErrorKind::MultipleIdentifier => "Multiple identifier",
         };
 
         write!(f, "{}", errstr)
@@ -1078,7 +1078,7 @@ pub enum ConstFieldErrorKind {
     MultipleIdentifier,
     InvalidSymbol,
     MissingIdentifier,
-    MissingAssignment,
+    MissingColon,
     MissingComma,
     MissingCurlyBracket,
 }
@@ -1095,10 +1095,10 @@ impl fmt::Display for ConstError {
 impl fmt::Display for ConstErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            ConstErrorKind::Undefined => "Const error.".to_owned(),
+            ConstErrorKind::Undefined => "Const error".to_owned(),
             ConstErrorKind::ConstField(field) => field.to_string(),
-            ConstErrorKind::TypeDeclaration => "Type declaration.".to_owned(),
-            ConstErrorKind::MissingTypeName => "Missing type name.".to_owned(),
+            ConstErrorKind::TypeDeclaration => "Type declaration".to_owned(),
+            ConstErrorKind::MissingTypeName => "Missing type name".to_owned(),
         };
 
         write!(f, "{}", errstr)
@@ -1320,7 +1320,7 @@ impl Parser {
                                 return Err((
                                     context,
                                     ParserError::Undefined(
-                                        "Cannot have comment before declarion.".to_owned(),
+                                        "Cannot have comment before declarion".to_owned(),
                                         keyword.range,
                                     ),
                                 ));
@@ -1337,7 +1337,7 @@ impl Parser {
                                 return Err((
                                     context,
                                     ParserError::Undefined(
-                                        "Cannot have comment before declarion.".to_owned(),
+                                        "Cannot have comment before declarion".to_owned(),
                                         keyword.range,
                                     ),
                                 ));
@@ -1889,7 +1889,7 @@ impl Parser {
                                         ty = ty.map(|args| {
                                             let arg_range = match &args {
                                                 Type::Tuple(value) => value.range,
-                                                _ => panic!("Expected tuple."),
+                                                _ => panic!("Expected tuple"),
                                             };
 
                                             Type::Function(Arc::new(TypeFunction {
@@ -1981,7 +1981,7 @@ impl Parser {
                                         ty = ty.map(|args| {
                                             let arg_range = match &args {
                                                 Type::Tuple(value) => value.range,
-                                                _ => panic!("Expected tuple."),
+                                                _ => panic!("Expected tuple"),
                                             };
 
                                             Type::Function(Arc::new(TypeFunction {
@@ -2040,7 +2040,7 @@ impl Parser {
                                         ty = ty.map(|args| {
                                             let arg_range = match &args {
                                                 Type::Tuple(value) => value.range,
-                                                _ => panic!("Expected tuple."),
+                                                _ => panic!("Expected tuple"),
                                             };
 
                                             Type::Function(Arc::new(TypeFunction {
@@ -3903,7 +3903,7 @@ impl Parser {
                                     }
                                     ConstFieldParsing::ExpectingColon => {
                                         return Err(ConstFieldError(
-                                            ConstFieldErrorKind::MissingAssignment,
+                                            ConstFieldErrorKind::MissingColon,
                                             last_range.merge(range),
                                         ));
                                     }

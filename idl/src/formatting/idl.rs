@@ -1,15 +1,9 @@
-use crate::parser::*;
+use crate::idl::parser::*;
 use crate::scanner::Keywords;
+use super::*;
 
 // TODO Split lines with more than 80 characters.
 
-pub const INDENT: &str = "    ";
-pub const MAX_LENGTH: usize = 100;
-pub const COMMENT_START: &str = "--";
-
-const NEW_LINE: &str = "\n\n";
-const CLOSE_NEW_LINE: &str = "}\n\n";
-const OPEN_NEW_LINE: &str = " {\n";
 
 // The only stuff that this formatter reorders are the the library name and imports,
 // since they must appear first. Anything else, only the comments, spaces and indentantion are fixed.
@@ -261,7 +255,7 @@ fn split_interface_field(interface_field: &InterfaceField) -> String {
             Type::Function(function) => {
                 let tt = match &*function.args {
                     Type::Tuple(value) => value.clone(),
-                    _ => panic!("Not a tuple."),
+                    _ => panic!("Not a tuple"),
                 };
 
                 format!(

@@ -1,11 +1,12 @@
 use super::parser::*;
+use crate::range::Range;
 use std::sync::Arc;
 
 impl Parser {
     pub fn get_range_from_type_name(&self, name: &str) -> Range {
         match self.create_type_from_reference(name).unwrap().as_ref() {
             Type::Name(name) => name.range,
-            _ => panic!("Not a type name."),
+            _ => panic!("Not a type name"),
         }
     }
 
@@ -71,7 +72,7 @@ impl Parser {
             }
         }
 
-        panic!("Field `{}` in `{}` not found.", name, field_name)
+        panic!("Field `{}` in `{}` not found", name, field_name)
     }
 
     // Only returns the name from user defined types.

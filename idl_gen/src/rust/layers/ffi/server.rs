@@ -1,5 +1,5 @@
-use idl::analyzer::Analyzer;
-use idl::idl_types::*;
+use idl::idl::analyzer::Analyzer;
+use idl::idl::idl_types::*;
 
 use crate::rust::con_idl::get_rust_ty_ref;
 

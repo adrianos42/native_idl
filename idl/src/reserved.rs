@@ -1,4 +1,4 @@
-use super::parser::Range;
+use super::range::Range;
 use regex::Regex;
 use thiserror::Error;
 use std::fmt;
@@ -205,12 +205,12 @@ pub enum NameErrorKind {
 impl fmt::Display for NameError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match &self.0 {
-            NameErrorKind::InvalidFieldName => format!("Invalid field name `{}`.", self.2),
-            NameErrorKind::InvalidTypeName => format!("Invalid type name `{}`.", self.2),
-            NameErrorKind::ReservedName => format!("Reserved name `{}`.", self.2),
-            NameErrorKind::ReservedType => format!("Reserved type `{}`.", self.2),
+            NameErrorKind::InvalidFieldName => format!("Invalid field name `{}`", self.2),
+            NameErrorKind::InvalidTypeName => format!("Invalid type name `{}`", self.2),
+            NameErrorKind::ReservedName => format!("Reserved name `{}`", self.2),
+            NameErrorKind::ReservedType => format!("Reserved type `{}`", self.2),
             NameErrorKind::ReservedAttributeName => {
-                format!("Reserved attribute name `{}`.", self.2)
+                format!("Reserved attribute name `{}`", self.2)
             }
         };
 
@@ -220,7 +220,7 @@ impl fmt::Display for NameError {
 
 pub(super) fn type_name_is_valid(name: &str, range: Range) -> Result<(), NameError> {
     lazy_static! {
-        static ref RE: Regex = Regex::new(r"^[A-Z](?:[a-z0-9][A-Z]?)+$").unwrap();
+        static ref RE: Regex = Regex::new(r"^[A-Z]+[A-Za-z0-9]*$").unwrap();
     }
 
     if RE.is_match(name) {

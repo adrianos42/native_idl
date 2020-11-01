@@ -1,11 +1,11 @@
 use super::idl_types;
-use super::module;
-use super::parser::{self, Range};
-use super::reserved::{
+use super::parser;
+use crate::module;
+use crate::range::Range;
+use crate::reserved::{
     field_name_is_valid, is_reserved_type, is_reserved_word, type_name_is_valid, NameError,
 };
-use super::scanner;
-use std::convert::From;
+use crate::scanner;
 use std::fmt;
 use std::sync::Arc;
 use thiserror::Error;
@@ -35,18 +35,28 @@ impl fmt::Display for ReferenceError {
             ReferenceErrorKind::StructRecursiveReference => {
                 format!("Recursive reference in struct `{}`", name)
             }
-            ReferenceErrorKind::UndefinedType => format!("Undefined type `{}`.", name),
+            ReferenceErrorKind::UndefinedType => format!("Undefined type `{}`", name),
         };
 
         write!(f, "{}", errstr)
     }
 }
+
+#[derive(Error, Debug, Clone)]
+pub struct DuplicateNameError(String);
+
+impl fmt::Display for DuplicateNameError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Error, Debug, Clone)]
 pub struct DuplicateFieldNameError(String, Range);
 
 impl fmt::Display for DuplicateFieldNameError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Duplicate field `{}`", self.0)
+        write!(f, "{}", self.0)
     }
 }
 
@@ -62,6 +72,8 @@ pub enum AnalyzerError {
     LibraryDefinition,
     #[error("Missing library definition")]
     MissingLibraryDefinition,
+    #[error("Duplicate name `{0}`")]
+    DuplicateName(#[from] DuplicateNameError),
     #[error("Duplicate name field `{0}`")]
     DuplicateFieldNameError(#[from] DuplicateFieldNameError),
     #[error("Name `{0}`")]
@@ -79,6 +91,7 @@ impl AnalyzerError {
             | AnalyzerError::LibraryDefinition
             | AnalyzerError::MissingLibraryDefinition => (self.to_string(), Range::default()),
             AnalyzerError::DuplicateFieldNameError(value) => (value.to_string(), value.1),
+            AnalyzerError::DuplicateName(value) => (value.to_string(), Range::default()),
             AnalyzerError::ReferenceError(value) => (value.to_string(), value.1),
             AnalyzerError::NameError(value) => (value.to_string(), value.1),
         }
@@ -107,9 +120,7 @@ impl Analyzer {
     }
 
     pub fn from_nodes(nodes: Vec<idl_types::TypeNode>) -> Self {
-        Self {
-            nodes,
-        }
+        Self { nodes }
     }
 
     pub fn get_library_name(&self) -> String {
@@ -257,7 +268,7 @@ impl Analyzer {
 
     pub fn resolve(
         parsers: &parser::Parser,
-        module: &crate::module::Module,
+        module: Option<&crate::module::Module>,
     ) -> Result<Self, AnalyzerError> {
         let mut items = AnalyzerItems::default();
         let mut analyzer = Self::default();
@@ -274,9 +285,13 @@ impl Analyzer {
                     if items.library_name.is_some() {
                         return Err(AnalyzerError::LibraryDefinition);
                     }
+
+                    is_reserved_type(value.to_lowercase().as_str(), Range::default())?;
+                    is_reserved_word(value.to_lowercase().as_str(), Range::default())?;
                     items.library_name = Some(value.to_owned());
                 }
                 parser::ParserNode::Interface(value) => {
+                    // TODO verify is duplicate???
                     let ident = match &*value.ident.clone() {
                         parser::Type::Name(name) => name.ident.to_owned(),
                         _ => {
@@ -291,7 +306,6 @@ impl Analyzer {
                     type_name_is_valid(ident.as_str(), value.range)?;
                     is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
                     is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
-
                     items.interfaces.push(ident);
                 }
                 parser::ParserNode::Struct(value) => {
@@ -309,7 +323,6 @@ impl Analyzer {
                     type_name_is_valid(ident.as_str(), value.range)?;
                     is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
                     is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
-
                     items.structs.push(ident);
                 }
                 parser::ParserNode::Enum(value) => {
@@ -327,7 +340,6 @@ impl Analyzer {
                     type_name_is_valid(ident.as_str(), value.range)?;
                     is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
                     is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
-
                     items.enums.push(ident);
                 }
                 parser::ParserNode::Const(value) => {
@@ -345,7 +357,6 @@ impl Analyzer {
                     type_name_is_valid(ident.as_str(), value.range)?;
                     is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
                     is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
-
                     items.consts.push(ident);
                 }
                 parser::ParserNode::TypeList(value) => {
@@ -363,12 +374,14 @@ impl Analyzer {
                     type_name_is_valid(ident.as_str(), value.range)?;
                     is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
                     is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
-
                     items.type_lists.push(ident);
                 }
                 _ => {}
             }
         }
+
+        // See if there's any duplicate type name
+        Self::has_duplicate_names(&items)?;
 
         if let Some(value) = &items.imports {
             analyzer
@@ -725,7 +738,7 @@ impl Analyzer {
                 idl_types::TypeName::TypeFunction(value) => {
                     if let idl_types::TypeName::TypeTuple(tul) = &value.args {
                         Some(tul)
-                    } else {    
+                    } else {
                         None
                     }
                 }
@@ -1131,6 +1144,25 @@ impl Analyzer {
             }
             _ => false,
         }
+    }
+
+    fn has_duplicate_names(items: &AnalyzerItems) -> Result<(), DuplicateNameError> {
+        let names = items
+            .interfaces
+            .iter()
+            .chain(items.structs.iter())
+            .chain(items.type_lists.iter())
+            .chain(items.consts.iter())
+            .chain(items.enums.iter());
+
+        if let Some(value) = names
+            .clone()
+            .find(|v| names.clone().filter(|f| f == v).count() != 1)
+        {
+            return Err(DuplicateNameError(value.to_owned()));
+        }
+
+        Ok(())
     }
 }
 

@@ -1,28 +1,29 @@
 use crate::scanner::{ContextStream, WordStream};
-use std::fmt;
+use std::{sync::Arc, fmt};
 use thiserror::Error;
+use crate::range::{Position, Range};
 
-pub use crate::parser::{Keywords, ScannerError, TypeName};
-pub use crate::range::{Position, Range};
+pub use crate::idl::parser::{Keywords, ScannerError, TypeName};
+
 
 #[derive(Debug)]
 pub enum ParserNode {
-    Library(Item),
-    Layer(Item),
-    Server(Item),
-    Client(Item),
+    Library(Arc<Item>),
+    Layer(Arc<Item>),
+    Server(Arc<Item>),
+    Client(Arc<Item>),
 }
 
 #[derive(Debug)]
 pub enum ItemIdent {
-    TypeName(TypeName), // Type declaration
+    TypeName(TypeName),   // Type declaration
     Identifier(TypeName), // Usually, only the library declarion
 }
 
 #[derive(Debug)]
 pub struct Item {
     pub ident: ItemIdent,
-    pub fields: Vec<ItemNode>,
+    pub nodes: Vec<ItemNode>,
     pub range: Range,
 }
 
@@ -96,10 +97,10 @@ impl fmt::Display for ItemError {
 impl fmt::Display for ItemErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            ItemErrorKind::Undefined => "Item error.".to_owned(),
+            ItemErrorKind::Undefined => "Item error".to_owned(),
             ItemErrorKind::ItemField(field) => field.to_string(),
-            ItemErrorKind::TypeDeclaration => "Type declaration.".to_owned(),
-            ItemErrorKind::MissingTypeName => "Missing type name.".to_owned(),
+            ItemErrorKind::TypeDeclaration => "Type declaration".to_owned(),
+            ItemErrorKind::MissingTypeName => "Missing type name".to_owned(),
         };
 
         write!(f, "{}", errstr)
@@ -134,17 +135,17 @@ impl fmt::Display for ItemFieldError {
 impl fmt::Display for ItemFieldErrorKind {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let errstr = match self {
-            ItemFieldErrorKind::Undefined => "Item field error.",
-            ItemFieldErrorKind::ItemTypeMustBeUnique => "Const type must be unique.",
-            ItemFieldErrorKind::EmptyBody => "Empty body.",
-            ItemFieldErrorKind::IncompleteField => "Incomplete field.",
-            ItemFieldErrorKind::InvalidSymbol => "Invalid symbol.",
-            ItemFieldErrorKind::MissingAssignment => "Missing `=`.",
-            ItemFieldErrorKind::MissingComma => "Missing `,`.",
-            ItemFieldErrorKind::MissingCurlyBracket => "Missing `}`.",
-            ItemFieldErrorKind::MissingIdentifier => "Missing identifier.",
-            ItemFieldErrorKind::MultipleIdentifier => "Multiple identifier.",
-            ItemFieldErrorKind::MissingSquareBracket => "Missing `]`.",
+            ItemFieldErrorKind::Undefined => "Item field error",
+            ItemFieldErrorKind::ItemTypeMustBeUnique => "Const type must be unique",
+            ItemFieldErrorKind::EmptyBody => "Empty body",
+            ItemFieldErrorKind::IncompleteField => "Incomplete field",
+            ItemFieldErrorKind::InvalidSymbol => "Invalid symbol",
+            ItemFieldErrorKind::MissingAssignment => "Missing `=`",
+            ItemFieldErrorKind::MissingComma => "Missing `,`",
+            ItemFieldErrorKind::MissingCurlyBracket => "Missing `}`",
+            ItemFieldErrorKind::MissingIdentifier => "Missing identifier",
+            ItemFieldErrorKind::MultipleIdentifier => "Multiple identifier",
+            ItemFieldErrorKind::MissingSquareBracket => "Missing `]`",
         };
 
         write!(f, "{}", errstr)
@@ -169,8 +170,6 @@ pub enum ItemFieldErrorKind {
 #[derive(Error, Debug, Clone)]
 pub enum ParserError {
     #[error("Undefined `{0}`")]
-    Abort(String),
-    #[error("Undefined `{0}`")]
     Undefined(String, Range),
     #[error("Closed")]
     Closed,
@@ -179,6 +178,28 @@ pub enum ParserError {
     #[error(transparent)]
     Item(#[from] ItemError),
 }
+
+
+impl ParserError {
+    pub fn get_message_with_range(&self) -> (String, Range) {
+        match self {
+            ParserError::Closed => (self.to_string(), Range::default()),
+            ParserError::Undefined(_, range) => (self.to_string(), *range),
+            ParserError::Text(ScannerError(kind, range)) => (kind.to_string(), *range),
+            ParserError::Item(ItemError(kind, range)) => (kind.to_string(), *range)
+        }
+    }
+
+    pub fn get_range(&self) -> Range {
+        match self {
+            ParserError::Closed => Range::default(),
+            ParserError::Undefined(_, range) => *range,
+            ParserError::Text(ScannerError(_, range)) => *range,
+            ParserError::Item(ItemError(_, range)) => *range,
+        }
+    }
+}
+
 
 #[derive(Debug, Default)]
 pub struct Parser {
@@ -211,25 +232,25 @@ impl Parser {
                     match &keyword.get_word() {
                         Keywords::Layer => {
                             match Self::consume_item(&mut word_stream, start_position) {
-                                Ok(value) => context.nodes.push(ParserNode::Layer(value)),
+                                Ok(value) => context.nodes.push(ParserNode::Layer(Arc::new(value))),
                                 Err(err) => return Err((context, err.into())),
                             }
                         }
                         Keywords::Server => {
                             match Self::consume_item(&mut word_stream, start_position) {
-                                Ok(value) => context.nodes.push(ParserNode::Server(value)),
+                                Ok(value) => context.nodes.push(ParserNode::Server(Arc::new(value))),
                                 Err(err) => return Err((context, err.into())),
                             }
                         }
                         Keywords::Library => {
                             match Self::consume_item(&mut word_stream, start_position) {
-                                Ok(value) => context.nodes.push(ParserNode::Library(value)),
+                                Ok(value) => context.nodes.push(ParserNode::Library(Arc::new(value))),
                                 Err(err) => return Err((context, err.into())),
                             }
                         }
                         Keywords::Client => {
                             match Self::consume_item(&mut word_stream, start_position) {
-                                Ok(value) => context.nodes.push(ParserNode::Client(value)),
+                                Ok(value) => context.nodes.push(ParserNode::Client(Arc::new(value))),
                                 Err(err) => return Err((context, err.into())),
                             }
                         }
@@ -269,11 +290,11 @@ impl Parser {
             match w_stream {
                 WordStream::LeftCurlyBracket(lc) => match item_name {
                     Some(ident) => {
-                        let (fields, end_position) = Self::push_item_fields(word_stream)?;
+                        let (nodes, end_position) = Self::push_item_fields(word_stream)?;
 
                         return Ok(Item {
                             ident,
-                            fields,
+                            nodes,
                             range: Range {
                                 start: start_position,
                                 end: end_position,
@@ -646,6 +667,7 @@ impl Parser {
                                     ));
                                 }
                                 fields.push(item_type.take().unwrap());
+                                expecting_value = true;
                             }
                             WordStream::TypeName(type_name) => {
                                 let range = type_name.range;

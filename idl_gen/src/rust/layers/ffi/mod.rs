@@ -1,6 +1,6 @@
 use crate::rust::string_pros::StringPros;
-use idl::analyzer::Analyzer;
-use idl::idl_types::*;
+use idl::idl::analyzer::Analyzer;
+use idl::idl::idl_types::*;
 use proc_macro2::{self, Ident, Span, TokenStream};
 use std::fmt;
 

@@ -110,10 +110,10 @@ pub(super) struct WordRange<T> {
 impl Range {
     fn new_with_length(line: usize, index: usize, length: usize) -> Self {
         Self {
-            start: Position { line, index },
+            start: Position { line, column: index },
             end: Position {
                 line,
-                index: index + length,
+                column: index + length,
             },
         }
     }
@@ -606,7 +606,10 @@ impl ContextStream {
                 "const" => Keywords::Const,
                 "stream" => Keywords::Stream,
                 "static" => Keywords::Static,
-                _ => panic!("Not a keyword."),
+                "server" => Keywords::Server,
+                "client" => Keywords::Client,
+                "layer" => Keywords::Layer,
+                _ => panic!("Not a keyword"),
             };
 
             let word_range = WordRange {
@@ -623,7 +626,7 @@ impl ContextStream {
                 "string" => NativeTypes::String,
                 "bytes" => NativeTypes::Bytes,
                 "none" => NativeTypes::None,
-                _ => panic!("Not a native type."),
+                _ => panic!("Not a native type"),
             };
 
             let word_range = WordRange {
@@ -643,7 +646,7 @@ impl ContextStream {
         } else if ATTRIBUTES_NAMES.contains(&ident.as_str()) {
             let attribute_name = match ident.as_str() {
                 "deprecated" => AttributeNames::Deprecated,
-                _ => panic!("Not an attribute name."),
+                _ => panic!("Not an attribute name"),
             };
 
             let word_range = WordRange {
@@ -660,7 +663,7 @@ impl ContextStream {
 
             lazy_static! {
                 static ref RE: Regex =
-                    Regex::new(r"^(?:([A-Z](?:[a-z0-9][A-Z]?)*)|((?:[a-z]+[0-9]*)+(?:_[a-z0-9]+)*))$")
+                    Regex::new(r"^(?:([A-Z]+[A-Za-z0-9]*)|((?:[a-z]+[0-9]*)+(?:_[a-z0-9]+)*))$")
                         .unwrap();
             }
 

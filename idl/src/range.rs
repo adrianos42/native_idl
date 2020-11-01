@@ -6,12 +6,6 @@ pub struct Range {
     pub end: Position,
 }
 
-impl fmt::Display for Range {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Range {{ start: {}, end: {} }}", self.start, self.end)
-    }
-}
-
 impl Range {
     pub fn get_byte_range(self, text: &str) -> Option<std::ops::Range<usize>> {
         let mut count = 0;
@@ -20,14 +14,14 @@ impl Range {
 
         for (index, line) in text.lines().enumerate() {
             if index == self.start.line {
-                start = Some(count + self.start.index);
+                start = Some(count + self.start.column);
                 if end.is_some() {
                     break;
                 }
             }
 
             if index == self.end.line {
-                end = Some(count + self.end.index);
+                end = Some(count + self.end.column);
                 if start.is_some() {
                     break;
                 }
@@ -59,7 +53,7 @@ impl Range {
     pub fn as_position(self) -> Position {
         Position {
             line: self.start.line,
-            index: self.start.index,
+            column: self.start.column,
         }
     }
 
@@ -76,17 +70,7 @@ impl Range {
 #[derive(Debug, Copy, Clone, Default, PartialOrd, PartialEq)]
 pub struct Position {
     pub line: usize,
-    pub index: usize,
-}
-
-impl fmt::Display for Position {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "Position {{ line: {}, column: {} }}",
-            self.line, self.index
-        )
-    }
+    pub column: usize,
 }
 
 impl Position {

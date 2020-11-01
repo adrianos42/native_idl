@@ -6,7 +6,7 @@ mod string_pros;
 
 pub(crate) mod con_idl;
 
-use idl::analyzer::Analyzer;
+use idl::idl::analyzer::Analyzer;
 use idl::module::Module;
 use thiserror::Error;
 
