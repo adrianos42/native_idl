@@ -122,19 +122,19 @@ pub(super) fn get_node(
     if !has_version {
         nodes.push(create_field_node(
             "version",
-            ItemType::String(DEFAULT_VERSION.to_owned()),
+            ItemType::NatString(DEFAULT_VERSION.to_owned()),
         ));
     }
 
     if !has_idl_version {
         nodes.push(create_field_node(
             "idl_version",
-            ItemType::String(DEFAULT_IDL_VERSION.to_owned()),
+            ItemType::NatString(DEFAULT_IDL_VERSION.to_owned()),
         ));
     }
 
     if !has_author {
-        nodes.push(create_field_node("author", ItemType::String("".to_owned())))
+        nodes.push(create_field_node("author", ItemType::NatString("".to_owned())))
     }
 
     if !has_client {

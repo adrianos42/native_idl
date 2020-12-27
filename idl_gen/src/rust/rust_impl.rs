@@ -1,5 +1,5 @@
 use idl::idl::analyzer::Analyzer;
-use idl::idl::idl_types::*;
+use idl::idl::idl_nodes::*;
 
 use super::con_idl::get_rust_ty_ref;
 
@@ -35,12 +35,12 @@ impl fmt::Display for RustImpl {
 impl RustImpl {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, RustImplError> {
         let mut context = RustImpl::new();
-        let nodes: &[TypeNode] = &analyzer.nodes;
+        let nodes: &[IdlNode] = &analyzer.nodes;
 
         for node in nodes {
             match node {
-                TypeNode::InterfaceComment(_) => {}
-                TypeNode::TypeInterface(value) => context.add_interface(value, analyzer)?,
+                IdlNode::InterfaceComment(_) => {}
+                IdlNode::TypeInterface(value) => context.add_interface(value, analyzer)?,
                 _ => {}
             }
         }

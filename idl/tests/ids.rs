@@ -1,6 +1,6 @@
 mod analyzer {
     static IDS_FIRST: &str = r#"
-library idl_types {
+library idl_nodes {
     version: "1.0",
     idl_version: "0.1",
 }
@@ -15,16 +15,7 @@ client Maine {
 }
 
 layer FFI {
-    protocol: "ffi",
     description: "This is supposed to be the tranlation layer.",
-}
-
-layer WebSocket {
-    protocol: "web_socket",
-}
-
-layer Aes {
-    kind: "crypto",
 }
 "#;
 

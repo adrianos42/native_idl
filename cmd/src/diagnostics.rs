@@ -1,41 +1,54 @@
 use codespan_reporting::{
     diagnostic::{Diagnostic, Label},
+    files::SimpleFiles,
     term,
     term::termcolor::{ColorChoice, StandardStream},
 };
-use idl::{analyzer, module, parser, spec};
+use idl::{self, module};
 use std::ops::Range;
 
 pub fn diagnostic(module: &module::Module) -> anyhow::Result<bool> {
     let files = files::Files::from(module);
 
-    let spec_error = module.get_spec_error();
-    let parser_errors = module.get_parser_errors();
-    let analyze_errors = module.get_analyze_errors();
+    let idl_parser_errors = module.get_idl_parser_errors();
+    let idl_analyze_errors = module.get_idl_analyze_errors();
+    let ids_parser_errors = module.get_ids_parser_errors();
+    let ids_analyze_errors = module.get_ids_analyze_errors();
     let mut messages = vec![];
 
-    if let Some(err) = spec_error {
-        if let Some(id) = files.get_id("idlspec") {
-            let range = 0..1;
-            messages.push(Message::Spec { id, err, range });
-        }
-    }
-
-    for (name, err) in parser_errors {
+    for (name, err) in idl_parser_errors {
         if let Some(id) = files.get_id(&name) {
             let range = err
                 .get_range()
-                .get_byte_range(&module.get_document_text(&name).unwrap())
+                .get_byte_range(&module.get_idl_document_text(&name).unwrap())
                 .unwrap_or_default();
 
-            messages.push(Message::Parser { id, err, range });
+            messages.push(Message::IdlParser { id, err, range });
         }
     }
 
-    for (name, err) in analyze_errors {
+    for (name, err) in idl_analyze_errors {
         if let Some(id) = files.get_id(&name) {
             let range = 0..1;
-            messages.push(Message::Analyzer { id, err, range });
+            messages.push(Message::IdlAnalyzer { id, err, range });
+        }
+    }
+
+    for (name, err) in ids_parser_errors {
+        if let Some(id) = files.get_id(&name) {
+            let range = err
+                .get_range()
+                .get_byte_range(&module.get_idl_document_text(&name).unwrap())
+                .unwrap_or_default();
+
+            messages.push(Message::IdsParser { id, err, range });
+        }
+    }
+
+    for (name, err) in ids_analyze_errors {
+        if let Some(id) = files.get_id(&name) {
+            let range = 0..1;
+            messages.push(Message::IdsAnalyzer { id, err, range });
         }
     }
 
@@ -51,8 +64,20 @@ pub fn diagnostic(module: &module::Module) -> anyhow::Result<bool> {
     Ok(has_error)
 }
 
+pub fn diagnostic_generic(name: &str, message: &str) -> anyhow::Result<()> {
+    let mut writer = StandardStream::stderr(ColorChoice::Always);
+    let config = term::Config::default();
+
+    let mut files = SimpleFiles::new();
+    let id = files.add(name, message);
+    let diagnostic = Diagnostic::error().with_labels(vec![Label::primary(id, 0..message.len())]);
+
+    term::emit(&mut writer, &config, &files, &diagnostic)?;
+
+    Ok(())
+}
+
 mod files {
-    use anyhow::Result;
     use codespan_reporting::files;
     use std::{collections::HashMap, ops::Range};
 
@@ -89,7 +114,7 @@ mod files {
             let mut result = Self::new();
 
             for name in value.get_document_names() {
-                if let Some(source) = value.get_document_text(&name) {
+                if let Some(source) = value.get_idl_document_text(&name) {
                     result.add(name, source);
                 }
             }
@@ -169,28 +194,38 @@ mod files {
 }
 
 pub enum Message {
-    Spec {
+    // Spec {
+    //     id: files::FileId,
+    //     range: Range<usize>,
+    //     err: spec::SpecError,
+    // },
+    IdlAnalyzer {
         id: files::FileId,
         range: Range<usize>,
-        err: spec::SpecError,
+        err: idl::idl::analyzer::AnalyzerError,
     },
-    Analyzer {
+    IdlParser {
         id: files::FileId,
         range: Range<usize>,
-        err: analyzer::AnalyzerError,
+        err: idl::idl::parser::ParserError,
     },
-    Parser {
+    IdsAnalyzer {
         id: files::FileId,
         range: Range<usize>,
-        err: parser::ParserError,
+        err: idl::ids::analyzer::AnalyzerError,
+    },
+    IdsParser {
+        id: files::FileId,
+        range: Range<usize>,
+        err: idl::ids::parser::ParserError,
     },
 }
 
 impl Message {
     fn to_diagnostic(&self) -> Diagnostic<files::FileId> {
         match self {
-            Message::Spec { id, range, err } => Diagnostic::error().with_message("spec error"),
-            Message::Parser { id, range, err } => {
+            //Message::Spec { id, range, err } => Diagnostic::error().with_message("spec error"),
+            Message::IdlParser { id, range, err } => {
                 let (message, e_range) = err.get_message_with_range();
 
                 Diagnostic::error()
@@ -199,8 +234,32 @@ impl Message {
                         Label::primary(*id, range.clone()).with_message(message)
                     ])
             }
-            Message::Analyzer { id, range, err } => {
-                Diagnostic::error().with_message("analyzer error")
+            Message::IdlAnalyzer { id, range, err } => {
+                let (message, e_range) = err.get_message_with_range();
+
+                Diagnostic::error()
+                    .with_message("analyzer error")
+                    .with_labels(vec![
+                        Label::primary(*id, range.clone()).with_message(message)
+                    ])
+            }
+            Message::IdsParser { id, range, err } => {
+                let (message, e_range) = err.get_message_with_range();
+
+                Diagnostic::error()
+                    .with_message("parser error")
+                    .with_labels(vec![
+                        Label::primary(*id, range.clone()).with_message(message)
+                    ])
+            }
+            Message::IdsAnalyzer { id, range, err } => {
+                let (message, e_range) = err.get_message_with_range();
+
+                Diagnostic::error()
+                    .with_message("analyzer error")
+                    .with_labels(vec![
+                        Label::primary(*id, range.clone()).with_message(message)
+                    ])
             }
         }
     }

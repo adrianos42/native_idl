@@ -1,6 +1,9 @@
 mod diagnostics;
 pub mod formatter;
-pub mod generator;
+pub mod client;
+pub mod server;
+pub mod analyze;
+pub mod clean;
 
 use anyhow::{anyhow, Result};
 use std::fs;
@@ -27,10 +30,10 @@ pub(crate) fn open_directory(path: &path::Path) -> Result<idl::module::Module> {
             if let Some(doc) = add_file(&item) {
                 match doc.file_type.as_str() {
                     "idl" => {
-                        module.add_document_and_update(&doc.file_stem, &doc.text)?;
+                        module.add_idl_document_and_update(&doc.file_stem, &doc.text)?;
                     }
-                    "toml" => {
-                        module.update_spec(&doc.file_stem, &doc.text)?;
+                    "ids" => {
+                        module.add_ids_document_and_update(&doc.file_stem, &doc.text)?;
                     }
                     _ => panic!(),
                 }
@@ -49,11 +52,7 @@ fn add_file(path: &path::Path) -> Option<Document> {
     let file_type = file_type_s.to_str()?.to_owned();
 
     match file_type.as_str() {
-        "idl" | "toml" => {
-            if file_type == "toml" && file_stem != "idlspec" {
-                return None;
-            }
-
+        "idl" | "ids" => {
             if let Ok(text) = fs::read_to_string(path) {
                 return Some(Document {
                     file_stem,

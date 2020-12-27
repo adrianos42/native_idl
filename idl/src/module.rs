@@ -153,12 +153,20 @@ impl Module {
     }
 
     // Updates the entire module. The spec is required for this.
-    pub fn update_all_idl_analyzer(&self) -> Result<(), ModuleError> {
-        let mut documents = self.idl_documents.write().unwrap();
+    pub fn update_module(&self) -> Result<(), ModuleError> {
+        let mut idl_documents = self.idl_documents.write().unwrap();
 
         // TODO match the ids document
+        let mut ids_documents = self.ids_documents.write().unwrap();
 
-        for doc in documents.values_mut() {
+        for (name, doc) in idl_documents.iter_mut() {
+            if let Some(mut ids_doc) = ids_documents.get_mut(name) {
+                if let Ok(parser) = &*ids_doc.parser {
+                    ids_doc.analyzer =
+                        Arc::new(ids::analyzer::Analyzer::resolve(parser, Some(self)))
+                }
+            }
+
             if let Ok(parser) = &*doc.parser {
                 doc.analyzer = Arc::new(idl::analyzer::Analyzer::resolve(parser, Some(self)))
             }
@@ -170,7 +178,8 @@ impl Module {
     pub fn get_idl_parser(
         &self,
         name: &str,
-    ) -> Option<Arc<Result<idl::parser::Parser, (idl::parser::Parser, idl::parser::ParserError)>>> {
+    ) -> Option<Arc<Result<idl::parser::Parser, (idl::parser::Parser, idl::parser::ParserError)>>>
+    {
         let documents = self.idl_documents.read().unwrap();
         documents.get(name).map(|doc| doc.parser.clone())
     }
@@ -192,7 +201,7 @@ impl Module {
                 Ok(analyzer) => {
                     for node in &analyzer.nodes {
                         match node {
-                            idl::idl_types::TypeNode::TypeStruct(value) => {
+                            idl::idl_nodes::IdlNode::TypeStruct(value) => {
                                 names.push(value.ident.to_owned());
                             }
                             _ => {}
@@ -203,7 +212,7 @@ impl Module {
                     if let Ok(analyzer) = &*doc.last_analyzer {
                         for node in &analyzer.nodes {
                             match node {
-                                idl::idl_types::TypeNode::TypeStruct(value) => {
+                                idl::idl_nodes::IdlNode::TypeStruct(value) => {
                                     names.push(value.ident.to_owned());
                                 }
                                 _ => {}
@@ -226,7 +235,7 @@ impl Module {
                 Ok(analyzer) => {
                     for node in &analyzer.nodes {
                         match node {
-                            idl::idl_types::TypeNode::TypeList(value) => {
+                            idl::idl_nodes::IdlNode::TypeList(value) => {
                                 names.push(value.ident.to_owned());
                             }
                             _ => {}
@@ -237,7 +246,7 @@ impl Module {
                     if let Ok(analyzer) = &*doc.last_analyzer {
                         for node in &analyzer.nodes {
                             match node {
-                                idl::idl_types::TypeNode::TypeList(value) => {
+                                idl::idl_nodes::IdlNode::TypeList(value) => {
                                     names.push(value.ident.to_owned());
                                 }
                                 _ => {}
@@ -260,7 +269,7 @@ impl Module {
                 Ok(analyzer) => {
                     for node in &analyzer.nodes {
                         match node {
-                            idl::idl_types::TypeNode::TypeEnum(value) => {
+                            idl::idl_nodes::IdlNode::TypeEnum(value) => {
                                 names.push(value.ident.to_owned());
                             }
                             _ => {}
@@ -271,7 +280,7 @@ impl Module {
                     if let Ok(analyzer) = &*doc.last_analyzer {
                         for node in &analyzer.nodes {
                             match node {
-                                idl::idl_types::TypeNode::TypeEnum(value) => {
+                                idl::idl_nodes::IdlNode::TypeEnum(value) => {
                                     names.push(value.ident.to_owned());
                                 }
                                 _ => {}
@@ -294,7 +303,7 @@ impl Module {
                 Ok(analyzer) => {
                     for node in &analyzer.nodes {
                         match node {
-                            idl::idl_types::TypeNode::TypeConst(value) => {
+                            idl::idl_nodes::IdlNode::TypeConst(value) => {
                                 names.push(value.ident.to_owned());
                             }
                             _ => {}
@@ -305,7 +314,7 @@ impl Module {
                     if let Ok(analyzer) = &*doc.last_analyzer {
                         for node in &analyzer.nodes {
                             match node {
-                                idl::idl_types::TypeNode::TypeConst(value) => {
+                                idl::idl_nodes::IdlNode::TypeConst(value) => {
                                     names.push(value.ident.to_owned());
                                 }
                                 _ => {}
@@ -328,7 +337,7 @@ impl Module {
                 Ok(analyzer) => {
                     for node in &analyzer.nodes {
                         match node {
-                            idl::idl_types::TypeNode::TypeInterface(value) => {
+                            idl::idl_nodes::IdlNode::TypeInterface(value) => {
                                 names.push(value.ident.to_owned());
                             }
                             _ => {}
@@ -339,7 +348,7 @@ impl Module {
                     if let Ok(analyzer) = &*doc.last_analyzer {
                         for node in &analyzer.nodes {
                             match node {
-                                idl::idl_types::TypeNode::TypeInterface(value) => {
+                                idl::idl_nodes::IdlNode::TypeInterface(value) => {
                                     names.push(value.ident.to_owned());
                                 }
                                 _ => {}
@@ -366,7 +375,8 @@ impl Module {
 
     pub fn get_document_names(&self) -> Vec<String> {
         self.ids_documents
-            .read().unwrap()
+            .read()
+            .unwrap()
             .keys()
             .map(|v| v.to_owned())
             .collect()
@@ -468,7 +478,7 @@ impl Module {
         let mut documents = self.ids_documents.write().unwrap();
 
         if let Some(mut doc) = documents.get_mut(name) {
-            if let Ok(parser) = doc.parser.clone().as_ref() {
+            if let Ok(parser) = &*doc.parser {
                 doc.analyzer = Arc::new(ids::analyzer::Analyzer::resolve(parser, Some(self)))
             }
         }
@@ -477,7 +487,8 @@ impl Module {
     pub fn get_ids_parser(
         &self,
         name: &str,
-    ) -> Option<Arc<Result<ids::parser::Parser, (ids::parser::Parser, ids::parser::ParserError)>>> {
+    ) -> Option<Arc<Result<ids::parser::Parser, (ids::parser::Parser, ids::parser::ParserError)>>>
+    {
         let documents = self.ids_documents.read().unwrap();
         documents.get(name).map(|doc| doc.parser.clone())
     }
@@ -488,5 +499,21 @@ impl Module {
     ) -> Option<Arc<Result<ids::analyzer::Analyzer, ids::analyzer::AnalyzerError>>> {
         let documents = self.ids_documents.read().unwrap();
         documents.get(name).map(|doc| doc.analyzer.clone())
+    }
+
+    pub fn library_size(&self) -> usize {
+        let documents = self.ids_documents.read().unwrap();
+        documents.len()
+    }
+
+    // The current target library
+    pub fn library_name(&self) -> Option<String> {
+        let documents = self.ids_documents.read().unwrap();
+        if documents.len() > 1 {
+            panic!("More than one ids not supported yet");
+        }
+
+        // TODO proper option conversion
+        Some(documents.keys().last().unwrap().to_owned())
     }
 }

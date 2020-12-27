@@ -1,4 +1,4 @@
-use super::idl_types;
+use super::idl_nodes;
 use super::parser;
 use crate::module;
 use crate::range::Range;
@@ -100,7 +100,7 @@ impl AnalyzerError {
 
 #[derive(Debug, Default)]
 pub struct Analyzer {
-    pub nodes: Vec<idl_types::TypeNode>,
+    pub nodes: Vec<idl_nodes::IdlNode>,
 }
 
 #[derive(Debug, Default)]
@@ -119,14 +119,14 @@ impl Analyzer {
         Err(AnalyzerError::Closed)
     }
 
-    pub fn from_nodes(nodes: Vec<idl_types::TypeNode>) -> Self {
+    pub fn from_nodes(nodes: Vec<idl_nodes::IdlNode>) -> Self {
         Self { nodes }
     }
 
     pub fn get_library_name(&self) -> String {
         for node in &self.nodes {
             match node {
-                idl_types::TypeNode::LibraryName(name) => return name.to_owned(),
+                idl_nodes::IdlNode::LibraryName(name) => return name.to_owned(),
                 _ => {}
             }
         }
@@ -134,10 +134,10 @@ impl Analyzer {
         panic!("Does not have a library name");
     }
 
-    pub fn find_ty_struct(&self, name: &str) -> Option<&Box<idl_types::TypeStruct>> {
+    pub fn find_ty_struct(&self, name: &str) -> Option<&Box<idl_nodes::TypeStruct>> {
         for node in &self.nodes {
             match node {
-                idl_types::TypeNode::TypeStruct(value) => {
+                idl_nodes::IdlNode::TypeStruct(value) => {
                     if value.ident == name {
                         return Some(value);
                     }
@@ -149,10 +149,10 @@ impl Analyzer {
         None
     }
 
-    pub fn find_ty_interface(&self, name: &str) -> Option<&Box<idl_types::TypeInterface>> {
+    pub fn find_ty_interface(&self, name: &str) -> Option<&Box<idl_nodes::TypeInterface>> {
         for node in &self.nodes {
             match node {
-                idl_types::TypeNode::TypeInterface(value) => {
+                idl_nodes::IdlNode::TypeInterface(value) => {
                     if value.ident == name {
                         return Some(value);
                     }
@@ -164,10 +164,10 @@ impl Analyzer {
         None
     }
 
-    pub fn find_ty_enum(&self, name: &str) -> Option<&Box<idl_types::TypeEnum>> {
+    pub fn find_ty_enum(&self, name: &str) -> Option<&Box<idl_nodes::TypeEnum>> {
         for node in &self.nodes {
             match node {
-                idl_types::TypeNode::TypeEnum(value) => {
+                idl_nodes::IdlNode::TypeEnum(value) => {
                     if value.ident == name {
                         return Some(value);
                     }
@@ -179,10 +179,10 @@ impl Analyzer {
         None
     }
 
-    pub fn find_ty_const(&self, name: &str) -> Option<&Box<idl_types::TypeConst>> {
+    pub fn find_ty_const(&self, name: &str) -> Option<&Box<idl_nodes::TypeConst>> {
         for node in &self.nodes {
             match node {
-                idl_types::TypeNode::TypeConst(value) => {
+                idl_nodes::IdlNode::TypeConst(value) => {
                     if value.ident == name {
                         return Some(value);
                     }
@@ -194,10 +194,10 @@ impl Analyzer {
         None
     }
 
-    pub fn find_ty_list(&self, name: &str) -> Option<&Box<idl_types::TypeList>> {
+    pub fn find_ty_list(&self, name: &str) -> Option<&Box<idl_nodes::TypeList>> {
         for node in &self.nodes {
             match node {
-                idl_types::TypeNode::TypeList(value) => {
+                idl_nodes::IdlNode::TypeList(value) => {
                     if value.ident == name {
                         return Some(value);
                     }
@@ -209,9 +209,9 @@ impl Analyzer {
         None
     }
 
-    pub fn interface_has_static_field(name: &idl_types::TypeInterface) -> bool {
+    pub fn interface_has_static_field(name: &idl_nodes::TypeInterface) -> bool {
         if name.fields.iter().any(|node| {
-            if let idl_types::InterfaceNode::InterfaceField(field) = node {
+            if let idl_nodes::InterfaceNode::InterfaceField(field) = node {
                 field.is_static
             } else {
                 false
@@ -223,9 +223,9 @@ impl Analyzer {
         false
     }
 
-    pub fn interface_has_non_static_field(name: &idl_types::TypeInterface) -> bool {
+    pub fn interface_has_non_static_field(name: &idl_nodes::TypeInterface) -> bool {
         if name.fields.iter().any(|node| {
-            if let idl_types::InterfaceNode::InterfaceField(field) = node {
+            if let idl_nodes::InterfaceNode::InterfaceField(field) = node {
                 !field.is_static
             } else {
                 false
@@ -237,24 +237,24 @@ impl Analyzer {
         false
     }
 
-    fn returns_interface(ty_name: &idl_types::TypeName) -> bool {
+    fn returns_interface(ty_name: &idl_nodes::TypeName) -> bool {
         match ty_name {
             // Result cannot be returned as an error
-            idl_types::TypeName::InterfaceTypeName(_) => true,
-            idl_types::TypeName::TypeFunction(value) => Self::returns_interface(&value.return_ty),
-            idl_types::TypeName::TypeArray(value) => Self::returns_interface(&value.ty),
-            idl_types::TypeName::TypeMap(value) => Self::returns_interface(&value.map_ty),
-            idl_types::TypeName::TypeOption(value) => Self::returns_interface(&value.some_ty),
-            idl_types::TypeName::TypeResult(value) => Self::returns_interface(&value.ok_ty),
-            idl_types::TypeName::TypeStream(value) => Self::returns_interface(&value.s_ty),
+            idl_nodes::TypeName::InterfaceTypeName(_) => true,
+            idl_nodes::TypeName::TypeFunction(value) => Self::returns_interface(&value.return_ty),
+            idl_nodes::TypeName::TypeArray(value) => Self::returns_interface(&value.ty),
+            idl_nodes::TypeName::TypeMap(value) => Self::returns_interface(&value.map_ty),
+            idl_nodes::TypeName::TypeOption(value) => Self::returns_interface(&value.some_ty),
+            idl_nodes::TypeName::TypeResult(value) => Self::returns_interface(&value.ok_ty),
+            idl_nodes::TypeName::TypeStream(value) => Self::returns_interface(&value.s_ty),
             _ => false,
         }
     }
 
-    pub fn interface_has_constructor_field(name: &idl_types::TypeInterface) -> bool {
+    pub fn interface_has_constructor_field(name: &idl_nodes::TypeInterface) -> bool {
         for node in &name.fields {
             match node {
-                idl_types::InterfaceNode::InterfaceField(field) => {
+                idl_nodes::InterfaceNode::InterfaceField(field) => {
                     if Self::returns_interface(&field.ty) {
                         return true;
                     }
@@ -386,13 +386,13 @@ impl Analyzer {
         if let Some(value) = &items.imports {
             analyzer
                 .nodes
-                .push(idl_types::TypeNode::Imports(value.to_owned()));
+                .push(idl_nodes::IdlNode::Imports(value.to_owned()));
         }
 
         match &items.library_name {
             Some(value) => analyzer
                 .nodes
-                .push(idl_types::TypeNode::LibraryName(value.to_owned())),
+                .push(idl_nodes::IdlNode::LibraryName(value.to_owned())),
             None => return Err(AnalyzerError::MissingLibraryDefinition),
         }
 
@@ -401,37 +401,37 @@ impl Analyzer {
                 parser::ParserNode::Comment(value) => {
                     analyzer
                         .nodes
-                        .push(idl_types::TypeNode::Comment(value.to_owned()));
+                        .push(idl_nodes::IdlNode::Comment(value.to_owned()));
                 }
                 parser::ParserNode::EnumComment(value) => {
                     analyzer
                         .nodes
-                        .push(idl_types::TypeNode::EnumComment(value.to_owned()));
+                        .push(idl_nodes::IdlNode::EnumComment(value.to_owned()));
                 }
                 parser::ParserNode::InterfaceComment(value) => {
                     analyzer
                         .nodes
-                        .push(idl_types::TypeNode::InterfaceComment(value.to_owned()));
+                        .push(idl_nodes::IdlNode::InterfaceComment(value.to_owned()));
                 }
                 parser::ParserNode::StructComment(value) => {
                     analyzer
                         .nodes
-                        .push(idl_types::TypeNode::StructComment(value.to_owned()));
+                        .push(idl_nodes::IdlNode::StructComment(value.to_owned()));
                 }
                 parser::ParserNode::ConstComment(value) => {
                     analyzer
                         .nodes
-                        .push(idl_types::TypeNode::ConstComment(value.to_owned()));
+                        .push(idl_nodes::IdlNode::ConstComment(value.to_owned()));
                 }
                 parser::ParserNode::TypeListComment(value) => {
                     analyzer
                         .nodes
-                        .push(idl_types::TypeNode::TypeListComment(value.to_owned()));
+                        .push(idl_nodes::IdlNode::TypeListComment(value.to_owned()));
                 }
                 parser::ParserNode::Interface(value) => {
                     let ident = match items.get_type(value.ident.clone()) {
                         Ok(value) => match value {
-                            idl_types::TypeName::InterfaceTypeName(value) => value,
+                            idl_nodes::TypeName::InterfaceTypeName(value) => value,
                             _ => return Err(AnalyzerError::Undefined),
                         },
                         Err(err) => return Err(err.into()),
@@ -442,7 +442,7 @@ impl Analyzer {
                     for field in value.fields.iter() {
                         match field {
                             parser::InterfaceNode::Comment(comment) => {
-                                fields.push(idl_types::InterfaceNode::Comment(comment.to_owned()))
+                                fields.push(idl_nodes::InterfaceNode::Comment(comment.to_owned()))
                             }
                             parser::InterfaceNode::InterfaceField(interface_field) => {
                                 let ty = match items.get_type(interface_field.ty.clone()) {
@@ -458,7 +458,7 @@ impl Analyzer {
                                 is_reserved_word(field_ident.as_str(), interface_field.range)?;
 
                                 if fields.iter().any(|v| {
-                                    if let idl_types::InterfaceNode::InterfaceField(in_field) = v {
+                                    if let idl_nodes::InterfaceNode::InterfaceField(in_field) = v {
                                         if in_field.ident.as_str() == field_ident.as_str() {
                                             return true;
                                         }
@@ -472,14 +472,14 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                let interface_field = Box::new(idl_types::InterfaceField {
+                                let interface_field = Box::new(idl_nodes::InterfaceField {
                                     attributes: vec![],
                                     ident: field_ident,
                                     is_static,
                                     ty,
                                 });
 
-                                fields.push(idl_types::InterfaceNode::InterfaceField(
+                                fields.push(idl_nodes::InterfaceNode::InterfaceField(
                                     interface_field,
                                 ));
                             }
@@ -488,14 +488,14 @@ impl Analyzer {
 
                     analyzer
                         .nodes
-                        .push(idl_types::TypeNode::TypeInterface(Box::new(
-                            idl_types::TypeInterface { ident, fields },
+                        .push(idl_nodes::IdlNode::TypeInterface(Box::new(
+                            idl_nodes::TypeInterface { ident, fields },
                         )));
                 }
                 parser::ParserNode::Struct(value) => {
                     let ident = match items.get_type(value.ident.clone()) {
                         Ok(value) => match value {
-                            idl_types::TypeName::StructTypeName(value) => value,
+                            idl_nodes::TypeName::StructTypeName(value) => value,
                             _ => return Err(AnalyzerError::Undefined),
                         },
                         Err(err) => return Err(err.into()),
@@ -506,7 +506,7 @@ impl Analyzer {
                     for field in value.fields.iter() {
                         match field {
                             parser::StructNode::Comment(comment) => {
-                                fields.push(idl_types::StructNode::Comment(comment.to_owned()))
+                                fields.push(idl_nodes::StructNode::Comment(comment.to_owned()))
                             }
                             parser::StructNode::StructField(struct_field) => {
                                 let ty = match items.get_type(struct_field.ty.clone()) {
@@ -521,7 +521,7 @@ impl Analyzer {
                                 is_reserved_word(field_ident.as_str(), struct_field.range)?;
 
                                 if fields.iter().any(|v| {
-                                    if let idl_types::StructNode::StructField(in_field) = v {
+                                    if let idl_nodes::StructNode::StructField(in_field) = v {
                                         if in_field.ident.as_str() == field_ident.as_str() {
                                             return true;
                                         }
@@ -535,8 +535,8 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                fields.push(idl_types::StructNode::StructField(Box::new(
-                                    idl_types::StructField {
+                                fields.push(idl_nodes::StructNode::StructField(Box::new(
+                                    idl_nodes::StructField {
                                         ident: field_ident,
                                         ty,
                                     },
@@ -547,14 +547,14 @@ impl Analyzer {
 
                     analyzer
                         .nodes
-                        .push(idl_types::TypeNode::TypeStruct(Box::new(
-                            idl_types::TypeStruct { ident, fields },
+                        .push(idl_nodes::IdlNode::TypeStruct(Box::new(
+                            idl_nodes::TypeStruct { ident, fields },
                         )));
                 }
                 parser::ParserNode::Enum(value) => {
                     let ident = match items.get_type(value.ident.clone()) {
                         Ok(value) => match value {
-                            idl_types::TypeName::EnumTypeName(value) => value,
+                            idl_nodes::TypeName::EnumTypeName(value) => value,
                             _ => return Err(AnalyzerError::Undefined),
                         },
                         Err(err) => return Err(err.into()),
@@ -565,17 +565,17 @@ impl Analyzer {
                     for field in value.fields.iter() {
                         match field {
                             parser::EnumNode::Comment(comment) => {
-                                fields.push(idl_types::EnumNode::Comment(comment.to_owned()))
+                                fields.push(idl_nodes::EnumNode::Comment(comment.to_owned()))
                             }
                             parser::EnumNode::EnumField(enum_field) => {
                                 let field_ident = enum_field.ident.to_owned();
 
-                                type_name_is_valid(ident.as_str(), value.range)?;
-                                is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
-                                is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
+                                type_name_is_valid(field_ident.as_str(), value.range)?;
+                                is_reserved_type(field_ident.to_lowercase().as_str(), value.range)?;
+                                is_reserved_word(field_ident.to_lowercase().as_str(), value.range)?;
 
                                 if fields.iter().any(|v| {
-                                    if let idl_types::EnumNode::EnumField(in_field) = v {
+                                    if let idl_nodes::EnumNode::EnumField(in_field) = v {
                                         if in_field.ident.as_str() == field_ident.as_str() {
                                             return true;
                                         }
@@ -589,21 +589,21 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                fields.push(idl_types::EnumNode::EnumField(Box::new(
-                                    idl_types::EnumField { ident: field_ident },
+                                fields.push(idl_nodes::EnumNode::EnumField(Box::new(
+                                    idl_nodes::EnumField { ident: field_ident },
                                 )))
                             }
                         }
                     }
 
-                    analyzer.nodes.push(idl_types::TypeNode::TypeEnum(Box::new(
-                        idl_types::TypeEnum { ident, fields },
+                    analyzer.nodes.push(idl_nodes::IdlNode::TypeEnum(Box::new(
+                        idl_nodes::TypeEnum { ident, fields },
                     )));
                 }
                 parser::ParserNode::Const(value) => {
                     let ident = match items.get_type(value.ident.clone()) {
                         Ok(value) => match value {
-                            idl_types::TypeName::ConstTypeName(value) => value,
+                            idl_nodes::TypeName::ConstTypeName(value) => value,
                             _ => return Err(AnalyzerError::Undefined),
                         },
                         Err(err) => return Err(err.into()),
@@ -614,7 +614,7 @@ impl Analyzer {
                     for field in value.fields.iter() {
                         match field {
                             parser::ConstNode::Comment(comment) => {
-                                fields.push(idl_types::ConstNode::Comment(comment.to_owned()))
+                                fields.push(idl_nodes::ConstNode::Comment(comment.to_owned()))
                             }
                             parser::ConstNode::ConstField(const_field) => {
                                 let field_ident = const_field.ident.to_owned();
@@ -624,7 +624,7 @@ impl Analyzer {
                                 is_reserved_word(field_ident.as_str(), const_field.range)?;
 
                                 if fields.iter().any(|v| {
-                                    if let idl_types::ConstNode::ConstField(in_field) = v {
+                                    if let idl_nodes::ConstNode::ConstField(in_field) = v {
                                         if in_field.ident.as_str() == field_ident.as_str() {
                                             return true;
                                         }
@@ -638,8 +638,8 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                fields.push(idl_types::ConstNode::ConstField(Box::new(
-                                    idl_types::ConstField {
+                                fields.push(idl_nodes::ConstNode::ConstField(Box::new(
+                                    idl_nodes::ConstField {
                                         ident: field_ident,
                                         value: const_field.value.to_owned(),
                                     },
@@ -649,13 +649,13 @@ impl Analyzer {
                     }
 
                     let const_type = match value.const_type {
-                        parser::ConstType::Int => idl_types::ConstTypes::NatInt,
-                        parser::ConstType::String => idl_types::ConstTypes::NatString,
-                        parser::ConstType::Float => idl_types::ConstTypes::NatFloat,
+                        parser::ConstType::Int => idl_nodes::ConstTypes::NatInt,
+                        parser::ConstType::String => idl_nodes::ConstTypes::NatString,
+                        parser::ConstType::Float => idl_nodes::ConstTypes::NatFloat,
                     };
 
-                    analyzer.nodes.push(idl_types::TypeNode::TypeConst(Box::new(
-                        idl_types::TypeConst {
+                    analyzer.nodes.push(idl_nodes::IdlNode::TypeConst(Box::new(
+                        idl_nodes::TypeConst {
                             ident,
                             fields,
                             const_type,
@@ -665,7 +665,7 @@ impl Analyzer {
                 parser::ParserNode::TypeList(value) => {
                     let ident = match items.get_type(value.ident.clone()) {
                         Ok(value) => match value {
-                            idl_types::TypeName::ListTypeName(value) => value,
+                            idl_nodes::TypeName::ListTypeName(value) => value,
                             _ => return Err(AnalyzerError::Undefined),
                         },
                         Err(err) => return Err(err.into()),
@@ -676,7 +676,7 @@ impl Analyzer {
                     for field in value.fields.iter() {
                         match field {
                             parser::TypeListNode::Comment(comment) => {
-                                fields.push(idl_types::TypeListNode::Comment(comment.to_owned()))
+                                fields.push(idl_nodes::TypeListNode::Comment(comment.to_owned()))
                             }
                             parser::TypeListNode::TypeListField(ty_list_field) => {
                                 let ty = match items.get_type(ty_list_field.ty.clone()) {
@@ -691,7 +691,7 @@ impl Analyzer {
                                 is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
 
                                 if fields.iter().any(|v| {
-                                    if let idl_types::TypeListNode::TypeListField(in_field) = v {
+                                    if let idl_nodes::TypeListNode::TypeListField(in_field) = v {
                                         if in_field.ident.as_str() == ident {
                                             return true;
                                         }
@@ -705,15 +705,15 @@ impl Analyzer {
                                     .into());
                                 }
 
-                                fields.push(idl_types::TypeListNode::TypeListField(Box::new(
-                                    idl_types::TypeListField { ty, ident },
+                                fields.push(idl_nodes::TypeListNode::TypeListField(Box::new(
+                                    idl_nodes::TypeListField { ty, ident },
                                 )));
                             }
                         }
                     }
 
-                    analyzer.nodes.push(idl_types::TypeNode::TypeList(Box::new(
-                        idl_types::TypeList { ident, fields },
+                    analyzer.nodes.push(idl_nodes::IdlNode::TypeList(Box::new(
+                        idl_nodes::TypeList { ident, fields },
                     )));
                 }
                 parser::ParserNode::Library(_) | parser::ParserNode::Imports(_) => {}
@@ -730,25 +730,25 @@ impl Analyzer {
     }
 
     fn tuple_has_result_type(
-        nodes: &[idl_types::TypeNode],
+        nodes: &[idl_nodes::IdlNode],
         parsers: &parser::Parser,
     ) -> Result<(), ReferenceError> {
-        let refences_result = |ty: &idl_types::TypeName, range: Range| {
+        let refences_result = |ty: &idl_nodes::TypeName, range: Range| {
             let tuple = match ty {
-                idl_types::TypeName::TypeFunction(value) => {
-                    if let idl_types::TypeName::TypeTuple(tul) = &value.args {
+                idl_nodes::TypeName::TypeFunction(value) => {
+                    if let idl_nodes::TypeName::TypeTuple(tul) = &value.args {
                         Some(tul)
                     } else {
                         None
                     }
                 }
-                idl_types::TypeName::TypeTuple(value) => Some(value),
+                idl_nodes::TypeName::TypeTuple(value) => Some(value),
                 _ => None,
             };
 
             if let Some(tuple) = tuple {
                 for t_ty in &tuple.fields {
-                    if let idl_types::TypeName::TypeResult(_) = &t_ty.ty {
+                    if let idl_nodes::TypeName::TypeResult(_) = &t_ty.ty {
                         return Err(ReferenceError(
                             ReferenceErrorKind::ReferencesResult,
                             range,
@@ -763,9 +763,9 @@ impl Analyzer {
 
         for node in nodes {
             match node {
-                idl_types::TypeNode::TypeInterface(value) => {
+                idl_nodes::IdlNode::TypeInterface(value) => {
                     for interface_node in &value.fields {
-                        if let idl_types::InterfaceNode::InterfaceField(field) = interface_node {
+                        if let idl_nodes::InterfaceNode::InterfaceField(field) = interface_node {
                             let range = parsers.get_range_from_field_name(
                                 value.ident.as_str(),
                                 field.ident.as_str(),
@@ -782,26 +782,26 @@ impl Analyzer {
     }
 
     fn tuple_has_incorrect_stream_type(
-        nodes: &[idl_types::TypeNode],
+        nodes: &[idl_nodes::IdlNode],
         parsers: &parser::Parser,
     ) -> Result<(), ReferenceError> {
-        let refences_stream = |ty: &idl_types::TypeName, range: Range| {
+        let refences_stream = |ty: &idl_nodes::TypeName, range: Range| {
             let tuple = match ty {
-                idl_types::TypeName::TypeFunction(value) => {
-                    if let idl_types::TypeName::TypeTuple(tul) = &value.args {
+                idl_nodes::TypeName::TypeFunction(value) => {
+                    if let idl_nodes::TypeName::TypeTuple(tul) = &value.args {
                         Some(tul)
                     } else {
                         None
                     }
                 }
-                idl_types::TypeName::TypeTuple(value) => Some(value),
+                idl_nodes::TypeName::TypeTuple(value) => Some(value),
                 _ => None,
             };
 
             if let Some(tuple) = tuple {
                 if let Some(sl) = tuple.fields.get(..tuple.fields.len() - 1) {
                     for t_ty in sl {
-                        if let idl_types::TypeName::TypeStream(st) = &t_ty.ty {
+                        if let idl_nodes::TypeName::TypeStream(st) = &t_ty.ty {
                             return Err(ReferenceError(
                                 ReferenceErrorKind::ReferencesStream,
                                 range,
@@ -817,9 +817,9 @@ impl Analyzer {
 
         for node in nodes {
             match node {
-                idl_types::TypeNode::TypeInterface(value) => {
+                idl_nodes::IdlNode::TypeInterface(value) => {
                     for interface_node in &value.fields {
-                        if let idl_types::InterfaceNode::InterfaceField(field) = interface_node {
+                        if let idl_nodes::InterfaceNode::InterfaceField(field) = interface_node {
                             let range = parsers.get_range_from_field_name(
                                 value.ident.as_str(),
                                 field.ident.as_str(),
@@ -836,19 +836,19 @@ impl Analyzer {
     }
 
     fn tuple_has_duplicate_fields(
-        nodes: &[idl_types::TypeNode],
+        nodes: &[idl_nodes::IdlNode],
         parsers: &parser::Parser,
     ) -> Result<(), DuplicateFieldNameError> {
-        let has_duplicate_in_tuple = |ty: &idl_types::TypeName| {
+        let has_duplicate_in_tuple = |ty: &idl_nodes::TypeName| {
             let tuple = match ty {
-                idl_types::TypeName::TypeFunction(value) => {
-                    if let idl_types::TypeName::TypeTuple(tul) = &value.args {
+                idl_nodes::TypeName::TypeFunction(value) => {
+                    if let idl_nodes::TypeName::TypeTuple(tul) = &value.args {
                         Some(tul)
                     } else {
                         None
                     }
                 }
-                idl_types::TypeName::TypeTuple(value) => Some(value),
+                idl_nodes::TypeName::TypeTuple(value) => Some(value),
                 _ => None,
             };
 
@@ -868,9 +868,9 @@ impl Analyzer {
 
         for node in nodes {
             match node {
-                idl_types::TypeNode::TypeInterface(value) => {
+                idl_nodes::IdlNode::TypeInterface(value) => {
                     for interface_node in &value.fields {
-                        if let idl_types::InterfaceNode::InterfaceField(field) = interface_node {
+                        if let idl_nodes::InterfaceNode::InterfaceField(field) = interface_node {
                             if has_duplicate_in_tuple(&field.ty) {
                                 let range = parsers.get_range_from_field_name(
                                     value.ident.as_str(),
@@ -890,14 +890,14 @@ impl Analyzer {
     }
 
     fn references_invalid_type(
-        nodes: &[idl_types::TypeNode],
+        nodes: &[idl_nodes::IdlNode],
         parsers: &parser::Parser,
     ) -> Result<(), ReferenceError> {
         for node in nodes {
             match node {
-                idl_types::TypeNode::TypeInterface(value) => {
+                idl_nodes::IdlNode::TypeInterface(value) => {
                     for interface_node in value.fields.iter() {
-                        if let idl_types::InterfaceNode::InterfaceField(interface_field) =
+                        if let idl_nodes::InterfaceNode::InterfaceField(interface_field) =
                             interface_node
                         {
                             let range = parsers.get_range_from_field_name(
@@ -911,9 +911,9 @@ impl Analyzer {
                         }
                     }
                 }
-                idl_types::TypeNode::TypeStruct(value) => {
+                idl_nodes::IdlNode::TypeStruct(value) => {
                     for struct_node in value.fields.iter() {
-                        if let idl_types::StructNode::StructField(struct_field) = struct_node {
+                        if let idl_nodes::StructNode::StructField(struct_field) = struct_node {
                             let range = parsers.get_range_from_field_name(
                                 value.ident.as_str(),
                                 struct_field.ident.as_str(),
@@ -923,9 +923,9 @@ impl Analyzer {
                         }
                     }
                 }
-                idl_types::TypeNode::TypeList(value) => {
+                idl_nodes::IdlNode::TypeList(value) => {
                     for type_list_node in value.fields.iter() {
-                        if let idl_types::TypeListNode::TypeListField(type_list_field) =
+                        if let idl_nodes::TypeListNode::TypeListField(type_list_field) =
                             type_list_node
                         {
                             let range = parsers.get_range_from_field_name(
@@ -944,33 +944,33 @@ impl Analyzer {
         Ok(())
     }
 
-    fn references_interface(ty: &idl_types::TypeName, range: Range) -> Result<(), ReferenceError> {
+    fn references_interface(ty: &idl_nodes::TypeName, range: Range) -> Result<(), ReferenceError> {
         match ty {
-            idl_types::TypeName::InterfaceTypeName(_) => Err(ReferenceError(
+            idl_nodes::TypeName::InterfaceTypeName(_) => Err(ReferenceError(
                 ReferenceErrorKind::ReferencesInterface,
                 range,
                 ty.get_type_reference(),
             )),
-            idl_types::TypeName::TypeFunction(function) => {
+            idl_nodes::TypeName::TypeFunction(function) => {
                 Self::references_interface(&function.return_ty, range)?;
                 Self::references_interface(&function.args, range)
             }
-            idl_types::TypeName::TypeTuple(tuple) => {
+            idl_nodes::TypeName::TypeTuple(tuple) => {
                 for tuple_ty in tuple.fields.iter() {
                     Self::references_interface(&tuple_ty.ty, range)?;
                 }
                 Ok(())
             }
-            idl_types::TypeName::TypeMap(map) => Self::references_interface(&map.map_ty, range),
-            idl_types::TypeName::TypeArray(array) => Self::references_interface(&array.ty, range),
-            idl_types::TypeName::TypeOption(option) => {
+            idl_nodes::TypeName::TypeMap(map) => Self::references_interface(&map.map_ty, range),
+            idl_nodes::TypeName::TypeArray(array) => Self::references_interface(&array.ty, range),
+            idl_nodes::TypeName::TypeOption(option) => {
                 Self::references_interface(&option.some_ty, range)
             }
-            idl_types::TypeName::TypeResult(result) => {
+            idl_nodes::TypeName::TypeResult(result) => {
                 Self::references_interface(&result.ok_ty, range)?;
                 Self::references_interface(&result.err_ty, range)
             }
-            idl_types::TypeName::TypeStream(stream) => {
+            idl_nodes::TypeName::TypeStream(stream) => {
                 Self::references_interface(&stream.s_ty, range)
             }
             _ => Ok(()),
@@ -979,16 +979,16 @@ impl Analyzer {
 
     // Given a type name, find if any other type inside references it.
     fn struct_has_recursive_reference(
-        nodes: &[idl_types::TypeNode],
+        nodes: &[idl_nodes::IdlNode],
         parsers: &parser::Parser,
     ) -> Result<(), ReferenceError> {
         for node in nodes {
             match node {
-                idl_types::TypeNode::TypeStruct(value) => {
+                idl_nodes::IdlNode::TypeStruct(value) => {
                     let range = parsers.get_range_from_type_name(value.ident.as_str());
 
                     for struct_node in value.fields.iter() {
-                        if let idl_types::StructNode::StructField(struct_field) = struct_node {
+                        if let idl_nodes::StructNode::StructField(struct_field) = struct_node {
                             if Self::has_type_reference_in_struct(
                                 nodes,
                                 value.ident.as_str(),
@@ -1012,21 +1012,21 @@ impl Analyzer {
 
     // Finds if any type has the reference target inside a struct.
     fn has_type_reference_in_struct(
-        nodes: &[idl_types::TypeNode],
+        nodes: &[idl_nodes::IdlNode],
         target: &str,
-        refer: &idl_types::TypeName,
+        refer: &idl_nodes::TypeName,
     ) -> bool {
         match refer {
-            idl_types::TypeName::StructTypeName(struct_ident) => {
+            idl_nodes::TypeName::StructTypeName(struct_ident) => {
                 if target == struct_ident {
                     return true;
                 }
 
                 for node in nodes {
-                    if let idl_types::TypeNode::TypeStruct(value) = node {
+                    if let idl_nodes::IdlNode::TypeStruct(value) = node {
                         if value.ident.as_str() == struct_ident {
                             for struct_node in value.fields.iter() {
-                                if let idl_types::StructNode::StructField(field) = struct_node {
+                                if let idl_nodes::StructNode::StructField(field) = struct_node {
                                     if Self::has_type_reference_in_struct(nodes, target, &field.ty)
                                     {
                                         return true;
@@ -1039,10 +1039,10 @@ impl Analyzer {
 
                 false
             }
-            idl_types::TypeName::TypeArray(array) => {
+            idl_nodes::TypeName::TypeArray(array) => {
                 Self::has_type_reference_in_struct(nodes, target, &array.ty)
             }
-            idl_types::TypeName::TypeMap(map) => {
+            idl_nodes::TypeName::TypeMap(map) => {
                 Self::has_type_reference_in_struct(nodes, target, &map.map_ty)
                     || Self::has_type_reference_in_struct(nodes, target, &map.map_ty)
             }
@@ -1052,21 +1052,21 @@ impl Analyzer {
 
     // Finds if any type has the reference target.
     fn has_type_reference(
-        nodes: &[idl_types::TypeNode],
+        nodes: &[idl_nodes::IdlNode],
         target: &str,
-        refer: &idl_types::TypeName,
+        refer: &idl_nodes::TypeName,
     ) -> bool {
         match refer {
-            idl_types::TypeName::StructTypeName(struct_ident) => {
+            idl_nodes::TypeName::StructTypeName(struct_ident) => {
                 if target == struct_ident {
                     return true;
                 }
 
                 for node in nodes {
-                    if let idl_types::TypeNode::TypeStruct(value) = node {
+                    if let idl_nodes::IdlNode::TypeStruct(value) = node {
                         if value.ident.as_str() == struct_ident {
                             for struct_node in value.fields.iter() {
-                                if let idl_types::StructNode::StructField(field) = struct_node {
+                                if let idl_nodes::StructNode::StructField(field) = struct_node {
                                     if Self::has_type_reference(nodes, target, &field.ty) {
                                         return true;
                                     }
@@ -1078,16 +1078,16 @@ impl Analyzer {
 
                 false
             }
-            idl_types::TypeName::InterfaceTypeName(interface_ident) => {
+            idl_nodes::TypeName::InterfaceTypeName(interface_ident) => {
                 if target == interface_ident {
                     return true;
                 }
 
                 for node in nodes {
-                    if let idl_types::TypeNode::TypeInterface(value) = node {
+                    if let idl_nodes::IdlNode::TypeInterface(value) = node {
                         if value.ident.as_str() == interface_ident {
                             for interface_node in value.fields.iter() {
-                                if let idl_types::InterfaceNode::InterfaceField(field) =
+                                if let idl_nodes::InterfaceNode::InterfaceField(field) =
                                     interface_node
                                 {
                                     if Self::has_type_reference(nodes, target, &field.ty) {
@@ -1101,16 +1101,16 @@ impl Analyzer {
 
                 false
             }
-            idl_types::TypeName::ListTypeName(list_ident) => {
+            idl_nodes::TypeName::ListTypeName(list_ident) => {
                 if target == list_ident {
                     return true;
                 }
 
                 for node in nodes {
-                    if let idl_types::TypeNode::TypeList(value) = node {
+                    if let idl_nodes::IdlNode::TypeList(value) = node {
                         if value.ident.as_str() == list_ident {
                             for ty_node in value.fields.iter() {
-                                if let idl_types::TypeListNode::TypeListField(field) = ty_node {
+                                if let idl_nodes::TypeListNode::TypeListField(field) = ty_node {
                                     if Self::has_type_reference(nodes, target, &field.ty) {
                                         return true;
                                     }
@@ -1122,18 +1122,18 @@ impl Analyzer {
 
                 false
             }
-            idl_types::TypeName::TypeArray(array) => {
+            idl_nodes::TypeName::TypeArray(array) => {
                 Self::has_type_reference(nodes, target, &array.ty)
             }
-            idl_types::TypeName::TypeMap(map) => {
+            idl_nodes::TypeName::TypeMap(map) => {
                 Self::has_type_reference(nodes, target, &map.map_ty)
                     || Self::has_type_reference(nodes, target, &map.map_ty)
             }
-            idl_types::TypeName::TypeFunction(function) => {
+            idl_nodes::TypeName::TypeFunction(function) => {
                 Self::has_type_reference(nodes, target, &function.return_ty)
                     || Self::has_type_reference(nodes, target, &function.args)
             }
-            idl_types::TypeName::TypeTuple(tuple) => {
+            idl_nodes::TypeName::TypeTuple(tuple) => {
                 for ty in tuple.fields.iter() {
                     if Self::has_type_reference(nodes, target, &ty.ty) {
                         return true;
@@ -1167,21 +1167,21 @@ impl Analyzer {
 }
 
 impl AnalyzerItems {
-    fn get_type(&self, ty: Arc<parser::Type>) -> Result<idl_types::TypeName, ReferenceError> {
+    fn get_type(&self, ty: Arc<parser::Type>) -> Result<idl_nodes::TypeName, ReferenceError> {
         match &*ty {
             parser::Type::Name(name) => {
                 if self.interfaces.contains(&name.ident) {
-                    Ok(idl_types::TypeName::InterfaceTypeName(
+                    Ok(idl_nodes::TypeName::InterfaceTypeName(
                         name.ident.to_owned(),
                     ))
                 } else if self.structs.contains(&name.ident) {
-                    Ok(idl_types::TypeName::StructTypeName(name.ident.to_owned()))
+                    Ok(idl_nodes::TypeName::StructTypeName(name.ident.to_owned()))
                 } else if self.enums.contains(&name.ident) {
-                    Ok(idl_types::TypeName::EnumTypeName(name.ident.to_owned()))
+                    Ok(idl_nodes::TypeName::EnumTypeName(name.ident.to_owned()))
                 } else if self.consts.contains(&name.ident) {
-                    Ok(idl_types::TypeName::ConstTypeName(name.ident.to_owned()))
+                    Ok(idl_nodes::TypeName::ConstTypeName(name.ident.to_owned()))
                 } else if self.type_lists.contains(&name.ident) {
-                    Ok(idl_types::TypeName::ListTypeName(name.ident.to_owned()))
+                    Ok(idl_nodes::TypeName::ListTypeName(name.ident.to_owned()))
                 } else {
                     Err(ReferenceError(
                         ReferenceErrorKind::UndefinedType,
@@ -1194,54 +1194,54 @@ impl AnalyzerItems {
                 let mut tuple_list = vec![];
 
                 for t_list in tuple.fields.iter() {
-                    tuple_list.push(idl_types::TupleEntry {
+                    tuple_list.push(idl_nodes::TupleEntry {
                         ident: t_list.ident.to_owned(),
                         ty: self.get_type(t_list.ty.clone())?,
                     })
                 }
 
-                Ok(idl_types::TypeName::TypeTuple(Box::new(
-                    idl_types::TypeTuple { fields: tuple_list },
+                Ok(idl_nodes::TypeName::TypeTuple(Box::new(
+                    idl_nodes::TypeTuple { fields: tuple_list },
                 )))
             }
-            parser::Type::Function(function) => Ok(idl_types::TypeName::TypeFunction(Box::new(
-                idl_types::TypeFunction {
+            parser::Type::Function(function) => Ok(idl_nodes::TypeName::TypeFunction(Box::new(
+                idl_nodes::TypeFunction {
                     args: self.get_type(function.args.clone())?,
                     return_ty: self.get_type(function.ret_ty.clone())?,
                 },
             ))),
-            parser::Type::Native(native) => Ok(idl_types::TypeName::Types(match native.ty {
-                scanner::NativeTypes::Bool => idl_types::Types::NatBool,
-                scanner::NativeTypes::Int => idl_types::Types::NatInt,
-                scanner::NativeTypes::Bytes => idl_types::Types::NatBytes,
-                scanner::NativeTypes::String => idl_types::Types::NatString,
-                scanner::NativeTypes::None => idl_types::Types::NatNone,
-                scanner::NativeTypes::Float => idl_types::Types::NatFloat,
+            parser::Type::Native(native) => Ok(idl_nodes::TypeName::Types(match native.ty {
+                scanner::NativeTypes::Bool => idl_nodes::Types::NatBool,
+                scanner::NativeTypes::Int => idl_nodes::Types::NatInt,
+                scanner::NativeTypes::Bytes => idl_nodes::Types::NatBytes,
+                scanner::NativeTypes::String => idl_nodes::Types::NatString,
+                scanner::NativeTypes::None => idl_nodes::Types::NatNone,
+                scanner::NativeTypes::Float => idl_nodes::Types::NatFloat,
             })),
-            parser::Type::Array(array) => Ok(idl_types::TypeName::TypeArray(Box::new(
-                idl_types::TypeArray {
+            parser::Type::Array(array) => Ok(idl_nodes::TypeName::TypeArray(Box::new(
+                idl_nodes::TypeArray {
                     ty: self.get_type(array.array_ty.clone())?,
                 },
             ))),
             parser::Type::Map(map) => {
-                Ok(idl_types::TypeName::TypeMap(Box::new(idl_types::TypeMap {
+                Ok(idl_nodes::TypeName::TypeMap(Box::new(idl_nodes::TypeMap {
                     index_ty: self.get_type(map.index_ty.clone())?,
                     map_ty: self.get_type(map.m_ty.clone())?,
                 })))
             }
-            parser::Type::Result(result) => Ok(idl_types::TypeName::TypeResult(Box::new(
-                idl_types::TypeResult {
+            parser::Type::Result(result) => Ok(idl_nodes::TypeName::TypeResult(Box::new(
+                idl_nodes::TypeResult {
                     ok_ty: self.get_type(result.ok_ty.clone())?,
                     err_ty: self.get_type(result.err_ty.clone())?,
                 },
             ))),
-            parser::Type::Stream(stream) => Ok(idl_types::TypeName::TypeStream(Box::new(
-                idl_types::TypeStream {
+            parser::Type::Stream(stream) => Ok(idl_nodes::TypeName::TypeStream(Box::new(
+                idl_nodes::TypeStream {
                     s_ty: self.get_type(stream.s_ty.clone())?,
                 },
             ))),
-            parser::Type::Option(option) => Ok(idl_types::TypeName::TypeOption(Box::new(
-                idl_types::TypeOption {
+            parser::Type::Option(option) => Ok(idl_nodes::TypeName::TypeOption(Box::new(
+                idl_nodes::TypeOption {
                     some_ty: self.get_type(option.some_ty.clone())?,
                 },
             ))),
@@ -1249,14 +1249,14 @@ impl AnalyzerItems {
     }
 }
 
-impl idl_types::TypeName {
+impl idl_nodes::TypeName {
     fn get_type_reference(&self) -> String {
         match self {
-            idl_types::TypeName::ConstTypeName(value)
-            | idl_types::TypeName::InterfaceTypeName(value)
-            | idl_types::TypeName::StructTypeName(value)
-            | idl_types::TypeName::EnumTypeName(value)
-            | idl_types::TypeName::ListTypeName(value) => value.to_owned(),
+            idl_nodes::TypeName::ConstTypeName(value)
+            | idl_nodes::TypeName::InterfaceTypeName(value)
+            | idl_nodes::TypeName::StructTypeName(value)
+            | idl_nodes::TypeName::EnumTypeName(value)
+            | idl_nodes::TypeName::ListTypeName(value) => value.to_owned(),
             _ => "".to_owned(),
         }
     }

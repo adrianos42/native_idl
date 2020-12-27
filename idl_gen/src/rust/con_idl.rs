@@ -1,4 +1,4 @@
-use idl::idl::idl_types::*;
+use idl::idl::idl_nodes::*;
 use proc_macro2::{self, Ident, Span, TokenStream};
 
 pub(crate) fn get_rust_ty_ref(ty: &TypeName, references: bool) -> TokenStream {

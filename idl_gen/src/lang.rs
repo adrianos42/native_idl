@@ -1,17 +1,36 @@
 use serde::{Deserialize, Serialize};
-use idl::idl::idl_types::*;
+use idl::idl::idl_nodes;
+use idl::ids::ids_nodes;
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ClientType {
+    pub client_name: String,
+    pub server_name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub struct ServerType {
+    pub server_name: String,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub enum RequestType {
+    Client(String),
+    Server(String),
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct LanguageRequest {
-    pub args: std::collections::HashMap<String, String>,
-    pub nodes: Vec<TypeNode>, 
+    pub idl_nodes: Vec<idl_nodes::IdlNode>,
+    pub ids_nodes: Vec<ids_nodes::IdsNode>,
+    pub request_type: RequestType,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum ResponseType {
-    Generated(Folder),
+    Generated(Vec<StorageItem>),
     Undefined(String),
-} 
+}
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum StorageItem {

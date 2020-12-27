@@ -67,7 +67,7 @@ pub struct DuplicateNameError(String);
 
 impl fmt::Display for DuplicateNameError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self)
+        write!(f, "{}", self.0)
     }
 }
 
@@ -98,10 +98,10 @@ impl AnalyzerError {
             | AnalyzerError::Closed
             | AnalyzerError::LibraryDefinition
             | AnalyzerError::MissingLibraryDefinition => (self.to_string(), Range::default()),
-            AnalyzerError::DuplicateFieldNameError(value) => (value.to_string(), value.1),
-            AnalyzerError::DuplicateName(value) => (value.to_string(), Range::default()),
-            AnalyzerError::ReferenceError(value) => (value.to_string(), value.1),
-            AnalyzerError::NameError(value) => (value.to_string(), value.1),
+            AnalyzerError::DuplicateFieldNameError(value) => (self.to_string(), value.1),
+            AnalyzerError::DuplicateName(_value) => (self.to_string(), Range::default()),
+            AnalyzerError::ReferenceError(value) => (self.to_string(), value.1),
+            AnalyzerError::NameError(value) => (self.to_string(), value.1),
         }
     }
 }
@@ -122,10 +122,10 @@ pub(super) struct AnalyzerItems {
 impl AnalyzerItems {
     pub(super) fn get_ids_node(&self, item: &parser::ItemType) -> Result<ItemType, ReferenceError> {
         match item {
-            parser::ItemType::Int(value) => Ok(ItemType::Int(value.to_owned())),
-            parser::ItemType::Float(value) => Ok(ItemType::Float(value.to_owned())),
-            parser::ItemType::String(value) => Ok(ItemType::String(value.to_owned())),
-            parser::ItemType::Boolean(value) => Ok(ItemType::Boolean(value.to_owned())),
+            parser::ItemType::Int(value) => Ok(ItemType::NatInt(value.to_owned())),
+            parser::ItemType::Float(value) => Ok(ItemType::NatFloat(value.to_owned())),
+            parser::ItemType::String(value) => Ok(ItemType::NatString(value.to_owned())),
+            parser::ItemType::Boolean(value) => Ok(ItemType::NatBool(value.to_owned())),
             parser::ItemType::TypeName(value) => {
                 if self.clients.contains(&value.ident) {
                     Ok(ItemType::ClientTypeName(value.ident.to_owned()))
@@ -231,6 +231,7 @@ impl Analyzer {
         }
 
         Self::has_duplicate_names(&items)?;
+        Self::has_one_main_definition(&items)?;
 
         for p_value in parsers.nodes.iter() {
             match p_value {
@@ -244,6 +245,66 @@ impl Analyzer {
         }
 
         Ok(Self::from_nodes(nodes))
+    }
+
+    pub fn find_client(&self, name: &str) -> Option<&Box<client::Client>> {
+        for node in &self.nodes {
+            match node {
+                IdsNode::Client(value) => {
+                    if value.ident == name {
+                        return Some(value);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        None
+    }
+
+    pub fn has_client(&self, name: &str) -> bool {
+        for node in &self.nodes {
+            match node {
+                IdsNode::Client(value) => {
+                    if value.ident == name {
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        false
+    }
+
+    pub fn find_server(&self, name: &str) -> Option<&Box<server::Server>> {
+        for node in &self.nodes {
+            match node {
+                IdsNode::Server(value) => {
+                    if value.ident == name {
+                        return Some(value);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        None
+    }
+
+     pub fn has_server(&self, name: &str) -> bool {
+        for node in &self.nodes {
+            match node {
+                IdsNode::Server(value) => {
+                    if value.ident == name {
+                        return true;
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        false
     }
 
     fn has_duplicate_fields(nodes: &[parser::ItemNode]) -> Result<(), DuplicateFieldNameError> {
@@ -285,13 +346,25 @@ impl Analyzer {
         let names = items
             .clients
             .iter()
-            .chain(items.servers.iter())
+            .filter(|&x| x != "Main")
+            .chain(items.servers.iter().filter(|&x| x != "Main"))
             .chain(items.layers.iter());
         if let Some(value) = names
             .clone()
             .find(|v| names.clone().filter(|f| f == v).count() != 1)
         {
             return Err(DuplicateNameError(value.to_owned()));
+        }
+
+        Ok(())
+    }
+
+    // TODO Create error for `Main` names duplicates in server and client definitions
+    fn has_one_main_definition(items: &AnalyzerItems) -> Result<(), DuplicateNameError> {
+        if items.clients.iter().filter(|&x| x == "Main").count() > 1
+            || items.servers.iter().filter(|&x| x == "Main").count() > 1
+        {
+            return Err(DuplicateNameError("Main".to_owned()));
         }
 
         Ok(())

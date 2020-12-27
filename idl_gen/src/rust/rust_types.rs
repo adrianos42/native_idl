@@ -1,5 +1,5 @@
 use idl::idl::analyzer::Analyzer;
-use idl::idl::idl_types::*;
+use idl::idl::idl_nodes::*;
 
 use super::con_idl::get_rust_ty_ref;
 
@@ -38,19 +38,19 @@ impl fmt::Display for RustTypes {
 impl RustTypes {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, RustTypeError> {
         let mut context = RustTypes::new();
-        let nodes: &[TypeNode] = &analyzer.nodes;
+        let nodes: &[IdlNode] = &analyzer.nodes;
 
         for node in nodes {
             match node {
-                TypeNode::Comment(_) => {}
-                TypeNode::StructComment(_) => {}
-                TypeNode::TypeStruct(value) => context.add_struct(value)?,
-                TypeNode::EnumComment(_) => {}
-                TypeNode::TypeEnum(value) => context.add_enum(value)?,
-                TypeNode::TypeListComment(_) => {}
-                TypeNode::TypeList(value) => context.add_type_list(value)?,
-                TypeNode::ConstComment(_) => {}
-                TypeNode::TypeConst(value) => context.add_const(value)?,
+                IdlNode::Comment(_) => {}
+                IdlNode::StructComment(_) => {}
+                IdlNode::TypeStruct(value) => context.add_struct(value)?,
+                IdlNode::EnumComment(_) => {}
+                IdlNode::TypeEnum(value) => context.add_enum(value)?,
+                IdlNode::TypeListComment(_) => {}
+                IdlNode::TypeList(value) => context.add_type_list(value)?,
+                IdlNode::ConstComment(_) => {}
+                IdlNode::TypeConst(value) => context.add_const(value)?,
                 _ => {}
             }
         }

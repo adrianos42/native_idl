@@ -1,6 +1,26 @@
+use serde::{Deserialize, Serialize};
 use super::analyzer;
 use super::ids_nodes::*;
 use super::parser;
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct Server {
+    pub ident: String,
+    pub nodes: Vec<ServerNode>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub enum ServerNode {
+    ServerField(Box<ServerField>),
+    Comment(Vec<String>),
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct ServerField {
+    pub ident: String,
+    pub value: Box<ItemType>,
+}
+
 
 pub(super) fn get_node(
     item: &parser::Item,
@@ -22,7 +42,6 @@ pub(super) fn get_node(
                 match field.ident.as_str() {
                     "layers" => {
                         if match &value {
-                            ItemType::LayerTypeName(_) => false,
                             ItemType::Values(values) => values.iter().any(|v| !v.is_layer()),
                             _ => true,
                         } {
@@ -44,14 +63,17 @@ pub(super) fn get_node(
                             .into());
                         }
                     }
-                    _ => {
-                        return Err(analyzer::ReferenceError(
-                            analyzer::ReferenceErrorKind::UnknownField,
-                            field.range,
-                            field.ident.to_owned(),
-                        )
-                        .into())
+                    "language" => {
+                        if !value.is_string() {
+                            return Err(analyzer::ReferenceError(
+                                analyzer::ReferenceErrorKind::NotString,
+                                field.range,
+                                field.ident.to_owned(),
+                            )
+                            .into());
+                        }
                     }
+                    _ => {}
                 }
                 nodes.push(create_field_node(&field.ident, value));
             }

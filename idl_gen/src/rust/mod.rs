@@ -34,12 +34,9 @@ impl crate::IdlGen for RustGen {
         &self,
         request: crate::lang::LanguageRequest,
     ) -> Result<crate::lang::LanguageResponse, crate::IdlGenError> {
-        let analyzer = Analyzer::from_nodes(request.nodes);
+        let analyzer = Analyzer::from_nodes(request.idl_nodes);
 
-        let mut dir = crate::lang::Folder {
-            items: vec![],
-            name: "gen".to_owned(),
-        };
+        let mut dir_items = vec![];
 
         let mut src_dir = crate::lang::Folder {
             items: vec![],
@@ -95,16 +92,16 @@ impl crate::IdlGen for RustGen {
             }));
 
         let ffi_cargo = FFIServerCargo::generate(&analyzer).unwrap();
-        dir.items
+        dir_items
             .push(crate::lang::StorageItem::Source(crate::lang::Source {
                 name: "Cargo.toml".to_owned(),
                 txt: ffi_cargo.to_string(),
             }));
 
-        dir.items.push(crate::lang::StorageItem::Folder(src_dir));
+        dir_items.push(crate::lang::StorageItem::Folder(src_dir));
 
         Ok(LanguageResponse {
-            gen_response: ResponseType::Generated(dir),
+            gen_response: ResponseType::Generated(dir_items),
         })
     }
 }

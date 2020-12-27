@@ -10,10 +10,10 @@ pub enum Keywords {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum ItemType {
-    Int(String),
-    Float(String),
-    String(String),
-    Boolean(String),
+    NatInt(String),
+    NatFloat(String),
+    NatString(String),
+    NatBool(String),
     LayerTypeName(String),
     ClientTypeName(String),
     ServerTypeName(String),
@@ -23,25 +23,25 @@ pub enum ItemType {
 impl ItemType {
     pub fn is_int(&self) -> bool {
         match self {
-            ItemType::Int(_) => true,
+            ItemType::NatInt(_) => true,
             _ => false,
         }
     }
     pub fn is_float(&self) -> bool {
         match self {
-            ItemType::Float(_) => true,
+            ItemType::NatFloat(_) => true,
             _ => false,
         }
     }
     pub fn is_string(&self) -> bool {
         match self {
-            ItemType::String(_) => true,
+            ItemType::NatString(_) => true,
             _ => false,
         }
     }
     pub fn is_boolean(&self) -> bool {
         match self {
-            ItemType::Boolean(_) => true,
+            ItemType::NatBool(_) => true,
             _ => false,
         }
     }
@@ -74,9 +74,9 @@ impl ItemType {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum IdsNode {
     Library(Box<Library>),
-    Layer(Box<Layer>),
-    Server(Box<Server>),
-    Client(Box<Client>),
+    Layer(Box<super::layer::Layer>),
+    Server(Box<super::server::Server>),
+    Client(Box<super::client::Client>),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -97,56 +97,4 @@ pub struct LibraryField {
     pub value: Box<ItemType>,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Layer {
-    pub ident: String,
-    pub nodes: Vec<LayerNode>,
-}
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub enum LayerNode {
-    LayerField(Box<LayerField>),
-    Comment(Vec<String>),
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct LayerField {
-    pub ident: String,
-    pub value: Box<ItemType>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Client {
-    pub ident: String,
-    pub nodes: Vec<ClientNode>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub enum ClientNode {
-    ClientField(Box<ClientField>),
-    Comment(Vec<String>),
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ClientField {
-    pub ident: String,
-    pub value: Box<ItemType>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Server {
-    pub ident: String,
-    pub nodes: Vec<ServerNode>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub enum ServerNode {
-    ServerField(Box<ServerField>),
-    Comment(Vec<String>),
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct ServerField {
-    pub ident: String,
-    pub value: Box<ItemType>,
-}

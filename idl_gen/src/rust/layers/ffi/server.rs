@@ -1,5 +1,5 @@
 use idl::idl::analyzer::Analyzer;
-use idl::idl::idl_types::*;
+use idl::idl::idl_nodes::*;
 
 use crate::rust::con_idl::get_rust_ty_ref;
 
@@ -39,10 +39,10 @@ impl FFIServer {
 
         context.module.push(quote! { use super::ffi_types::*; });
 
-        let nodes: &[TypeNode] = &analyzer.nodes;
+        let nodes: &[IdlNode] = &analyzer.nodes;
         for node in nodes {
             match node {
-                TypeNode::TypeInterface(value) => context.add_interface(value, analyzer)?,
+                IdlNode::TypeInterface(value) => context.add_interface(value, analyzer)?,
                 _ => {}
             }
         }
@@ -401,12 +401,12 @@ impl FFIServerTypes {
             use super::ffi_types::*;
         });
 
-        let nodes: &[TypeNode] = &analyzer.nodes;
+        let nodes: &[IdlNode] = &analyzer.nodes;
         for node in nodes {
             match node {
-                TypeNode::TypeStruct(value) => context.add_struct(value, analyzer)?,
-                TypeNode::TypeList(value) => context.add_type_list(value, analyzer)?,
-                TypeNode::TypeEnum(value) => context.add_enum(value, analyzer)?,
+                IdlNode::TypeStruct(value) => context.add_struct(value, analyzer)?,
+                IdlNode::TypeList(value) => context.add_type_list(value, analyzer)?,
+                IdlNode::TypeEnum(value) => context.add_enum(value, analyzer)?,
                 _ => {}
             }
         }
@@ -627,10 +627,10 @@ impl FFIServerImpl {
 
         context.module.push(quote! { use super::ffi_types::*; });
 
-        let nodes: &[TypeNode] = &analyzer.nodes;
+        let nodes: &[IdlNode] = &analyzer.nodes;
         for node in nodes {
             match node {
-                TypeNode::TypeInterface(value) => context.add_interface(value, analyzer)?,
+                IdlNode::TypeInterface(value) => context.add_interface(value, analyzer)?,
                 _ => {}
             }
         }

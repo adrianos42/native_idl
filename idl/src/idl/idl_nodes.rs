@@ -24,7 +24,7 @@ pub enum Types {
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub enum TypeNode {
+pub enum IdlNode {
     LibraryName(String),
     Imports(Vec<String>),
     Comment(Vec<String>),

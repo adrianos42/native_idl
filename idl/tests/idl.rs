@@ -1,6 +1,6 @@
 mod analyzer {
     static IDS_FIRST: &str = r#"
-library idl_types
+library idl_nodes
 
 enum Types {
     NatInt,
@@ -11,7 +11,7 @@ enum Types {
     NatNone,
 }
 
-type TypeNode {
+type IdlNode {
     LibraryName: string,
     Imports: string[],
     Comment: string[],
