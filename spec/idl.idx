@@ -1,0 +1,44 @@
+\indexentry{term|hyperpage}{3}
+\indexentry{immediate subterm|hyperpage}{4}
+\indexentry{subterm|hyperpage}{4}
+\indexentry{[x1/y1, ..., xn/yn]E@$[x/y\ldots  ]E$|hyperpage}{4}
+\indexentry{substitution|hyperpage}{4}
+\indexentry{x.op(y)@\texttt  {$x$.\ensuremath  {\mathit  {op}}($y$)}|hyperpage}{4}
+\indexentry{variable!fresh|hyperpage}{4}
+\indexentry{is equivalent to|hyperpage}{5}
+\indexentry{treated as|hyperpage}{5}
+\indexentry{namespace!compile-time|hyperpage}{6}
+\indexentry{namespace|hyperpage}{6}
+\indexentry{name|hyperpage}{6}
+\indexentry{namespace value|hyperpage}{6}
+\indexentry{namespace!maps a key to a value|hyperpage}{7}
+\indexentry{namespace!key|hyperpage}{7}
+\indexentry{namespace!value|hyperpage}{7}
+\indexentry{namespace!has a binding|hyperpage}{7}
+\indexentry{is in|hyperpage}{7}
+\indexentry{declaration!introduces an entity into a scope|hyperpage}{7}
+\indexentry{run-time namespace|hyperpage}{7}
+\indexentry{available in scope|hyperpage}{7}
+\indexentry{in scope|hyperpage}{7}
+\indexentry{hides|hyperpage}{7}
+\indexentry{privacy|hyperpage}{9}
+\indexentry{private!declaration|hyperpage}{9}
+\indexentry{public!declaration|hyperpage}{9}
+\indexentry{private!name|hyperpage}{9}
+\indexentry{public!name|hyperpage}{9}
+\indexentry{private!identifier|hyperpage}{9}
+\indexentry{public!identifier|hyperpage}{9}
+\indexentry{accessible to a library|hyperpage}{9}
+\indexentry{isolates|hyperpage}{9}
+\indexentry{compile-time error|hyperpage}{9}
+\indexentry{embedder|hyperpage}{10}
+\indexentry{static warning|hyperpage}{10}
+\indexentry{dynamic error|hyperpage}{10}
+\indexentry{dynamic type error|hyperpage}{10}
+\indexentry{throwing an exception|hyperpage}{10}
+\indexentry{throwing a class|hyperpage}{10}
+\indexentry{reserved word|hyperpage}{11}
+\indexentry{comment|hyperpage}{11}
+\indexentry{single line comment|hyperpage}{11}
+\indexentry{multi-line comment|hyperpage}{11}
+\indexentry{documentation comments|hyperpage}{11}

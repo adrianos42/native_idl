@@ -34,7 +34,6 @@ pub fn create_command<'a>() -> App<'a> {
             .about("Server")
             .short('s')
             .long("server")
-            .default_value("Main")
             .takes_value(true),
         Arg::new("client")
             .about("Client")
@@ -48,9 +47,10 @@ pub fn create_command<'a>() -> App<'a> {
 pub fn parse(matches: &ArgMatches) -> Result<()> {
     let input = matches.value_of("input").unwrap();
     let output = matches.value_of("output").unwrap();
-    let library = matches.value_of("library");
     let client = matches.value_of("client").unwrap();
-    let server = matches.value_of("server").unwrap();
+
+    let library = matches.value_of("library");
+    let server = matches.value_of("server");
 
     //let mut layers = vec![];
 

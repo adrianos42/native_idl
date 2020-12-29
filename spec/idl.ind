@@ -1,0 +1,94 @@
+\begin{theindex}
+
+  \item $[x/y\ldots  ]E$, \hyperpage{4}
+
+  \indexspace
+
+  \item accessible to a library, \hyperpage{9}
+  \item available in scope, \hyperpage{7}
+
+  \indexspace
+
+  \item comment, \hyperpage{11}
+  \item compile-time error, \hyperpage{9}
+
+  \indexspace
+
+  \item declaration
+    \subitem introduces an entity into a scope, \hyperpage{7}
+  \item documentation comments, \hyperpage{11}
+  \item dynamic error, \hyperpage{10}
+  \item dynamic type error, \hyperpage{10}
+
+  \indexspace
+
+  \item embedder, \hyperpage{10}
+
+  \indexspace
+
+  \item hides, \hyperpage{7}
+
+  \indexspace
+
+  \item immediate subterm, \hyperpage{4}
+  \item in scope, \hyperpage{7}
+  \item is equivalent to, \hyperpage{5}
+  \item is in, \hyperpage{7}
+  \item isolates, \hyperpage{9}
+
+  \indexspace
+
+  \item multi-line comment, \hyperpage{11}
+
+  \indexspace
+
+  \item name, \hyperpage{6}
+  \item namespace, \hyperpage{6}
+    \subitem compile-time, \hyperpage{6}
+    \subitem has a binding, \hyperpage{7}
+    \subitem key, \hyperpage{7}
+    \subitem maps a key to a value, \hyperpage{7}
+    \subitem value, \hyperpage{7}
+  \item namespace value, \hyperpage{6}
+
+  \indexspace
+
+  \item privacy, \hyperpage{9}
+  \item private
+    \subitem declaration, \hyperpage{9}
+    \subitem identifier, \hyperpage{9}
+    \subitem name, \hyperpage{9}
+  \item public
+    \subitem declaration, \hyperpage{9}
+    \subitem identifier, \hyperpage{9}
+    \subitem name, \hyperpage{9}
+
+  \indexspace
+
+  \item reserved word, \hyperpage{11}
+  \item run-time namespace, \hyperpage{7}
+
+  \indexspace
+
+  \item single line comment, \hyperpage{11}
+  \item static warning, \hyperpage{10}
+  \item substitution, \hyperpage{4}
+  \item subterm, \hyperpage{4}
+
+  \indexspace
+
+  \item term, \hyperpage{3}
+  \item throwing a class, \hyperpage{10}
+  \item throwing an exception, \hyperpage{10}
+  \item treated as, \hyperpage{5}
+
+  \indexspace
+
+  \item variable
+    \subitem fresh, \hyperpage{4}
+
+  \indexspace
+
+  \item \texttt  {$x$.\ensuremath  {\mathit  {op}}($y$)}, \hyperpage{4}
+
+\end{theindex}

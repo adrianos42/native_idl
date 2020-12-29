@@ -60,6 +60,14 @@ impl AbiBytes {
     }
 }
 
+impl AbiBytes {
+    pub fn free(&mut self) {
+        unsafe {
+            
+        }
+    }
+}
+
 impl From<Vec<u8>> for AbiBytes {
     fn from(value: Vec<u8>) -> Self {
         let mut sl = value.into_boxed_slice();
@@ -79,7 +87,7 @@ pub struct AbiString {
 }
 
 impl AbiString {
-    pub fn release(&mut self) {
+    pub fn free(&mut self) {
         unsafe {
             let sl = std::slice::from_raw_parts_mut(self.data as *mut u8, self.length as usize);
             let _ = Box::from_raw(sl);

@@ -286,7 +286,7 @@ impl FFIServer {
                     // FIXME change release
                     if !field.is_static && is_boxed_ffi(ret_ty, analyzer) {
                         let func_ffi_ident =
-                            Ident::new(&(format!("release_{}", field_name)), Span::call_site());
+                            Ident::new(&(format!("dispose_{}", field_name)), Span::call_site());
 
                         let result_ident = quote! { _result };
                         let result_ty_ident = get_ffi_ty_ref(ret_ty, true, analyzer);
@@ -349,7 +349,7 @@ impl FFIServer {
             quote! { #result_ident: *mut #result_ty_ident }
         };
 
-        let field_name = format!("release_{}", ident.to_snake_case());
+        let field_name = format!("dispose_{}", ident.to_snake_case());
         let func_ffi_ident = Ident::new(&field_name, Span::call_site());
 
         let ins_ident = quote! { _ins };

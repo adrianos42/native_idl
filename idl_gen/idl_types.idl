@@ -9,7 +9,6 @@ library idl_types
 -- results: [bytes; bool],
 
 interface IdlInterface {
-    shit: stream int,
     get_value: (value: TypeStruct, name: string[], meh_not: float) -> stream TypeNode,
     get_name: (name: string) -> int,
 }

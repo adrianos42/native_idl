@@ -183,7 +183,7 @@ pub(crate) fn conv_ffi_ptr_to_value(
     ffi_name: &TokenStream,
     references: bool,
     analyzer: &Analyzer,
-) -> TokenStream {
+) -> Token7Stream {
     let c_ffi = get_ptr_ffi_ty_ref(&ty_name, references, analyzer);
     conv_ffi_value_to_value(
         ty_name,
