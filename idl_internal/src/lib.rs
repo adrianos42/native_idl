@@ -1,3 +1,8 @@
+#[macro_use]
+extern crate lazy_static;
+
+pub mod ffi;
+
 pub enum StreamError {
     Undefined,
     UnknownState,
@@ -9,12 +14,12 @@ pub enum StreamSender<R> {
     Error(StreamError),
     Value(R),
     Partial {
-        index: isize,
-        length: isize,
+        index: i64,
+        length: i64,
         value: R,
     },
     Waiting {
-        length: isize,
+        length: i64,
     },
     Request,
     Done,
@@ -24,7 +29,7 @@ pub enum StreamReceiver {
     Ok,
     Error(StreamError),
     Close,
-    Send { index: isize, length: isize },
+    Send { index: i64, length: i64 },
     Create,
     Pause,
     Resume,
