@@ -1,12 +1,12 @@
 use idl::idl::analyzer::Analyzer;
 use idl::idl::idl_nodes::*;
 
-use crate::rust::con_idl::get_rust_ty_ref;
+use crate::rust::con_idl::{get_rust_ty_name, get_rust_ty_ref};
 
 use crate::rust::string_pros::StringPros;
 use proc_macro2::{self, Ident, Literal, Span, TokenStream};
-use std::fmt;
 use std::i64;
+use std::{collections::HashMap, fmt};
 
 use super::*;
 
@@ -36,15 +36,37 @@ impl FFIServer {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, FFIServerError> {
         let mut context = FFIServer::new();
 
-        context.module.push(quote! { use super::ffi_types::*; });
+        let mut deps = vec![];
+
+        let has_field_returns_stream = analyzer.any_interface_field_returns_stream(None);
+        let has_interface_field_sends_stream = analyzer.any_interface_field_sends_stream(None);
+
+        if  has_field_returns_stream | has_interface_field_sends_stream
+        {
+            deps.push(quote! { StreamSender });
+        }
+
+        if has_interface_field_sends_stream {
+            deps.push(quote! { StreamError });
+        }
+
+        context.module.push(quote! {
+            use idl_internal::{ffi::ffi_types::*, #( #deps ),* };
+        });
 
         let nodes: &[IdlNode] = &analyzer.nodes;
+        let mut interfaces: Vec<&TypeInterface> = vec![];
         for node in nodes {
             match node {
-                IdlNode::TypeInterface(value) => context.add_interface(value, analyzer)?,
+                IdlNode::TypeInterface(value) => {
+                    context.add_interface(value, analyzer)?;
+                    interfaces.push(value);
+                }
                 _ => {}
             }
         }
+
+        context.add_interfaces_conv(&interfaces, analyzer)?;
 
         Ok(context)
     }
@@ -307,7 +329,7 @@ impl FFIServer {
                                 | AbiStreamReceiverState::Request => {
                                     let _result = #instance_ident.#func_ident(#conv,#stream_value_ident.into());
                                     unsafe {
-                                        *#stream_result_ident = { Box::into_raw(Box::new({ _result.into() })) as *const AbiStream };
+                                        *#stream_result_ident = { Box::into_raw(Box::new({ _result.into_abi() })) as *const AbiStream };
                                     }
                                 }
                                 _ => #ret_match
@@ -334,13 +356,53 @@ impl FFIServer {
                         };
 
                         fields.push(create_fn(func_ffi_ident, args, body_ident));
+
+                        // FIXME change release
+                        let func_ffi_ident = Ident::new(
+                            &(format!("dispose_stream_{}", field_name)),
+                            Span::call_site(),
+                        );
+
+                        let result_ident = quote! { _result };
+                        let result_ty_ident = get_ffi_ty_ref(ret_ty, true, analyzer);
+                        let args_ident =
+                            quote! { #instance_args #result_ident: *mut #result_ty_ident };
+                        let body_ident = quote! {
+                            //let _ = unsafe { Box::from_raw() };
+                            //std::mem::forget(#ins_ident);
+
+                            return AbiInternalError::Ok;
+                        };
+
+                        fields.push(create_fn(func_ffi_ident, args_ident, body_ident));
+                    } else if !field.is_static && is_boxed_ffi(ret_ty, analyzer) {
+                        // FIXME change release
+                        let func_ffi_ident =
+                            Ident::new(&(format!("dispose_{}", field_name)), Span::call_site());
+
+                        let result_ident = quote! { _result };
+                        let result_ty_ident = get_ffi_ty_ref(ret_ty, true, analyzer);
+                        let args_ident =
+                            quote! { #instance_args #result_ident: *mut #result_ty_ident };
+                        let body_ident = quote! {
+                            //let _ = unsafe { Box::from_raw() };
+                            //std::mem::forget(#ins_ident);
+
+                            return AbiInternalError::Ok;
+                        };
+
+                        fields.push(create_fn(func_ffi_ident, args_ident, body_ident));
                     }
 
                     if let Some(stream_arg_ty) = stream_arg {
-                        let func_ffi_ident =
-                            Ident::new(&(format!("stream_sender_{}", field_name)), Span::call_site());
-                        let func_ident =
-                            Ident::new(&format!("{}_stream_sender", &field.ident), Span::call_site());
+                        let func_ffi_ident = Ident::new(
+                            &(format!("stream_sender_{}", field_name)),
+                            Span::call_site(),
+                        );
+                        let func_ident = Ident::new(
+                            &format!("{}_stream_sender", &field.ident),
+                            Span::call_site(),
+                        );
                         let stream_ident = quote! { _stream };
                         let stream_result_ident = quote! { _stream_result };
                         let stream_value_ident = quote! { _stream_val };
@@ -365,7 +427,7 @@ impl FFIServer {
                                 | AbiStreamSenderState::Partial
                                 | AbiStreamSenderState::Done
                                 | AbiStreamSenderState::Request => {
-                                    let _result = #instance_ident.#func_ident(#conv,#stream_value_ident.into());
+                                    let _result = #instance_ident.#func_ident(#conv,#stream_value_ident.into_sender());
                                     unsafe {
                                         *#stream_result_ident = { Box::into_raw(Box::new({ _result.into() })) as *const AbiStream };
                                     }
@@ -394,12 +456,12 @@ impl FFIServer {
                         };
 
                         fields.push(create_fn(func_ffi_ident, args, body_ident));
-                    }
 
-                    // FIXME change release
-                    if !field.is_static && is_boxed_ffi(ret_ty, analyzer) {
-                        let func_ffi_ident =
-                            Ident::new(&(format!("dispose_{}", field_name)), Span::call_site());
+                        // FIXME change release
+                        let func_ffi_ident = Ident::new(
+                            &(format!("dispose_stream_sender_{}", field_name)),
+                            Span::call_site(),
+                        );
 
                         let result_ident = quote! { _result };
                         let result_ty_ident = get_ffi_ty_ref(ret_ty, true, analyzer);
@@ -484,6 +546,145 @@ impl FFIServer {
         Ok(())
     }
 
+    fn add_interfaces_conv(
+        &mut self,
+        interfaces: &[&TypeInterface],
+        analyzer: &Analyzer,
+    ) -> Result<(), FFIServerError> {
+        let mut stream_ret_types = HashMap::new();
+        let mut stream_send_types = HashMap::new();
+
+        for node in interfaces {
+            for node in &node.fields {
+                match node {
+                    InterfaceNode::InterfaceField(field) => {
+                        if let Some(stream_ty) = Analyzer::field_stream_return_ty(field) {
+                            let ty_name = get_rust_ty_name(stream_ty);
+                            stream_ret_types.insert(ty_name, stream_ty);
+                        }
+                        if let Some(stream_send_ty) = Analyzer::field_stream_send_ty(field) {
+                            let ty_name = get_rust_ty_name(stream_send_ty);
+                            stream_send_types.insert(ty_name, stream_send_ty);
+                        }
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let mut fields = vec![];
+
+        if !stream_ret_types.is_empty() {
+            self.module.push(quote! {
+                trait StreamSenderIntoAbiStream<T> {
+                    fn into_abi(self) -> AbiStream;
+                }
+            });
+
+            for ret_ty in stream_ret_types.values() {
+                let r_ty = get_rust_ty_ref(ret_ty, true);
+                let cont_val = conv_value_to_ffi_boxed(&ret_ty, &quote! { value }, true, analyzer);
+
+                fields.push(quote! {
+                    impl StreamSenderIntoAbiStream<#r_ty> for StreamSender<#r_ty> {
+                        #[allow(unused_braces)]
+                        fn into_abi(self) -> AbiStream {
+                            match self {
+                                StreamSender::Value(value) => {
+                                    let mut _result = AbiStream::new(AbiStreamSenderState::Value as i64);
+                                    _result.data = #cont_val as *const ::core::ffi::c_void;
+                                    _result
+                                }
+                                StreamSender::Partial {
+                                    index,
+                                    length,
+                                    value,
+                                } => {
+                                    let mut _result = AbiStream::new(AbiStreamSenderState::Partial as i64);
+                                    _result.data = {
+                                        Box::into_raw(Box::new({
+                                            let _inn = AbiStreamPartial {
+                                                index: index as i64,
+                                                length: length as i64,
+                                                data: #cont_val as *const ::core::ffi::c_void,
+                                            };
+                                            _inn
+                                        })) as *const AbiStreamPartial
+                                    } as *const ::core::ffi::c_void;
+                                    _result
+                                }
+                                StreamSender::Waiting { length } => {
+                                    let mut _result = AbiStream::new(AbiStreamSenderState::Waiting as i64);
+                                    _result.data = { Box::into_raw(Box::new(length as i64)) as *const i64 } 
+                                        as *const ::core::ffi::c_void;
+                                    _result
+                                }
+                                StreamSender::Request => AbiStream::new(AbiStreamSenderState::Request as i64),
+                                StreamSender::Done => AbiStream::new(AbiStreamSenderState::Done as i64),
+                                StreamSender::Error(error) => { // TODO
+                                    let mut _result = AbiStream::new(AbiStreamSenderState::Error as i64);
+                                    _result.data = { Box::into_raw(Box::new(0)) as *const i64 } as *const ::core::ffi::c_void;
+                                    _result
+                                }
+                                StreamSender::Ok => AbiStream::new(AbiStreamSenderState::Ok as i64),
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        if !stream_send_types.is_empty() {
+            self.module.push(quote! {
+                trait AbiStreamIntoStreamSender<T> {
+                    fn into_sender(self) -> StreamSender<T>;
+                }
+            });
+
+            for send_ty in stream_send_types.values() {
+                let s_ty = get_rust_ty_ref(send_ty, true);
+                let cont_val = conv_ffi_ptr_to_value(&send_ty, &quote! { self.data }, true, analyzer);
+
+                fields.push(quote! {
+                    impl AbiStreamIntoStreamSender<#s_ty> for AbiStream {
+                        #[allow(unused_braces)]
+                        fn into_sender(self) -> StreamSender<#s_ty> {
+                            match self.state.into() {
+                                AbiStreamSenderState::Value => {
+                                    let _result = #cont_val;
+                                    StreamSender::Value(_result)
+                                }
+                                AbiStreamSenderState::Partial => {
+                                    let _result = unsafe { (self.data as *const AbiStreamPartial).read() }; // TODO
+
+                                    StreamSender::Partial {
+                                        index: _result.index,
+                                        length: _result.length,
+                                        value: unsafe { (self.data as *const i64).read() },
+                                    }
+                                }
+                                AbiStreamSenderState::Error => StreamSender::Error(StreamError::Undefined),
+                                AbiStreamSenderState::Waiting => {
+                                    let _result = unsafe { (self.data as *const i64).read() };
+                                    StreamSender::Waiting {
+                                        length: _result,
+                                    }
+                                }
+                                AbiStreamSenderState::Done => StreamSender::Done,
+                                AbiStreamSenderState::Request => StreamSender::Request,
+                                AbiStreamSenderState::Ok => StreamSender::Ok,
+                            }
+                        }
+                    }
+                });
+            }
+        }
+
+        self.module.push(quote! { #( #fields )* });
+
+        Ok(())
+    }
+
     fn new() -> Self {
         Self { module: vec![] }
     }
@@ -510,7 +711,7 @@ impl FFIServerTypes {
         let mut context = FFIServerTypes::new();
 
         context.module.push(quote! {
-            use super::ffi_types::*;
+            use idl_internal::ffi::ffi_types::*;
         });
 
         let nodes: &[IdlNode] = &analyzer.nodes;
@@ -737,8 +938,8 @@ impl FFIServerImpl {
         let mut context = FFIServerImpl::new();
 
         context.module.push(quote! {
-            use super::ffi_types::*;
-            use super::idl_internal::*;
+            use idl_internal::ffi::ffi_types::*;
+            use idl_internal::*;
         });
 
         let nodes: &[IdlNode] = &analyzer.nodes;
@@ -891,6 +1092,9 @@ default-features = false
 [lib]
 name = "{}"
 crate-type = ["staticlib", "cdylib"]
+
+[dependencies]
+idl_internal = {{ git = "https://github.com/adrianos42/native_idl", path = "idl_internal" }}
 "#,
             pkg_name, version, author, edition, lib_name,
         );

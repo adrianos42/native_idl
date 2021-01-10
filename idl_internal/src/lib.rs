@@ -36,7 +36,7 @@ pub enum StreamReceiver {
     Request,
 }
 
-pub trait StreamInstance<T> {
+pub trait StreamInstance {
     fn wake_client(&self);
     fn get_handle(&self) -> i64;
 }

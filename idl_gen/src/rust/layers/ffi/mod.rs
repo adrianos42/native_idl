@@ -28,9 +28,7 @@ impl FFIMod {
            mod idl_ffi_types; // ffi types
            mod idl_impl; // rust interface type
            mod idl_ffi_impl; // ffi interface type
-           mod ffi_types; // base types
            mod #impl_ident; // for the interfaces implementation
-           mod idl_internal;
         };
 
         Ok(FFIMod { module })

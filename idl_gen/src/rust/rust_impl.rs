@@ -33,7 +33,9 @@ impl RustImpl {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, RustImplError> {
         let mut context = RustImpl::new();
 
-        context.module.push(quote! { use super::idl_internal::*; });
+        context.module.push(quote! { 
+            use idl_internal::{StreamReceiver, StreamSender, StreamInstance}; 
+        });
 
         let nodes: &[IdlNode] = &analyzer.nodes;
 

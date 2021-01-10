@@ -209,46 +209,120 @@ impl Analyzer {
         None
     }
 
-    pub fn interface_has_static_field(name: &idl_nodes::TypeInterface) -> bool {
-        if name.fields.iter().any(|node| {
-            if let idl_nodes::InterfaceNode::InterfaceField(field) = node {
-                field.is_static
-            } else {
-                false
-            }
-        }) {
-            return true;
-        }
+    pub fn any_interface_field_returns_stream(&self, is_static: Option<bool>) -> bool {
+        self.nodes
+            .iter()
+            .filter_map(|node| match node {
+                idl_nodes::IdlNode::TypeInterface(ty_interface) => Some(ty_interface),
+                _ => None,
+            })
+            .any(|interface| {
+                interface.fields.iter().any(|node| match node {
+                    idl_nodes::InterfaceNode::InterfaceField(field) => {
+                        (is_static.is_none() || is_static.unwrap() == field.is_static)
+                            && Self::field_returns_stream(field)
+                    }
+                    _ => false,
+                })
+            })
+    }
 
-        false
+    pub fn any_interface_field_sends_stream(&self, is_static: Option<bool>) -> bool {
+        self.nodes
+            .iter()
+            .filter_map(|node| match node {
+                idl_nodes::IdlNode::TypeInterface(ty_interface) => Some(ty_interface),
+                _ => None,
+            })
+            .any(|interface| {
+                interface.fields.iter().any(|node| match node {
+                    idl_nodes::InterfaceNode::InterfaceField(field) => {
+                        (is_static.is_none() || is_static.unwrap() == field.is_static)
+                            && Self::field_sends_stream(field)
+                    }
+                    _ => false,
+                })
+            })
+    }
+
+    pub fn interface_has_static_field(name: &idl_nodes::TypeInterface) -> bool {
+        name.fields.iter().any(|node| match node {
+            idl_nodes::InterfaceNode::InterfaceField(field) => field.is_static,
+            _ => false,
+        })
     }
 
     pub fn interface_has_non_static_field(name: &idl_nodes::TypeInterface) -> bool {
-        if name.fields.iter().any(|node| {
-            if let idl_nodes::InterfaceNode::InterfaceField(field) = node {
-                !field.is_static
-            } else {
-                false
-            }
-        }) {
-            return true;
-        }
-
-        false
+        name.fields.iter().any(|node| match node {
+            idl_nodes::InterfaceNode::InterfaceField(field) => !field.is_static,
+            _ => false,
+        })
     }
 
-    fn returns_interface(ty_name: &idl_nodes::TypeName) -> bool {
-        match ty_name {
-            // Result cannot be returned as an error
-            idl_nodes::TypeName::InterfaceTypeName(_) => true,
-            idl_nodes::TypeName::TypeFunction(value) => Self::returns_interface(&value.return_ty),
-            idl_nodes::TypeName::TypeArray(value) => Self::returns_interface(&value.ty),
-            idl_nodes::TypeName::TypeMap(value) => Self::returns_interface(&value.map_ty),
-            idl_nodes::TypeName::TypeOption(value) => Self::returns_interface(&value.some_ty),
-            idl_nodes::TypeName::TypeResult(value) => Self::returns_interface(&value.ok_ty),
-            idl_nodes::TypeName::TypeStream(value) => Self::returns_interface(&value.s_ty),
+    pub fn interface_returns_stream(
+        name: &idl_nodes::TypeInterface,
+        is_static: Option<bool>,
+    ) -> bool {
+        name.fields.iter().any(|node| match node {
+            idl_nodes::InterfaceNode::InterfaceField(field) => {
+                (is_static.is_none() || is_static.unwrap() == field.is_static)
+                    && Self::field_returns_stream(field)
+            }
             _ => false,
+        })
+    }
+
+    pub fn interface_sends_stream(
+        name: &idl_nodes::TypeInterface,
+        is_static: Option<bool>,
+    ) -> bool {
+        name.fields.iter().any(|node| match node {
+            idl_nodes::InterfaceNode::InterfaceField(field) => {
+                (is_static.is_none() || is_static.unwrap() == field.is_static)
+                    && Self::field_sends_stream(field)
+            }
+            _ => false,
+        })
+    }
+
+    pub fn field_returns_stream(field: &idl_nodes::InterfaceField) -> bool {
+        Self::field_stream_return_ty(field).is_some()
+    }
+
+    pub fn field_stream_return_ty(
+        field: &idl_nodes::InterfaceField,
+    ) -> Option<&idl_nodes::TypeName> {
+        match &field.ty {
+            idl_nodes::TypeName::TypeStream(value) => Some(&value.s_ty),
+            idl_nodes::TypeName::TypeFunction(value) => match &value.return_ty {
+                idl_nodes::TypeName::TypeStream(value) => Some(&value.s_ty),
+                _ => None,
+            },
+            _ => None,
         }
+    }
+
+    pub fn field_sends_stream(field: &idl_nodes::InterfaceField) -> bool {
+        Self::field_stream_send_ty(field).is_some()
+    }
+
+    pub fn field_stream_send_ty(field: &idl_nodes::InterfaceField) -> Option<&idl_nodes::TypeName> {
+        let args = match &field.ty {
+            idl_nodes::TypeName::TypeFunction(value) => match &value.args {
+                idl_nodes::TypeName::TypeTuple(value) => &value.fields,
+                _ => return None,
+            },
+            idl_nodes::TypeName::TypeTuple(value) => &value.fields,
+            _ => return None,
+        };
+
+        if let Some(value) = args.iter().last() {
+            if let idl_nodes::TypeName::TypeStream(value) = &value.ty {
+                return Some(&value.s_ty);
+            }
+        }
+
+        None
     }
 
     pub fn interface_has_constructor_field(name: &idl_nodes::TypeInterface) -> bool {
@@ -545,11 +619,9 @@ impl Analyzer {
                         }
                     }
 
-                    analyzer
-                        .nodes
-                        .push(idl_nodes::IdlNode::TypeStruct(Box::new(
-                            idl_nodes::TypeStruct { ident, fields },
-                        )));
+                    analyzer.nodes.push(idl_nodes::IdlNode::TypeStruct(Box::new(
+                        idl_nodes::TypeStruct { ident, fields },
+                    )));
                 }
                 parser::ParserNode::Enum(value) => {
                     let ident = match items.get_type(value.ident.clone()) {
@@ -727,6 +799,20 @@ impl Analyzer {
         Self::tuple_has_incorrect_stream_type(&analyzer.nodes, parsers)?;
 
         Ok(analyzer)
+    }
+
+    fn returns_interface(ty_name: &idl_nodes::TypeName) -> bool {
+        match ty_name {
+            // Result cannot be returned as an error
+            idl_nodes::TypeName::InterfaceTypeName(_) => true,
+            idl_nodes::TypeName::TypeFunction(value) => Self::returns_interface(&value.return_ty),
+            idl_nodes::TypeName::TypeArray(value) => Self::returns_interface(&value.ty),
+            idl_nodes::TypeName::TypeMap(value) => Self::returns_interface(&value.map_ty),
+            idl_nodes::TypeName::TypeOption(value) => Self::returns_interface(&value.some_ty),
+            idl_nodes::TypeName::TypeResult(value) => Self::returns_interface(&value.ok_ty),
+            idl_nodes::TypeName::TypeStream(value) => Self::returns_interface(&value.s_ty),
+            _ => false,
+        }
     }
 
     fn tuple_has_result_type(
