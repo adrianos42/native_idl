@@ -1,18 +1,5 @@
 library idl_types
 
--- name: (non: string, neh: TypeStruct) -> [int],
--- idl_types: Types[],
--- nodes: TypeNode[],
--- with_args: (meh: int, hes: bool),
--- ty_maps: (rew: float) -> TypeInterface[string],
--- opns: [string],
--- results: [bytes; bool],
-
-interface IdlInterface {
-    get_value: (value: TypeStruct, name: string[], meh_not: float) -> stream TypeNode,
-    get_name: (name: string) -> int,
-}
-
 enum Types {
     NatInt,
     NatFloat,

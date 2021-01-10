@@ -1,10 +1,10 @@
-This is pdfTeX, Version 3.14159265-2.6-1.40.21 (TeX Live 2020 - CLR Linux) (preloaded format=pdflatex 2020.10.18)  18 OCT 2020 20:19
+This is pdfTeX, Version 3.14159265-2.6-1.40.21 (TeX Live 2020 - CLR Linux) (preloaded format=pdflatex 2021.1.2)  2 JAN 2021 20:25
 entering extended mode
  restricted \write18 enabled.
  file:line:error style messages enabled.
  %&-line parsing enabled.
-**/home/adriano/repos/native_idl_language/spec/idl.tex
-(/home/adriano/repos/native_idl_language/spec/idl.tex
+**/home/adriano/repos/native_idl/spec/idl.tex
+(/home/adriano/repos/native_idl/spec/idl.tex
 LaTeX2e <2020-02-02> patch level 5
 L3 programming layer <2020-03-06> (/usr/share/texmf-dist/tex/latex/base/article.cls
 Document Class: article 2019/12/20 v1.4l Standard LaTeX document class
@@ -169,7 +169,7 @@ and general definitions.
 \@@pLineBox=\box48
 \@@cBox=\box49
 \@@pBox=\box50
-) (/home/adriano/repos/native_idl_language/spec/idl.sty) (/usr/share/texmf-dist/tex/latex/hyperref/hyperref.sty
+) (/home/adriano/repos/native_idl/spec/idl.sty) (/usr/share/texmf-dist/tex/latex/hyperref/hyperref.sty
 Package: hyperref 2020/01/14 v7.00d Hypertext links for LaTeX
  (/usr/share/texmf-dist/tex/generic/ltxcmds/ltxcmds.sty
 Package: ltxcmds 2019/12/15 v1.24 LaTeX kernel commands for general use (HO)
@@ -322,7 +322,7 @@ File: l3backend-pdfmode.def 2020-03-12 L3 backend support: PDF mode
 LaTeX Warning: Unused global option(s):
     [makeidx].
 
-(/home/adriano/repos/native_idl_language/spec/idl.aux)
+(/home/adriano/repos/native_idl/spec/idl.aux)
 \openout1 = `idl.aux'.
 
 LaTeX Font Info:    Checking defaults for OML/cmm/m/it on input line 20.
@@ -374,7 +374,7 @@ Package: gettitlestring 2019/12/15 v1.6 Cleanup title references (HO)
 LaTeX Info: Redefining \ref on input line 20.
 LaTeX Info: Redefining \pageref on input line 20.
 LaTeX Info: Redefining \nameref on input line 20.
- (/home/adriano/repos/native_idl_language/spec/idl.out) (/home/adriano/repos/native_idl_language/spec/idl.out)
+ (/home/adriano/repos/native_idl/spec/idl.out) (/home/adriano/repos/native_idl/spec/idl.out)
 \@outlinefile=\write4
 \openout4 = `idl.out'.
 
@@ -407,13 +407,13 @@ File: umsa.fd 2013/01/14 v3.01 AMS symbols A
 LaTeX Font Info:    Trying to load font information for U+msb on input line 22.
  (/usr/share/texmf-dist/tex/latex/amsfonts/umsb.fd
 File: umsb.fd 2013/01/14 v3.01 AMS symbols B
-) (/home/adriano/repos/native_idl_language/spec/idl.toc
+) (/home/adriano/repos/native_idl/spec/idl.toc
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <10> on input line 7.
+(Font)              <10> on input line 6.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <7> on input line 7.
+(Font)              <7> on input line 6.
 LaTeX Font Info:    External font `lmex10' loaded for size
-(Font)              <5> on input line 7.
+(Font)              <5> on input line 6.
 )
 \tf@toc=\write5
 \openout5 = `idl.toc'.
@@ -429,45 +429,48 @@ Overfull \hbox (3.52881pt too wide) in paragraph at lines 41--43
 \T1/lmr/m/n/10 vide and sup-port all the APIs (li-braries, types, func-tions, get-ters, set-ters, whether
  []
 
-LaTeX Font Info:    Trying to load font information for T1+lmss on input line 91.
-(/usr/share/texmf-dist/tex/latex/lm/t1lmss.fd
+[2]
+LaTeX Font Info:    Trying to load font information for T1+lmss on input line 107.
+ (/usr/share/texmf-dist/tex/latex/lm/t1lmss.fd
 File: t1lmss.fd 2009/10/30 v1.6 Font defs for Latin Modern
-) [2]
+)
 
-LaTeX Warning: Reference `identifierReference' on page 3 undefined on input line 104.
+LaTeX Warning: Reference `identifierReference' on page 3 undefined on input line 120.
 
 [3]
-LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 199.
+LaTeX Font Info:    Trying to load font information for TS1+lmr on input line 215.
  (/usr/share/texmf-dist/tex/latex/lm/ts1lmr.fd
 File: ts1lmr.fd 2009/10/30 v1.6 Font defs for Latin Modern
-)
-Overfull \hbox (0.52773pt too wide) in paragraph at lines 223--227
+) [4]
+Overfull \hbox (0.52773pt too wide) in paragraph at lines 239--243
 [][]\T1/lmr/m/n/10 References to oth-er-wise un-spec-i-fied names of pro-gram en-ti-ties (such as classes
  []
 
-[4]
 
-LaTeX Warning: Reference `types' on page 5 undefined on input line 306.
+LaTeX Warning: Reference `types' on page 5 undefined on input line 322.
 
 [5]
 
-LaTeX Warning: Reference `typeDynamic' on page 6 undefined on input line 360.
+LaTeX Warning: Reference `typeDynamic' on page 6 undefined on input line 376.
 
 
-LaTeX Warning: Reference `librariesAndScripts' on page 6 undefined on input line 375.
-
-
-LaTeX Warning: Reference `conflictMergingOfNamespaces' on page 6 undefined on input line 404.
-
-
-LaTeX Warning: Marginpar on page 6 moved.
-
-
-LaTeX Warning: Marginpar on page 6 moved.
+LaTeX Warning: Reference `librariesAndScripts' on page 6 undefined on input line 391.
 
 [6]
 
-LaTeX Warning: Reference `labels' on page 7 undefined on input line 460.
+LaTeX Warning: Reference `conflictMergingOfNamespaces' on page 7 undefined on input line 420.
+
+
+LaTeX Warning: Marginpar on page 7 moved.
+
+
+LaTeX Warning: Marginpar on page 7 moved.
+
+
+LaTeX Warning: Marginpar on page 7 moved.
+
+
+LaTeX Warning: Reference `labels' on page 7 undefined on input line 476.
 
 [7] [8]
 
@@ -489,55 +492,55 @@ LaTeX Warning: Marginpar on page 9 moved.
 LaTeX Warning: Marginpar on page 9 moved.
 
 
-LaTeX Warning: Reference `imports' on page 9 undefined on input line 600.
+LaTeX Warning: Reference `imports' on page 9 undefined on input line 616.
 
 
-LaTeX Warning: Reference `sendingMessages' on page 9 undefined on input line 628.
+LaTeX Warning: Reference `sendingMessages' on page 9 undefined on input line 644.
 
 
-LaTeX Warning: Reference `spawningAnIsolate' on page 9 undefined on input line 630.
+LaTeX Warning: Reference `spawningAnIsolate' on page 9 undefined on input line 646.
 
 [9]
 
-LaTeX Warning: Reference `statementCompletion' on page 10 undefined on input line 693.
+LaTeX Warning: Reference `statementCompletion' on page 10 undefined on input line 709.
 
-[10]
-Underfull \hbox (badness 10000) in paragraph at lines 818--818
+[10] [11]
+Underfull \hbox (badness 10000) in paragraph at lines 834--834
 
  []
 
-[11]
-Overfull \hbox (4.45572pt too wide) in paragraph at lines 818--819
+
+Overfull \hbox (4.45572pt too wide) in paragraph at lines 834--835
 [][]
  []
 
-Package atveryend Info: Empty hook `BeforeClearDocument' on input line 821.
+Package atveryend Info: Empty hook `BeforeClearDocument' on input line 837.
 [12]
-Package atveryend Info: Empty hook `AfterLastShipout' on input line 821.
- (/home/adriano/repos/native_idl_language/spec/idl.aux)
-Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 821.
-Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 821.
+Package atveryend Info: Empty hook `AfterLastShipout' on input line 837.
+ (/home/adriano/repos/native_idl/spec/idl.aux)
+Package atveryend Info: Executing hook `AtVeryEndDocument' on input line 837.
+Package atveryend Info: Executing hook `AtEndAfterFileList' on input line 837.
 Package rerunfilecheck Info: File `idl.out' has not changed.
-(rerunfilecheck)             Checksum: 9CBDC55F14D1DD50E0A4AB3CD068494B;827.
+(rerunfilecheck)             Checksum: 5AD241A48635EEC43D431157762C7306;989.
 
 
 LaTeX Warning: There were undefined references.
 
-Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 821.
+Package atveryend Info: Empty hook `AtVeryVeryEnd' on input line 837.
  ) 
 Here is how much of TeX's memory you used:
- 7898 strings out of 480608
- 112470 string characters out of 5909985
- 384854 words of memory out of 5000000
- 23554 multiletter control sequences out of 15000+600000
+ 7907 strings out of 480608
+ 112425 string characters out of 5909987
+ 384956 words of memory out of 5000000
+ 23560 multiletter control sequences out of 15000+600000
  607095 words of font info for 73 fonts, out of 8000000 for 9000
  1141 hyphenation exceptions out of 8191
- 38i,7n,37p,395b,382s stack positions out of 5000i,500n,10000p,200000b,80000s
+ 38i,7n,37p,386b,345s stack positions out of 5000i,500n,10000p,200000b,80000s
 {/usr/share/texmf-dist/fonts/enc/dvips/lm/lm-ec.enc}{/usr/share/texmf-dist/fonts/enc/dvips/lm/lm-mathsy.enc}{/usr/share/texmf-dist/fonts/enc/dvips/lm/lm-ts1.enc}{/usr/share/texmf-dist/fonts/enc/dvips/lm/lm-rm.enc}{/usr/share/texmf-dist/fonts/enc/dvips/lm/lm-mathit.enc}</usr/share/texmf-dist/fonts/type1/public/lm/lmbx10.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmbx12.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmmi10.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmmi7.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmr10.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmr12.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmr17.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmr5.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmr7.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmri10.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmro10.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmss10.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmssbx10.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmsy10.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmsy7.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmtt10.pfb></usr/share/texmf-dist/fonts/type1/public/lm/lmtti10.pfb>
-Output written on /home/adriano/repos/native_idl_language/spec/idl.pdf (12 pages, 378275 bytes).
+Output written on /home/adriano/repos/native_idl/spec/idl.pdf (12 pages, 378675 bytes).
 PDF statistics:
- 227 PDF objects out of 1000 (max. 8388607)
- 194 compressed objects within 2 object streams
- 34 named destinations out of 1000 (max. 500000)
- 121 words of extra memory for PDF output out of 10000 (max. 10000000)
+ 246 PDF objects out of 1000 (max. 8388607)
+ 212 compressed objects within 3 object streams
+ 37 named destinations out of 1000 (max. 500000)
+ 145 words of extra memory for PDF output out of 10000 (max. 10000000)
 

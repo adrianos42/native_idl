@@ -18,7 +18,7 @@ interface Test {
     value_result_err: [string; bool],
     value_int_stream: stream string,
     value_names: (value: Names) -> Names,
-    value_values: (value: Values) -> Values,
+    value_values: (value: ValuesFloat) -> ValuesFloat,
     static_value_int: static (value: int) -> int,
 }
 
@@ -28,8 +28,8 @@ struct Point {
 }
 
 type Types {
-    IntTy: int,
-    StringTy: string,
+    IntType: int,
+    StringType: string,
 }
 
 const Names {
@@ -37,8 +37,14 @@ const Names {
     surname: "Souza",
 }
 
-const Values {
+const ValuesFloat {
     pi: 3.14,
     sqrt: 2.55,
     onedw: 122332.0,
+}
+
+const ValuesInteger {
+    one: 1,
+    two: 2,
+    three: 3,
 }

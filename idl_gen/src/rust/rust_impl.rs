@@ -7,8 +7,6 @@ use super::string_pros::StringPros;
 use proc_macro2::{self, Ident, Span, TokenStream};
 use std::fmt;
 
-const NEW_LINE: &str = "\n\n";
-
 #[derive(Debug)]
 pub enum RustImplError {
     UnexpectedType,
@@ -25,7 +23,6 @@ impl fmt::Display for RustImpl {
 
         self.module.iter().for_each(|value| {
             result_code += &value.to_string();
-            result_code += NEW_LINE;
         });
 
         write!(f, "{}", result_code.as_str().rust_fmt())
@@ -35,6 +32,9 @@ impl fmt::Display for RustImpl {
 impl RustImpl {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, RustImplError> {
         let mut context = RustImpl::new();
+
+        context.module.push(quote! { use super::idl_internal::*; });
+
         let nodes: &[IdlNode] = &analyzer.nodes;
 
         for node in nodes {
@@ -80,53 +80,64 @@ impl RustImpl {
                         _ => (None, &field.ty),
                     };
 
-                    let mut stream_arg: Option<TokenStream> = None;
+                    let mut stream_arg: Option<(&TypeName, &TypeName)> = None;
+                    let mut stream_ret: Option<(&TypeName, &TypeName)> = None;
 
                     if let Some(args) = args {
                         for arg in args {
-                            match &arg.ty {
-                                TypeName::TypeStream(_) => {
-                                    stream_arg = Some(get_rust_ty_ref(&arg.ty, true))
-                                }
-                                _ => {
-                                    let arg_ident = Ident::new(&arg.ident, Span::call_site());
-                                    let arg_ty_ident = get_rust_ty_ref(&arg.ty, true);
-                                    args_name.push(quote! { #arg_ident: #arg_ty_ident });
-                                }
+                            let arg_ident = Ident::new(&arg.ident, Span::call_site());
+                            let arg_ty_ident = get_rust_ty_ref(&arg.ty, true);
+                            args_name.push(quote! { #arg_ident: #arg_ty_ident });
+
+                            if let TypeName::TypeStream(value) = &arg.ty {
+                                stream_arg = Some((&arg.ty, &value.s_ty));
                             }
                         }
                     }
 
                     let ret_value_ident = match ret_ty {
                         TypeName::Types(Types::NatNone) | TypeName::TypeStream(_) => {
-                            if let TypeName::TypeStream(_) = ret_ty {
+                            if let TypeName::TypeStream(value) = ret_ty {
                                 let stream_ty_ident = get_rust_ty_ref(&ret_ty, true);
-                                args_name.push(quote! { stream_handle: #stream_ty_ident })
+                                args_name.push(quote! { stream_instance: #stream_ty_ident });
+                                stream_ret = Some((ret_ty, &value.s_ty));
                             }
-
-                            if let Some(stream_arg) = stream_arg {
-                                quote! { -> #stream_arg }
-                            } else {
-                                quote! {}
-                            }
+                            quote! {}
                         }
                         _ => {
                             let ret_ty_ident = get_rust_ty_ref(&ret_ty, true);
-                            if let Some(stream_arg) = stream_arg {
-                                quote! { -> (#stream_arg, #ret_ty_ident) }
-                            } else {
-                                quote! { -> #ret_ty_ident }
-                            }
+                            quote! { -> #ret_ty_ident }
                         }
-                    }; 
+                    };
 
-                    if field.is_static {
-                        static_fields.push(quote! {
-                            fn #func_ident(&self, #( #args_name ),* )#ret_value_ident;
-                        });
+                    let (fields_add, self_ident) = if field.is_static {
+                        (&mut static_fields, quote! { &self })
                     } else {
-                        fields.push(quote! {
-                            fn #func_ident(&mut self, #( #args_name ),* )#ret_value_ident;
+                        (&mut fields, quote! { &mut self })
+                    };
+
+                    fields_add.push(quote! {
+                        fn #func_ident(#self_ident, #( #args_name ),* )#ret_value_ident;
+                    });
+
+                    if let Some((arg_ty, stream_ty)) = stream_arg {
+                        let ident = Ident::new(
+                            &format!("{}_stream_sender", &field.ident),
+                            Span::call_site(),
+                        );
+                        let a_ty = get_rust_ty_ref(arg_ty, true);
+                        let s_ty = get_rust_ty_ref(stream_ty, true);
+                        fields_add.push(quote! {
+                            fn #ident(#self_ident, stream_instance: #a_ty, stream: StreamSender<#s_ty>) -> StreamReceiver;
+                        });
+                    }
+                    if let Some((ret_ty, stream_ty)) = stream_ret {
+                        let ident =
+                            Ident::new(&format!("{}_stream", &field.ident), Span::call_site());
+                        let r_ty = get_rust_ty_ref(ret_ty, true);
+                        let s_ty = get_rust_ty_ref(stream_ty, true);
+                        fields_add.push(quote! {
+                            fn #ident(#self_ident, stream_instance: #r_ty, stream: StreamReceiver) -> StreamSender<#s_ty>;
                         });
                     }
                 }
@@ -140,7 +151,7 @@ impl RustImpl {
         }
 
         self.module
-            .push(quote! { pub trait #interface_static_ident { # ( #static_fields )* } });
+            .push(quote! { pub trait #interface_static_ident { #( #static_fields )* } });
 
         Ok(())
     }

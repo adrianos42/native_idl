@@ -10,8 +10,6 @@ use std::f64;
 use std::i64;
 use std::{fmt, str::FromStr};
 
-const NEW_LINE: &str = "\n\n";
-
 #[derive(Debug)]
 pub enum RustTypeError {
     UnexpectedType,
@@ -28,7 +26,6 @@ impl fmt::Display for RustTypes {
 
         self.module.iter().for_each(|value| {
             result_code += &value.to_string();
-            result_code += NEW_LINE;
         });
 
         write!(f, "{}", result_code.as_str().rust_fmt())

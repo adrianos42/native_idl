@@ -5,7 +5,6 @@ use proc_macro2::{self, Ident, Span, TokenStream};
 use std::fmt;
 
 pub mod client;
-pub mod ffi_types;
 pub mod server;
 
 // TODO Check to see if arguments and returned values are valid const values defined in idl.
@@ -22,7 +21,7 @@ impl fmt::Display for FFIMod {
 
 impl FFIMod {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, ()> {
-        let impl_ident = Ident::new(&analyzer.get_library_name(), Span::call_site());
+        let impl_ident = Ident::new(&format!("impl_{}", analyzer.get_library_name()), Span::call_site());
         let module = quote! {
            mod idl_types; // rust types
            mod idl_ffi; // interface and static functions
@@ -30,7 +29,8 @@ impl FFIMod {
            mod idl_impl; // rust interface type
            mod idl_ffi_impl; // ffi interface type
            mod ffi_types; // base types
-           mod #impl_ident;
+           mod #impl_ident; // for the interfaces implementation
+           mod idl_internal;
         };
 
         Ok(FFIMod { module })
@@ -183,7 +183,7 @@ pub(crate) fn conv_ffi_ptr_to_value(
     ffi_name: &TokenStream,
     references: bool,
     analyzer: &Analyzer,
-) -> Token7Stream {
+) -> TokenStream {
     let c_ffi = get_ptr_ffi_ty_ref(&ty_name, references, analyzer);
     conv_ffi_value_to_value(
         ty_name,
@@ -250,7 +250,6 @@ pub(crate) fn conv_ffi_value_to_value(
                 _map_result
             } }
         }
-
         TypeName::TypeOption(value) => {
             let some_value = quote! { _some_value };
             let con_name = conv_ffi_ptr_to_value(&value.some_ty, &some_value, references, analyzer);
@@ -279,10 +278,7 @@ pub(crate) fn conv_ffi_value_to_value(
             } }
         }
         TypeName::TypeStream(_) => {
-            quote! { {
-                let _result = #ffi_name;
-                _result.handle as i64
-            } }
+            quote! { #ffi_name }
         }
         TypeName::ListTypeName(value)
         | TypeName::StructTypeName(value)

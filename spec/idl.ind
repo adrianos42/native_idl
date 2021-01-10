@@ -5,12 +5,12 @@
   \indexspace
 
   \item accessible to a library, \hyperpage{9}
-  \item available in scope, \hyperpage{7}
+  \item available in scope, \hyperpage{8}
 
   \indexspace
 
   \item comment, \hyperpage{11}
-  \item compile-time error, \hyperpage{9}
+  \item compile-time error, \hyperpage{10}
 
   \indexspace
 
@@ -26,12 +26,12 @@
 
   \indexspace
 
-  \item hides, \hyperpage{7}
+  \item hides, \hyperpage{8}
 
   \indexspace
 
   \item immediate subterm, \hyperpage{4}
-  \item in scope, \hyperpage{7}
+  \item in scope, \hyperpage{8}
   \item is equivalent to, \hyperpage{5}
   \item is in, \hyperpage{7}
   \item isolates, \hyperpage{9}
@@ -42,14 +42,14 @@
 
   \indexspace
 
-  \item name, \hyperpage{6}
-  \item namespace, \hyperpage{6}
-    \subitem compile-time, \hyperpage{6}
+  \item name, \hyperpage{7}
+  \item namespace, \hyperpage{7}
+    \subitem compile-time, \hyperpage{7}
     \subitem has a binding, \hyperpage{7}
     \subitem key, \hyperpage{7}
     \subitem maps a key to a value, \hyperpage{7}
     \subitem value, \hyperpage{7}
-  \item namespace value, \hyperpage{6}
+  \item namespace value, \hyperpage{7}
 
   \indexspace
 
@@ -77,7 +77,7 @@
 
   \indexspace
 
-  \item term, \hyperpage{3}
+  \item term, \hyperpage{4}
   \item throwing a class, \hyperpage{10}
   \item throwing an exception, \hyperpage{10}
   \item treated as, \hyperpage{5}
