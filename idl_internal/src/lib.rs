@@ -12,11 +12,11 @@ pub enum StreamError {
 
 pub enum StreamSender<R> {
     Ok,
-    Waiting,
-    Done,
     Value(R),
     Request,
-    Error(StreamError),
+    Waiting,
+    Done,
+    Closed,
 }
 
 pub enum StreamReceiver {
@@ -26,7 +26,6 @@ pub enum StreamReceiver {
     Pause,
     Resume,
     Request,
-    Error(StreamError),
 }
 
 pub trait StreamInstance {

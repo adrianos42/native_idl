@@ -13,66 +13,26 @@ pub enum AbiInternalError {
     NotAllowedOperation = 0x8, // Not allowed operation error.
 }
 
-#[repr(C)]
-pub struct AbiStreamPartial {
-    pub index: i64,  // ! This field cannot be negative.
-    pub length: i64, // ! This field cannot be negative.
-    pub data: *const ::core::ffi::c_void,
-}
-
-#[repr(C)]
-pub struct AbiStreamSize {
-    pub index: i64,
-    pub length: i64,
-}
-
 #[repr(i64)]
 pub enum AbiStreamSenderState {
     Ok = 0x0,      // Nothing.
-    Error = 0x1,   // Error State.
-    Value = 0x2,   // Only one value.
-    Request = 0x3, // Request to retrieve the last state from the server.
-    Waiting = 0x4, // Send a response that the server is awaiting for client to send a request.
-    Done = 0x5,    // The stream is finished.
+    Value = 0x1,   // Only one value.
+    Request = 0x2, // Request to retrieve the last state from the server.
+    Waiting = 0x3, // Send a response that the server is awaiting for client to send a request.
+    Done = 0x4,    // Stream is finished.
+    Closed = 0x5,  // Stream was already closed.
 }
 
-#[repr(i64)]
-pub enum AbiStreamReceiverState {
-    Ok = 0x0,      // Nothing
-    Error = 0x1,   // Error state.
-    Close = 0x2,   // Closes the stream.
-    Start = 0x3,   // Sent by the client with the function arguments. Only one call allowed.
-    Pause = 0x4,   // Pauses the stream.
-    Resume = 0x5,  // Resumes a previous paused stream.
-    Request = 0x6, // Request to retrieve pending data.
-}
-
-#[repr(i64)]
-pub enum AbiStreamError {
-    Undefined = 0x0,
-    UnknownState = 0x1,
-    Schedule = 0x2,
-    Closed = 0x3,
-}
-
-impl From<AbiStreamError> for i64 {
-    fn from(value: AbiStreamError) -> Self {
-        match value {
-            AbiStreamError::Undefined => 0x0,
-            AbiStreamError::UnknownState => 0x1,
-            AbiStreamError::Schedule => 0x2,
-            AbiStreamError::Closed => 0x3,
-        }
-    }
-}
-
-impl From<i64> for AbiStreamError {
+impl From<i64> for AbiStreamSenderState {
     fn from(value: i64) -> Self {
         match value {
-            0x0 => AbiStreamError::Undefined,
-            0x1 => AbiStreamError::UnknownState,
-            0x2 => AbiStreamError::Schedule,
-            0x3 => AbiStreamError::Closed,
+            0x0 => AbiStreamSenderState::Ok,
+            0x1 => AbiStreamSenderState::Value,
+            0x2 => AbiStreamSenderState::Request,
+            0x3 => AbiStreamSenderState::Waiting,
+            0x4 => AbiStreamSenderState::Done,
+            0x5 => AbiStreamSenderState::Closed,
+            _ => panic!("Invalid state value: `{}`", value),
         }
     }
 }
@@ -81,39 +41,34 @@ impl From<AbiStreamSenderState> for i64 {
     fn from(value: AbiStreamSenderState) -> Self {
         match value {
             AbiStreamSenderState::Ok => 0x0,
-            AbiStreamSenderState::Error => 0x1,
-            AbiStreamSenderState::Value => 0x2,
-            AbiStreamSenderState::Request => 0x3,
-            AbiStreamSenderState::Waiting => 0x4,
-            AbiStreamSenderState::Done => 0x5,
+            AbiStreamSenderState::Value => 0x1,
+            AbiStreamSenderState::Request => 0x2,
+            AbiStreamSenderState::Waiting => 0x3,
+            AbiStreamSenderState::Done => 0x4,
+            AbiStreamSenderState::Closed => 0x5,
         }
     }
 }
 
-impl From<i64> for AbiStreamSenderState {
-    fn from(value: i64) -> Self {
-        match value {
-            0x0 => AbiStreamSenderState::Ok,
-            0x1 => AbiStreamSenderState::Error,
-            0x2 => AbiStreamSenderState::Value,
-            0x3 => AbiStreamSenderState::Request,
-            0x4 => AbiStreamSenderState::Waiting,
-            0x5 => AbiStreamSenderState::Done,
-            _ => panic!("Invalid state value: `{}`", value),
-        }
-    }
+#[repr(i64)]
+pub enum AbiStreamReceiverState {
+    Ok = 0x0,      // Nothing
+    Close = 0x1,   // Closes the stream.
+    Start = 0x2,   // Sent by the client with the function arguments. Only one call allowed.
+    Pause = 0x3,   // Pauses the stream.
+    Resume = 0x4,  // Resumes a previous paused stream.
+    Request = 0x5, // Request to retrieve pending data.
 }
 
 impl From<AbiStreamReceiverState> for i64 {
     fn from(value: AbiStreamReceiverState) -> Self {
         match value {
             AbiStreamReceiverState::Ok => 0x0,
-            AbiStreamReceiverState::Error => 0x1,
-            AbiStreamReceiverState::Close => 0x2,
-            AbiStreamReceiverState::Start => 0x3,
-            AbiStreamReceiverState::Pause => 0x4,
-            AbiStreamReceiverState::Resume => 0x5,
-            AbiStreamReceiverState::Request => 0x6,
+            AbiStreamReceiverState::Close => 0x1,
+            AbiStreamReceiverState::Start => 0x2,
+            AbiStreamReceiverState::Pause => 0x3,
+            AbiStreamReceiverState::Resume => 0x4,
+            AbiStreamReceiverState::Request => 0x5,
         }
     }
 }
@@ -122,12 +77,11 @@ impl From<i64> for AbiStreamReceiverState {
     fn from(value: i64) -> Self {
         match value {
             0x0 => AbiStreamReceiverState::Ok,
-            0x1 => AbiStreamReceiverState::Error,
-            0x2 => AbiStreamReceiverState::Close,
-            0x3 => AbiStreamReceiverState::Start,
-            0x4 => AbiStreamReceiverState::Pause,
-            0x5 => AbiStreamReceiverState::Resume,
-            0x6 => AbiStreamReceiverState::Request,
+            0x1 => AbiStreamReceiverState::Close,
+            0x2 => AbiStreamReceiverState::Start,
+            0x3 => AbiStreamReceiverState::Pause,
+            0x4 => AbiStreamReceiverState::Resume,
+            0x5 => AbiStreamReceiverState::Request,
             _ => panic!("Invalid state value: `{}`", value),
         }
     }
@@ -259,7 +213,6 @@ impl From<AbiStream> for StreamReceiver {
     fn from(value: AbiStream) -> Self {
         match value.state.into() {
             AbiStreamReceiverState::Close => StreamReceiver::Close,
-            AbiStreamReceiverState::Error => StreamReceiver::Error(StreamError::Undefined), // TODO
             AbiStreamReceiverState::Start => StreamReceiver::Start,
             AbiStreamReceiverState::Pause => StreamReceiver::Pause,
             AbiStreamReceiverState::Resume => StreamReceiver::Resume,
@@ -274,30 +227,10 @@ impl From<StreamReceiver> for AbiStream {
     fn from(value: StreamReceiver) -> Self {
         match value {
             StreamReceiver::Close => AbiStream::new(AbiStreamReceiverState::Close as i64),
-            StreamReceiver::Send { index, length } => {
-                let mut _result = AbiStream::new(AbiStreamReceiverState::Send as i64);
-                _result.data = {
-                    Box::into_raw(Box::new({
-                        let _inn = AbiStreamSize {
-                            index: index as i64,
-                            length: length as i64,
-                        };
-                        _inn
-                    })) as *const AbiStreamSize
-                } as *const ::core::ffi::c_void;
-                _result
-            }
-
-            StreamReceiver::Create => AbiStream::new(AbiStreamReceiverState::Create as i64),
+            StreamReceiver::Start => AbiStream::new(AbiStreamReceiverState::Start as i64),
             StreamReceiver::Resume => AbiStream::new(AbiStreamReceiverState::Resume as i64),
             StreamReceiver::Request => AbiStream::new(AbiStreamReceiverState::Request as i64),
             StreamReceiver::Pause => AbiStream::new(AbiStreamReceiverState::Pause as i64),
-            StreamReceiver::Error(_error) => {
-                let mut _result = AbiStream::new(AbiStreamReceiverState::Error as i64);
-                _result.data =
-                    { Box::into_raw(Box::new(0)) as *const i64 } as *const ::core::ffi::c_void;
-                _result
-            }
             StreamReceiver::Ok => AbiStream::new(AbiStreamReceiverState::Ok as i64),
         }
     }
