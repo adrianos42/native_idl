@@ -5,35 +5,28 @@ pub mod ffi;
 
 pub enum StreamError {
     Undefined,
-    UnknownState,
+    InvalidState,
     Schedule,
+    Closed,
 }
 
 pub enum StreamSender<R> {
     Ok,
-    Error(StreamError),
-    Value(R),
-    Partial {
-        index: i64,
-        length: i64,
-        value: R,
-    },
-    Waiting {
-        length: i64,
-    },
-    Request,
+    Waiting,
     Done,
+    Value(R),
+    Request,
+    Error(StreamError),
 }
 
 pub enum StreamReceiver {
     Ok,
-    Error(StreamError),
     Close,
-    Send { index: i64, length: i64 },
-    Create,
+    Start,
     Pause,
     Resume,
     Request,
+    Error(StreamError),
 }
 
 pub trait StreamInstance {

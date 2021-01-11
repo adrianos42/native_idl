@@ -57,8 +57,7 @@ pub(crate) fn get_rust_ty_ref(ty: &TypeName, references: bool) -> TokenStream {
             }
         }
         TypeName::TypeStream(value) => {
-            let stream_ty = get_rust_ty_ref(&value.s_ty, references);
-            quote! { Box<dyn StreamInstance<#stream_ty> + Send> }
+            quote! { Box<dyn StreamInstance + Send> }
         }
         TypeName::InterfaceTypeName(value) => {
             let ident = Ident::new(&format!("{}Instance", value), Span::call_site());

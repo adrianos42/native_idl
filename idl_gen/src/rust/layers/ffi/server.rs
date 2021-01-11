@@ -363,14 +363,17 @@ impl FFIServer {
                             Span::call_site(),
                         );
 
-                        let result_ident = quote! { _result };
-                        let result_ty_ident = get_ffi_ty_ref(ret_ty, true, analyzer);
-                        let args_ident =
-                            quote! { #instance_args #result_ident: *mut #result_ty_ident };
+                        //let stream_ident = quote! { _stream };
+                        //let stream_value_ident = quote! { _stream_val };
+                        let args_ident = quote! { 
+                                #instance_args 
+                                #stream_ident: *const AbiStream,
+                        };
+                        let con = conv_ffi_to_value(&ret_ty, &stream_ident, true, analyzer);
                         let body_ident = quote! {
-                            //let _ = unsafe { Box::from_raw() };
-                            //std::mem::forget(#ins_ident);
-
+                            let #stream_value_ident = #con;
+                            #stream_value_ident.dispose();
+                            
                             return AbiInternalError::Ok;
                         };
 
@@ -579,6 +582,9 @@ impl FFIServer {
                 trait StreamSenderIntoAbiStream<T> {
                     fn into_abi(self) -> AbiStream;
                 }
+                trait StreamAbiSenderDispose<T> {
+                    fn dispose(self);
+                }
             });
 
             for ret_ty in stream_ret_types.values() {
@@ -630,6 +636,20 @@ impl FFIServer {
                             }
                         }
                     }
+                    impl StreamAbiSenderDispose<#r_ty> for AbiStream {
+                        fn dispose(self) {
+                            match self.state.into() {
+                                AbiStreamSenderState::Value => {}
+                                AbiStreamSenderState::Partial => {
+                                    let _result = unsafe { (self.data as *const AbiStreamPartial).read() }; // TODO
+                                }
+                                AbiStreamSenderState::Error => {
+                                    
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
                 });
             }
         }
@@ -663,7 +683,7 @@ impl FFIServer {
                                         value: unsafe { (self.data as *const i64).read() },
                                     }
                                 }
-                                AbiStreamSenderState::Error => StreamSender::Error(StreamError::Undefined),
+                                AbiStreamSenderState::Error => StreamSender::Error(StreamError::Undefined), // TODO
                                 AbiStreamSenderState::Waiting => {
                                     let _result = unsafe { (self.data as *const i64).read() };
                                     StreamSender::Waiting {
@@ -982,13 +1002,11 @@ impl FFIServerImpl {
             .collect();
 
         let mut stream_im = vec![];
-        for (stream, name) in streams {
+        for (_, name) in streams {
             let stream_name_ident = Ident::new(
                 &(format!("{}{}", &ident, name.to_pascal_case())),
                 Span::call_site(),
             );
-            let r_stream_ty = get_rust_ty_ref(stream, true);
-
             stream_im.push(quote! {
                 pub(super) struct #stream_name_ident {
                     pub(super) callback: extern "C" fn(i64, *const ::core::ffi::c_void),
@@ -998,7 +1016,7 @@ impl FFIServerImpl {
 
                 unsafe impl Send for #stream_name_ident {}
 
-                impl StreamInstance<#r_stream_ty> for #stream_name_ident {
+                impl StreamInstance for #stream_name_ident {
                     fn wake_client(&self) {
                         let run = self.callback;
                         run(self.handle, self.object);
