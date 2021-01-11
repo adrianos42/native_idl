@@ -3,20 +3,12 @@ extern crate lazy_static;
 
 pub mod ffi;
 
-pub enum StreamError {
-    Undefined,
-    InvalidState,
-    Schedule,
-    Closed,
-}
-
 pub enum StreamSender<R> {
     Ok,
     Value(R),
     Request,
     Waiting,
     Done,
-    Closed,
 }
 
 pub enum StreamReceiver {

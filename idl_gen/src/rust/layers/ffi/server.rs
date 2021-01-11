@@ -596,43 +596,15 @@ impl FFIServer {
                         #[allow(unused_braces)]
                         fn into_abi(self) -> AbiStream {
                             match self {
+                                StreamSender::Ok => AbiStream::new(AbiStreamSenderState::Ok as i64),
                                 StreamSender::Value(value) => {
                                     let mut _result = AbiStream::new(AbiStreamSenderState::Value as i64);
                                     _result.data = #cont_val as *const ::core::ffi::c_void;
                                     _result
                                 }
-                                StreamSender::Partial {
-                                    index,
-                                    length,
-                                    value,
-                                } => {
-                                    let mut _result = AbiStream::new(AbiStreamSenderState::Partial as i64);
-                                    _result.data = {
-                                        Box::into_raw(Box::new({
-                                            let _inn = AbiStreamPartial {
-                                                index: index as i64,
-                                                length: length as i64,
-                                                data: #cont_val as *const ::core::ffi::c_void,
-                                            };
-                                            _inn
-                                        })) as *const AbiStreamPartial
-                                    } as *const ::core::ffi::c_void;
-                                    _result
-                                }
-                                StreamSender::Waiting { length } => {
-                                    let mut _result = AbiStream::new(AbiStreamSenderState::Waiting as i64);
-                                    _result.data = { Box::into_raw(Box::new(length as i64)) as *const i64 } 
-                                        as *const ::core::ffi::c_void;
-                                    _result
-                                }
                                 StreamSender::Request => AbiStream::new(AbiStreamSenderState::Request as i64),
+                                StreamSender::Waiting => AbiStream::new(AbiStreamSenderState::Waiting as i64),
                                 StreamSender::Done => AbiStream::new(AbiStreamSenderState::Done as i64),
-                                StreamSender::Error(error) => { // TODO
-                                    let mut _result = AbiStream::new(AbiStreamSenderState::Error as i64);
-                                    _result.data = { Box::into_raw(Box::new(0)) as *const i64 } as *const ::core::ffi::c_void;
-                                    _result
-                                }
-                                StreamSender::Ok => AbiStream::new(AbiStreamSenderState::Ok as i64),
                             }
                         }
                     }
@@ -640,12 +612,6 @@ impl FFIServer {
                         fn dispose(self) {
                             match self.state.into() {
                                 AbiStreamSenderState::Value => {}
-                                AbiStreamSenderState::Partial => {
-                                    let _result = unsafe { (self.data as *const AbiStreamPartial).read() }; // TODO
-                                }
-                                AbiStreamSenderState::Error => {
-                                    
-                                }
                                 _ => {}
                             }
                         }
@@ -670,29 +636,14 @@ impl FFIServer {
                         #[allow(unused_braces)]
                         fn into_sender(self) -> StreamSender<#s_ty> {
                             match self.state.into() {
+                                AbiStreamSenderState::Ok => StreamSender::Ok,
                                 AbiStreamSenderState::Value => {
                                     let _result = #cont_val;
                                     StreamSender::Value(_result)
                                 }
-                                AbiStreamSenderState::Partial => {
-                                    let _result = unsafe { (self.data as *const AbiStreamPartial).read() }; // TODO
-
-                                    StreamSender::Partial {
-                                        index: _result.index,
-                                        length: _result.length,
-                                        value: unsafe { (self.data as *const i64).read() },
-                                    }
-                                }
-                                AbiStreamSenderState::Error => StreamSender::Error(StreamError::Undefined), // TODO
-                                AbiStreamSenderState::Waiting => {
-                                    let _result = unsafe { (self.data as *const i64).read() };
-                                    StreamSender::Waiting {
-                                        length: _result,
-                                    }
-                                }
-                                AbiStreamSenderState::Done => StreamSender::Done,
                                 AbiStreamSenderState::Request => StreamSender::Request,
-                                AbiStreamSenderState::Ok => StreamSender::Ok,
+                                AbiStreamSenderState::Waiting => StreamSender::Waiting,
+                                AbiStreamSenderState::Done => StreamSender::Done,
                             }
                         }
                     }
@@ -1112,7 +1063,7 @@ name = "{}"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
-idl_internal = {{ git = "https://github.com/adrianos42/native_idl", path = "idl_internal" }}
+idl_internal = {{ git = "https://github.com/adrianos42/native_idl" }}
 "#,
             pkg_name, version, author, edition, lib_name,
         );

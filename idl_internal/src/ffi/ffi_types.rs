@@ -1,4 +1,4 @@
-use crate::{StreamError, StreamReceiver, StreamSender};
+use crate::StreamReceiver;
 
 #[repr(i64)]
 pub enum AbiInternalError {
@@ -20,7 +20,6 @@ pub enum AbiStreamSenderState {
     Request = 0x2, // Request to retrieve the last state from the server.
     Waiting = 0x3, // Send a response that the server is awaiting for client to send a request.
     Done = 0x4,    // Stream is finished.
-    Closed = 0x5,  // Stream was already closed.
 }
 
 impl From<i64> for AbiStreamSenderState {
@@ -31,7 +30,6 @@ impl From<i64> for AbiStreamSenderState {
             0x2 => AbiStreamSenderState::Request,
             0x3 => AbiStreamSenderState::Waiting,
             0x4 => AbiStreamSenderState::Done,
-            0x5 => AbiStreamSenderState::Closed,
             _ => panic!("Invalid state value: `{}`", value),
         }
     }
@@ -45,7 +43,6 @@ impl From<AbiStreamSenderState> for i64 {
             AbiStreamSenderState::Request => 0x2,
             AbiStreamSenderState::Waiting => 0x3,
             AbiStreamSenderState::Done => 0x4,
-            AbiStreamSenderState::Closed => 0x5,
         }
     }
 }
