@@ -46,10 +46,6 @@ impl FFIServer {
             deps.push(quote! { StreamSender });
         }
 
-        if has_interface_field_sends_stream {
-            deps.push(quote! { StreamError });
-        }
-
         context.module.push(quote! {
             use idl_internal::{ffi::ffi_types::*, #( #deps ),* };
         });
@@ -130,7 +126,7 @@ impl FFIServer {
             let matchs = if is_receiving {
                 quote! {
                     match _value.state.into() {
-                        AbiStreamReceiverState::Create => { #conv_b }
+                        AbiStreamReceiverState::Start => { #conv_b }
                         _ => #ret_match
                     }
                 }
@@ -308,32 +304,18 @@ impl FFIServer {
                         let args = quote! {
                             #instance_args
                             #stream_ident: *const AbiStream,
-                            #stream_result_ident: *mut *const AbiStream,
+                            #stream_result_ident: *mut *mut AbiStream,
                         };
                         let con = conv_ffi_to_value(&ret_ty, &stream_ident, true, analyzer);
                         let conv = conv_stream_body_to_val(&stream_value_ident, &field.ident);
 
-                        let ret_match = if field.is_static {
-                            quote! { return AbiInternalError::InvalidArg, }
-                        } else {
-                            quote! { { std::mem::forget(#ins_ident); return AbiInternalError::InvalidArg; } }
-                        };
-
                         let body_stream = quote! {
                             let #stream_value_ident = #con;
-                            match #stream_value_ident.state.into() {
-                                AbiStreamReceiverState::Close
-                                | AbiStreamReceiverState::Send
-                                | AbiStreamReceiverState::Pause
-                                | AbiStreamReceiverState::Resume
-                                | AbiStreamReceiverState::Request => {
-                                    let _result = #instance_ident.#func_ident(#conv,#stream_value_ident.into());
-                                    unsafe {
-                                        *#stream_result_ident = { Box::into_raw(Box::new({ _result.into_abi() })) as *const AbiStream };
-                                    }
-                                }
-                                _ => #ret_match
+                            let _result = #instance_ident.#func_ident(#conv,#stream_value_ident.into());
+                            unsafe {
+                                *#stream_result_ident = { Box::into_raw(Box::new({ _result.into_abi() })) as *mut AbiStream };
                             }
+                                
                         };
 
                         let body_ident = if field.is_static {
@@ -357,28 +339,22 @@ impl FFIServer {
 
                         fields.push(create_fn(func_ffi_ident, args, body_ident));
 
-                        // FIXME change release
                         let func_ffi_ident = Ident::new(
                             &(format!("dispose_stream_{}", field_name)),
                             Span::call_site(),
                         );
-
-                        //let stream_ident = quote! { _stream };
-                        //let stream_value_ident = quote! { _stream_val };
                         let args_ident = quote! { 
                                 #instance_args 
-                                #stream_ident: *const AbiStream,
+                                #stream_ident: *mut AbiStream,
                         };
-                        let con = conv_ffi_to_value(&ret_ty, &stream_ident, true, analyzer);
                         let body_ident = quote! {
-                            let #stream_value_ident = #con;
+                            let #stream_value_ident: Box<AbiStream> = unsafe { Box::from_raw(#stream_ident) };
                             #stream_value_ident.dispose();
-                            
                             return AbiInternalError::Ok;
                         };
 
                         fields.push(create_fn(func_ffi_ident, args_ident, body_ident));
-                    } else if !field.is_static && is_boxed_ffi(ret_ty, analyzer) {
+                    } else if is_boxed_ffi(ret_ty, analyzer) {
                         // FIXME change release
                         let func_ffi_ident =
                             Ident::new(&(format!("dispose_{}", field_name)), Span::call_site());
@@ -412,30 +388,16 @@ impl FFIServer {
                         let args = quote! {
                             #instance_args
                             #stream_ident: *const AbiStream,
-                            #stream_result_ident: *mut *const AbiStream,
+                            #stream_result_ident: *mut *mut AbiStream,
                         };
                         let con = conv_ffi_to_value(stream_arg_ty, &stream_ident, true, analyzer);
                         let conv = conv_stream_body_to_val(&stream_value_ident, &field.ident);
 
-                        let ret_match = if field.is_static {
-                            quote! { return AbiInternalError::InvalidArg, }
-                        } else {
-                            quote! { { std::mem::forget(#ins_ident); return AbiInternalError::InvalidArg; } }
-                        };
-
                         let body_stream = quote! {
                             let #stream_value_ident = #con;
-                            match #stream_value_ident.state.into() {
-                                AbiStreamSenderState::Value
-                                | AbiStreamSenderState::Partial
-                                | AbiStreamSenderState::Done
-                                | AbiStreamSenderState::Request => {
-                                    let _result = #instance_ident.#func_ident(#conv,#stream_value_ident.into_sender());
-                                    unsafe {
-                                        *#stream_result_ident = { Box::into_raw(Box::new({ _result.into() })) as *const AbiStream };
-                                    }
-                                }
-                                _ => #ret_match
+                            let _result = #instance_ident.#func_ident(#conv,#stream_value_ident.into_sender());
+                            unsafe {
+                                *#stream_result_ident = { Box::into_raw(Box::new({ _result.into() })) as *mut AbiStream };
                             }
                         };
 
@@ -460,20 +422,16 @@ impl FFIServer {
 
                         fields.push(create_fn(func_ffi_ident, args, body_ident));
 
-                        // FIXME change release
                         let func_ffi_ident = Ident::new(
                             &(format!("dispose_stream_sender_{}", field_name)),
                             Span::call_site(),
                         );
-
-                        let result_ident = quote! { _result };
-                        let result_ty_ident = get_ffi_ty_ref(ret_ty, true, analyzer);
-                        let args_ident =
-                            quote! { #instance_args #result_ident: *mut #result_ty_ident };
+                        let args_ident = quote! { 
+                            #instance_args 
+                            #stream_ident: *mut AbiStream,
+                        };
                         let body_ident = quote! {
-                            //let _ = unsafe { Box::from_raw() };
-                            //std::mem::forget(#ins_ident);
-
+                            let #stream_value_ident: Box<AbiStream> = unsafe { Box::from_raw(#stream_ident) };
                             return AbiInternalError::Ok;
                         };
 
@@ -484,65 +442,66 @@ impl FFIServer {
             }
         }
 
-        // instance creation
-        let (ret_value_ident, ret_conv_ffi, arg_ident) = {
-            let interface_ty_ident = TypeName::InterfaceTypeName(ident.to_owned());
-            let result_ident = quote! { _result };
-            let result_val_ident = quote! { _result_val };
+        if Analyzer::interface_has_non_static_field(ty_interface) {
+            // instance creation
+            let (ret_value_ident, ret_conv_ffi, arg_ident) = {
+                let interface_ty_ident = TypeName::InterfaceTypeName(ident.to_owned());
+                let result_ident = quote! { _result };
+                let result_val_ident = quote! { _result_val };
 
-            let result_ty_ident = get_ffi_ty_ref(&interface_ty_ident, true, analyzer);
+                let result_ty_ident = get_ffi_ty_ref(&interface_ty_ident, true, analyzer);
 
-            let result_conv =
-                conv_value_to_ffi(&interface_ty_ident, &result_val_ident, true, analyzer);
-            let r_ty = get_rust_ty_ref(&interface_ty_ident, true);
-            (
-                quote! { let #result_val_ident: #r_ty= },
-                quote! { unsafe { *#result_ident = #result_conv; } },
-                quote! { #result_ident: *mut #result_ty_ident },
-            )
-        };
+                let result_conv =
+                    conv_value_to_ffi(&interface_ty_ident, &result_val_ident, true, analyzer);
+                let r_ty = get_rust_ty_ref(&interface_ty_ident, true);
+                (
+                    quote! { let #result_val_ident: #r_ty= },
+                    quote! { unsafe { *#result_ident = #result_conv; } },
+                    quote! { #result_ident: *mut #result_ty_ident },
+                )
+            };
 
-        let field_name = format!("create_{}", ident.to_snake_case());
-        let func_ffi_ident = Ident::new(&field_name, Span::call_site());
+            let field_name = format!("create_{}", ident.to_snake_case());
+            let func_ffi_ident = Ident::new(&field_name, Span::call_site());
 
-        let instance_ident = quote! { super::#isn_name::#interface_ident::new() };
+            let instance_ident = quote! { super::#isn_name::#interface_ident::new() };
 
-        let body_ident = quote! {
-            #ret_value_ident Box::new(#instance_ident);
-            #ret_conv_ffi
-            return AbiInternalError::Ok;
-        };
+            let body_ident = quote! {
+                #ret_value_ident Box::new(#instance_ident);
+                #ret_conv_ffi
+                return AbiInternalError::Ok;
+            };
 
-        fields.push(create_fn(func_ffi_ident, arg_ident, body_ident));
+            fields.push(create_fn(func_ffi_ident, arg_ident, body_ident));
 
-        // instance release
-        let arg_ident = {
-            let interface_ty_ident = TypeName::InterfaceTypeName(ident.to_owned());
-            let result_ident = quote! { _result };
-            let result_val_ident = quote! { _result_val };
+            // instance release
+            let arg_ident = {
+                let interface_ty_ident = TypeName::InterfaceTypeName(ident.to_owned());
+                let result_ident = quote! { _result };
+                let result_val_ident = quote! { _result_val };
 
-            let result_ty_ident = get_ffi_ty_ref(&interface_ty_ident, true, analyzer);
+                let result_ty_ident = get_ffi_ty_ref(&interface_ty_ident, true, analyzer);
 
-            quote! { #result_ident: *mut #result_ty_ident }
-        };
+                quote! { #result_ident: *mut #result_ty_ident }
+            };
 
-        let field_name = format!("dispose_{}", ident.to_snake_case());
-        let func_ffi_ident = Ident::new(&field_name, Span::call_site());
+            let field_name = format!("dispose_{}", ident.to_snake_case());
+            let func_ffi_ident = Ident::new(&field_name, Span::call_site());
 
-        let ins_ident = quote! { _ins };
-        let instance_ident = quote! { _instance };
+            let ins_ident = quote! { _ins };
+            let instance_ident = quote! { _instance };
 
-        let instance_body = quote! { let #instance_ident =
-        0 as *mut #library_ident_ffi_impl::#interface_static_ident; };
+            // let instance_body = quote! { let #instance_ident = 0 as *mut #library_ident_ffi_impl::#interface_static_ident; };
 
-        let body_ident = quote! {
-            #instance_body
-            let #ins_ident = unsafe { Box::from_raw(#instance_ident) };
-            let #instance_ident = &#ins_ident.instance;
-            return AbiInternalError::Ok;
-        };
+            let body_ident = quote! {
+               // #instance_body
+                //let #ins_ident = unsafe { Box::from_raw(#instance_ident) };
+                //let #instance_ident = &#ins_ident.instance;
+                return AbiInternalError::Ok;
+            };
 
-        fields.push(create_fn(func_ffi_ident, arg_ident, body_ident));
+            fields.push(create_fn(func_ffi_ident, arg_ident, body_ident));
+        }
 
         self.module.push(quote! { #( #fields )* });
 
@@ -611,7 +570,9 @@ impl FFIServer {
                     impl StreamAbiSenderDispose<#r_ty> for AbiStream {
                         fn dispose(self) {
                             match self.state.into() {
-                                AbiStreamSenderState::Value => {}
+                                AbiStreamSenderState::Value => {
+                                    
+                                }
                                 _ => {}
                             }
                         }
@@ -637,10 +598,7 @@ impl FFIServer {
                         fn into_sender(self) -> StreamSender<#s_ty> {
                             match self.state.into() {
                                 AbiStreamSenderState::Ok => StreamSender::Ok,
-                                AbiStreamSenderState::Value => {
-                                    let _result = #cont_val;
-                                    StreamSender::Value(_result)
-                                }
+                                AbiStreamSenderState::Value => StreamSender::Value(#cont_val),
                                 AbiStreamSenderState::Request => StreamSender::Request,
                                 AbiStreamSenderState::Waiting => StreamSender::Waiting,
                                 AbiStreamSenderState::Done => StreamSender::Done,
@@ -931,9 +889,6 @@ impl FFIServerImpl {
     ) -> Result<(), FFIServerError> {
         let ident = &ty_interface.ident;
 
-        let interface_instance_ident =
-            Ident::new(&(format!("{}Instance", &ident)), Span::call_site());
-        let interface_static_ident = Ident::new(&(format!("{}Static", &ident)), Span::call_site());
         let library_ident_impl = quote! { super::idl_impl };
 
         let streams: Vec<(&TypeName, String)> = ty_interface
@@ -965,7 +920,7 @@ impl FFIServerImpl {
                     pub(super) handle: i64,
                 }
 
-                unsafe impl Send for #stream_name_ident {}
+                unsafe impl Send for #stream_name_ident {} // TODO
 
                 impl StreamInstance for #stream_name_ident {
                     fn wake_client(&self) {
@@ -980,44 +935,48 @@ impl FFIServerImpl {
             });
         }
 
-        self.module.push(quote! {
-            pub struct #interface_static_ident {
-                pub(super) instance: Box<dyn #library_ident_impl::#interface_static_ident + Sync>,
-            }
+        self.module.push(quote! { #( #stream_im )* });
 
-            pub struct #interface_instance_ident {
-                pub(super) instance: Box<dyn #library_ident_impl::#interface_instance_ident>,
-            }
+        if Analyzer::interface_has_non_static_field(ty_interface) {
+             let interface_instance_ident = 
+                Ident::new(&(format!("{}Instance", &ident)), Span::call_site());
+            self.module.push(quote! {
+                pub struct #interface_instance_ident {
+                    pub(super) instance: Box<dyn #library_ident_impl::#interface_instance_ident>,
+                }
 
-            impl From<Box<dyn #library_ident_impl::#interface_instance_ident>> for #interface_instance_ident {
-                fn from(value: Box<dyn #library_ident_impl::#interface_instance_ident>) -> Self {
-                    Self {
-                        instance: value,
+                impl From<Box<dyn #library_ident_impl::#interface_instance_ident>> for #interface_instance_ident {
+                    fn from(value: Box<dyn #library_ident_impl::#interface_instance_ident>) -> Self {
+                        Self {
+                            instance: value,
+                        }
                     }
                 }
-            }
-        });
+            });
+        }
 
-        let static_instance_ident = Ident::new(
-            &(format!("INSTANCE_{}", ident.to_snake_case_upper())),
-            Span::call_site(),
-        );
+        if Analyzer::interface_has_static_field(ty_interface) {
+            let interface_static_ident = Ident::new(&(format!("{}Static", &ident)), Span::call_site());
+            let static_instance_ident = Ident::new( &(format!("INSTANCE_{}", ident.to_snake_case_upper())), Span::call_site(),);
 
-        self.module.push(quote! {
-            #( #stream_im )*
-
-            impl #interface_static_ident {
-                pub(super) fn get_instance<F: FnOnce() -> Box<dyn #library_ident_impl::#interface_static_ident + Sync>>(fn_init: F) -> &'static #interface_static_ident {
-                    #static_instance_ident.get_or_init(|| {
-                        #interface_static_ident {
-                            instance: fn_init(),
-                        }
-                    })
+            self.module.push(quote! {
+                pub struct #interface_static_ident {
+                    pub(super) instance: Box<dyn #library_ident_impl::#interface_static_ident + Sync>,
                 }
-            }
+                
+                impl #interface_static_ident {
+                    pub(super) fn get_instance<F: FnOnce() -> Box<dyn #library_ident_impl::#interface_static_ident + Sync>>(fn_init: F) -> &'static #interface_static_ident {
+                        #static_instance_ident.get_or_init(|| {
+                            #interface_static_ident {
+                                instance: fn_init(),
+                            }
+                        })
+                    }
+                }
 
-            static #static_instance_ident: conquer_once::spin::OnceCell<#interface_static_ident> = conquer_once::spin::OnceCell::uninit();
-        });
+                static #static_instance_ident: conquer_once::spin::OnceCell<#interface_static_ident> = conquer_once::spin::OnceCell::uninit();
+            });
+        }
 
         Ok(())
     }

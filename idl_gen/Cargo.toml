@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 idl = { path = "../idl" }
-futures = "0.3.5"
 regex = "1.3.9"
 quote = "1.0"
 lazy_static = "1.4.0"

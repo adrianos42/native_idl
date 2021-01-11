@@ -33,8 +33,8 @@ impl RustImpl {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, RustImplError> {
         let mut context = RustImpl::new();
 
-        context.module.push(quote! { 
-            use idl_internal::{StreamReceiver, StreamSender, StreamInstance}; 
+        context.module.push(quote! {
+            use idl_internal::{StreamReceiver, StreamSender, StreamInstance};
         });
 
         let nodes: &[IdlNode] = &analyzer.nodes;
@@ -59,8 +59,6 @@ impl RustImpl {
 
         let mut fields = vec![];
         let mut static_fields = vec![];
-        let interface_ident = Ident::new(&format!("{}Instance", &ident), Span::call_site());
-        let interface_static_ident = Ident::new(&format!("{}Static", &ident), Span::call_site());
 
         for field_node in &ty_interface.fields {
             match field_node {
@@ -148,12 +146,17 @@ impl RustImpl {
         }
 
         if !fields.is_empty() {
+            let interface_ident = Ident::new(&format!("{}Instance", &ident), Span::call_site());
             self.module
                 .push(quote! { pub trait #interface_ident { #( #fields )* } });
         }
 
-        self.module
-            .push(quote! { pub trait #interface_static_ident { #( #static_fields )* } });
+        if !static_fields.is_empty() {
+            let interface_static_ident =
+                Ident::new(&format!("{}Static", &ident), Span::call_site());
+            self.module
+                .push(quote! { pub trait #interface_static_ident { #( #static_fields )* } });
+        }
 
         Ok(())
     }
