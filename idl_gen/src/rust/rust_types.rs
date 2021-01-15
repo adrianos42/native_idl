@@ -1,10 +1,12 @@
-use idl::idl::analyzer::Analyzer;
-use idl::idl::idl_nodes::*;
+use idl::analyzer::Analyzer;
+use idl::idl_nodes::*;
 
 use super::con_idl::get_rust_ty_ref;
 
 use super::string_pros::StringPros;
-use proc_macro2::{self, Ident, Literal, Punct, Spacing, Span, TokenStream};
+use proc_macro2::{self, Literal, Punct, Spacing, TokenStream};
+use quote::{TokenStreamExt, ToTokens};
+use quote::format_ident;
 use regex::Regex;
 use std::f64;
 use std::i64;
@@ -18,6 +20,12 @@ pub enum RustTypeError {
 
 pub struct RustTypes {
     module: Vec<TokenStream>,
+}
+
+impl ToTokens for RustTypes {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append_all(&self.module);
+    }
 }
 
 impl fmt::Display for RustTypes {
@@ -56,14 +64,14 @@ impl RustTypes {
     }
 
     fn add_enum(&mut self, ty_enum: &TypeEnum) -> Result<(), RustTypeError> {
-        let ident = Ident::new(&ty_enum.ident, Span::call_site());
+        let ident = format_ident!("{}", &ty_enum.ident);
 
         let mut fields_result = vec![];
 
         for field_node in &ty_enum.fields {
             match field_node {
                 EnumNode::EnumField(field) => {
-                    let field_ident = Ident::new(&field.ident, Span::call_site());
+                    let field_ident = format_ident!("{}", &field.ident);
 
                     fields_result.push(field_ident);
                 }
@@ -82,14 +90,14 @@ impl RustTypes {
     }
 
     fn add_type_list(&mut self, type_list: &TypeList) -> Result<(), RustTypeError> {
-        let ident = Ident::new(&type_list.ident, Span::call_site());
+        let ident = format_ident!("{}", &type_list.ident);
 
         let mut fields = vec![];
 
         for field_node in &type_list.fields {
             match field_node {
                 TypeListNode::TypeListField(field) => {
-                    let field_ident = Ident::new(&field.ident, Span::call_site());
+                    let field_ident = format_ident!("{}", &field.ident);
 
                     match &field.ty {
                         TypeName::Types(value) => match value {
@@ -109,7 +117,7 @@ impl RustTypes {
                             return Err(RustTypeError::UnexpectedType)
                         }
                         TypeName::StructTypeName(value) | TypeName::ListTypeName(value) => {
-                            let ident = Ident::new(&value, Span::call_site());
+                            let ident = format_ident!("{}", &value);
                             fields.push(quote! { #field_ident(Box<#ident>), });
                         }
                         ty => {
@@ -131,14 +139,14 @@ impl RustTypes {
     }
 
     fn add_struct(&mut self, ty_struct: &TypeStruct) -> Result<(), RustTypeError> {
-        let ident = Ident::new(&ty_struct.ident, Span::call_site());
+        let ident = format_ident!("{}", &ty_struct.ident);
 
         let mut fields = vec![];
 
         for field_node in &ty_struct.fields {
             match field_node {
                 StructNode::StructField(field) => {
-                    let field_ident = Ident::new(&field.ident, Span::call_site());
+                    let field_ident = format_ident!("{}", &field.ident);
 
                     match &field.ty {
                         TypeName::TypeFunction(_)
@@ -179,7 +187,7 @@ impl RustTypes {
                         ident.to_snake_case_upper(),
                         &field.ident.as_str().to_snake_case_upper()
                     );
-                    let fd_ident = Ident::new(&field_name, Span::call_site());
+                    let fd_ident = format_ident!("{}", &field_name);
 
                     match ty_const.const_type {
                         ConstTypes::NatString => {
@@ -251,7 +259,7 @@ impl RustTypes {
             ConstTypes::NatFloat => quote! { f64 },
             ConstTypes::NatString => quote! { String },
         };
-        let const_ident = Ident::new(&ident, Span::call_site());
+        let const_ident = format_ident!("{}", &ident);
 
         self.module.push(quote! {
             pub type #const_ident = #const_def;

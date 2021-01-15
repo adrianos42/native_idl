@@ -30,8 +30,8 @@ struct TypeInterface {
 }
 "#;
 
-    use idl::idl::analyzer;
-    use idl::idl::parser;
+    use idl::analyzer;
+    use idl::parser;
 
     #[test]
     fn try_this() {

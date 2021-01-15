@@ -1,5 +1,6 @@
-use idl::idl::idl_nodes::*;
-use proc_macro2::{self, Ident, Span, TokenStream};
+use idl::idl_nodes::*;
+use proc_macro2::{self, TokenStream};
+use quote::format_ident;
 
 pub(crate) fn get_rust_ty_ref(ty: &TypeName, references: bool) -> TokenStream {
     match ty {
@@ -20,7 +21,7 @@ pub(crate) fn get_rust_ty_ref(ty: &TypeName, references: bool) -> TokenStream {
             // Not really a tuple :/
             let mut fields_t = vec![];
             for ty in &value.fields {
-                let ident = Ident::new(&ty.ident, Span::call_site());
+                let ident = format_ident!("{}", &ty.ident);
                 let ty_ident = get_rust_ty_ref(&ty.ty, references);
                 fields_t.push(quote! { #ident: #ty_ident })
             }
@@ -49,18 +50,18 @@ pub(crate) fn get_rust_ty_ref(ty: &TypeName, references: bool) -> TokenStream {
         | TypeName::EnumTypeName(value)
         | TypeName::StructTypeName(value)
         | TypeName::ConstTypeName(value) => {
-            let ident = Ident::new(&value, Span::call_site());
+            let ident = format_ident!("{}", &value);
             if references {
-                quote! { super::idl_types::#ident }
+                quote! { super::#ident }
             } else {
                 quote! { #ident }
             }
         }
-        TypeName::TypeStream(value) => {
+        TypeName::TypeStream(_) => {
             quote! { Box<dyn StreamInstance + Send> }
         }
         TypeName::InterfaceTypeName(value) => {
-            let ident = Ident::new(&format!("{}Instance", value), Span::call_site());
+            let ident = format_ident!("{}Instance", value);
             quote! { Box<dyn super::idl_impl::#ident> }
         }
     }
@@ -85,7 +86,7 @@ pub(crate) fn get_rust_ty_name(ty: &TypeName) -> String {
             // Not really a tuple :/
             let mut fields_t = String::new();
             for ty in &value.fields {
-                let ident = Ident::new(&ty.ident, Span::call_site());
+                let ident = format_ident!("{}", &ty.ident);
                 let ty_ident = get_rust_ty_name(&ty.ty);
                 fields_t.push_str(&ty_ident);
             }
@@ -112,15 +113,11 @@ pub(crate) fn get_rust_ty_name(ty: &TypeName) -> String {
         TypeName::ListTypeName(value)
         | TypeName::EnumTypeName(value)
         | TypeName::StructTypeName(value)
-        | TypeName::ConstTypeName(value) => {
-            value.to_owned()
-        }
+        | TypeName::ConstTypeName(value) => value.to_owned(),
         TypeName::TypeStream(value) => {
             let stream_ty = get_rust_ty_name(&value.s_ty);
             format!("Stream{}_", stream_ty)
         }
-        TypeName::InterfaceTypeName(value) => {
-           value.to_owned()
-        }
+        TypeName::InterfaceTypeName(value) => value.to_owned(),
     }
 }

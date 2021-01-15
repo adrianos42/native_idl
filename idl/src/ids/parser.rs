@@ -3,8 +3,7 @@ use std::{sync::Arc, fmt};
 use thiserror::Error;
 use crate::range::{Position, Range};
 
-pub use crate::idl::parser::{Keywords, ScannerError, TypeName};
-
+pub use crate::parser::{Keywords, ScannerError, TypeName};
 
 #[derive(Debug)]
 pub enum ParserNode {

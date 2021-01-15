@@ -1,4 +1,4 @@
-use crate::idl::parser::*;
+use crate::parser::*;
 use crate::scanner::Keywords;
 use super::*;
 

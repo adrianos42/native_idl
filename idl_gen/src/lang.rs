@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use idl::idl::idl_nodes;
+use idl::idl_nodes;
 use idl::ids::ids_nodes;
 
 #[derive(Debug, Deserialize, Serialize)]

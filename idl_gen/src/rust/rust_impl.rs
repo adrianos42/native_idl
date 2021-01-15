@@ -1,11 +1,14 @@
-use idl::idl::analyzer::Analyzer;
-use idl::idl::idl_nodes::*;
+use idl::analyzer::Analyzer;
+use idl::idl_nodes::*;
 
 use super::con_idl::get_rust_ty_ref;
 
 use super::string_pros::StringPros;
-use proc_macro2::{self, Ident, Span, TokenStream};
+use proc_macro2::{self, TokenStream};
+use quote::{TokenStreamExt, ToTokens};
+use quote::format_ident;
 use std::fmt;
+
 
 #[derive(Debug)]
 pub enum RustImplError {
@@ -15,6 +18,12 @@ pub enum RustImplError {
 
 pub struct RustImpl {
     module: Vec<TokenStream>,
+}
+
+impl ToTokens for RustImpl {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append_all(&self.module);
+    }
 }
 
 impl fmt::Display for RustImpl {
@@ -63,7 +72,7 @@ impl RustImpl {
         for field_node in &ty_interface.fields {
             match field_node {
                 InterfaceNode::InterfaceField(field) => {
-                    let func_ident = Ident::new(&field.ident, Span::call_site());
+                    let func_ident = format_ident!("{}", &field.ident);
                     let mut args_name = vec![];
 
                     let (args, ret_ty) = match &field.ty {
@@ -85,7 +94,7 @@ impl RustImpl {
 
                     if let Some(args) = args {
                         for arg in args {
-                            let arg_ident = Ident::new(&arg.ident, Span::call_site());
+                            let arg_ident = format_ident!("{}", &arg.ident);
                             let arg_ty_ident = get_rust_ty_ref(&arg.ty, true);
                             args_name.push(quote! { #arg_ident: #arg_ty_ident });
 
@@ -121,10 +130,7 @@ impl RustImpl {
                     });
 
                     if let Some((arg_ty, stream_ty)) = stream_arg {
-                        let ident = Ident::new(
-                            &format!("{}_stream_sender", &field.ident),
-                            Span::call_site(),
-                        );
+                        let ident = format_ident!("{}_stream_sender", &field.ident);
                         let a_ty = get_rust_ty_ref(arg_ty, true);
                         let s_ty = get_rust_ty_ref(stream_ty, true);
                         fields_add.push(quote! {
@@ -132,8 +138,7 @@ impl RustImpl {
                         });
                     }
                     if let Some((ret_ty, stream_ty)) = stream_ret {
-                        let ident =
-                            Ident::new(&format!("{}_stream", &field.ident), Span::call_site());
+                        let ident = format_ident!("{}_stream", &field.ident);
                         let r_ty = get_rust_ty_ref(ret_ty, true);
                         let s_ty = get_rust_ty_ref(stream_ty, true);
                         fields_add.push(quote! {
@@ -146,14 +151,13 @@ impl RustImpl {
         }
 
         if !fields.is_empty() {
-            let interface_ident = Ident::new(&format!("{}Instance", &ident), Span::call_site());
+            let interface_ident = format_ident!("{}Instance", &ident);
             self.module
                 .push(quote! { pub trait #interface_ident { #( #fields )* } });
         }
 
         if !static_fields.is_empty() {
-            let interface_static_ident =
-                Ident::new(&format!("{}Static", &ident), Span::call_site());
+            let interface_static_ident = format_ident!("{}Static", &ident);
             self.module
                 .push(quote! { pub trait #interface_static_ident { #( #static_fields )* } });
         }
@@ -163,5 +167,68 @@ impl RustImpl {
 
     fn new() -> Self {
         Self { module: vec![] }
+    }
+}
+
+pub struct RustImplMod {
+    module: TokenStream,
+}
+
+impl fmt::Display for RustImplMod {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.module.to_string().as_str().rust_fmt())
+    }
+}
+
+impl RustImplMod {
+    pub fn generate(_analyzer: &Analyzer) -> Result<Self, ()> {
+        let module = quote! {
+            pub mod idl_impl; // rust interface type
+            pub mod idl_types; // rust types
+        };
+
+        Ok(RustImplMod { module })
+    }
+}
+
+pub struct RustImplCargo {
+    cargo_toml: String,
+}
+
+impl fmt::Display for RustImplCargo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.cargo_toml)
+    }
+}
+
+impl RustImplCargo {
+    pub fn generate(analyzer: &Analyzer) -> Result<Self, ()> {
+        let mut context = RustImplCargo::new();
+
+        let pkg_name = format!("{}_types", analyzer.get_library_name());
+        let version = "0.1.0";
+        let author = "Adriano Souza";
+        let edition = "2018";
+
+        context.cargo_toml = format!(
+            r#"[package]
+name = "{}"
+version = "{}"
+authors = ["{}"]
+edition = "{}"
+
+[dependencies]
+lazy_static = "1.4.0"
+idl_internal = {{ git = "https://github.com/adrianos42/native_idl" }}"#,
+            pkg_name, version, author, edition
+        );
+
+        Ok(context)
+    }
+
+    fn new() -> Self {
+        Self {
+            cargo_toml: String::new(),
+        }
     }
 }

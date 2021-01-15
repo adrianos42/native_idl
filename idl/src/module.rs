@@ -1,4 +1,3 @@
-use super::idl;
 use super::ids;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
@@ -23,9 +22,9 @@ pub enum ModuleError {
 #[derive(Debug)]
 struct IdlDocument {
     text: Option<String>,
-    parser: Arc<Result<idl::parser::Parser, (idl::parser::Parser, idl::parser::ParserError)>>,
-    analyzer: Arc<Result<idl::analyzer::Analyzer, idl::analyzer::AnalyzerError>>,
-    last_analyzer: Arc<Result<idl::analyzer::Analyzer, idl::analyzer::AnalyzerError>>,
+    parser: Arc<Result<super::parser::Parser, (super::parser::Parser, super::parser::ParserError)>>,
+    analyzer: Arc<Result<super::analyzer::Analyzer, super::analyzer::AnalyzerError>>,
+    last_analyzer: Arc<Result<super::analyzer::Analyzer, super::analyzer::AnalyzerError>>,
 }
 
 #[derive(Debug)]
@@ -48,7 +47,7 @@ impl Module {
     }
 
     // Returns each document with an analyzer error
-    pub fn get_idl_analyze_errors(&self) -> HashMap<String, idl::analyzer::AnalyzerError> {
+    pub fn get_idl_analyze_errors(&self) -> HashMap<String, super::analyzer::AnalyzerError> {
         let documents = self.idl_documents.read().unwrap();
         let mut result = HashMap::new();
         for (name, doc) in documents.iter() {
@@ -62,7 +61,7 @@ impl Module {
     }
 
     // Returns each document parser error
-    pub fn get_idl_parser_errors(&self) -> HashMap<String, idl::parser::ParserError> {
+    pub fn get_idl_parser_errors(&self) -> HashMap<String, super::parser::ParserError> {
         let documents = self.idl_documents.read().unwrap();
         let mut result = HashMap::new();
         for (name, doc) in documents.iter() {
@@ -90,9 +89,9 @@ impl Module {
             name.to_owned(),
             IdlDocument {
                 text: None,
-                parser: Arc::new(idl::parser::Parser::closed()),
-                analyzer: Arc::new(idl::analyzer::Analyzer::closed()),
-                last_analyzer: Arc::new(idl::analyzer::Analyzer::closed()),
+                parser: Arc::new(super::parser::Parser::closed()),
+                analyzer: Arc::new(super::analyzer::Analyzer::closed()),
+                last_analyzer: Arc::new(super::analyzer::Analyzer::closed()),
             },
         );
 
@@ -111,9 +110,9 @@ impl Module {
             name.to_owned(),
             IdlDocument {
                 text: Some(text.to_owned()),
-                parser: Arc::new(idl::parser::Parser::parse(text)),
-                analyzer: Arc::new(idl::analyzer::Analyzer::closed()),
-                last_analyzer: Arc::new(idl::analyzer::Analyzer::closed()),
+                parser: Arc::new(super::parser::Parser::parse(text)),
+                analyzer: Arc::new(super::analyzer::Analyzer::closed()),
+                last_analyzer: Arc::new(super::analyzer::Analyzer::closed()),
             },
         );
 
@@ -133,12 +132,12 @@ impl Module {
 
         if let Some(mut doc) = documents.get_mut(name) {
             doc.text = Some(text.to_owned());
-            doc.parser = Arc::new(idl::parser::Parser::parse(text));
+            doc.parser = Arc::new(super::parser::Parser::parse(text));
             if doc.analyzer.is_ok() {
                 // Saves the last analyzer.
                 doc.last_analyzer = doc.analyzer.clone();
             }
-            doc.analyzer = Arc::new(idl::analyzer::Analyzer::closed());
+            doc.analyzer = Arc::new(super::analyzer::Analyzer::closed());
         }
     }
 
@@ -147,7 +146,7 @@ impl Module {
 
         if let Some(mut doc) = documents.get_mut(name) {
             if let Ok(parser) = doc.parser.clone().as_ref() {
-                doc.analyzer = Arc::new(idl::analyzer::Analyzer::resolve(parser, Some(self)))
+                doc.analyzer = Arc::new(super::analyzer::Analyzer::resolve(parser, Some(self)))
             }
         }
     }
@@ -168,7 +167,7 @@ impl Module {
             }
 
             if let Ok(parser) = &*doc.parser {
-                doc.analyzer = Arc::new(idl::analyzer::Analyzer::resolve(parser, Some(self)))
+                doc.analyzer = Arc::new(super::analyzer::Analyzer::resolve(parser, Some(self)))
             }
         }
 
@@ -178,7 +177,7 @@ impl Module {
     pub fn get_idl_parser(
         &self,
         name: &str,
-    ) -> Option<Arc<Result<idl::parser::Parser, (idl::parser::Parser, idl::parser::ParserError)>>>
+    ) -> Option<Arc<Result<super::parser::Parser, (super::parser::Parser, super::parser::ParserError)>>>
     {
         let documents = self.idl_documents.read().unwrap();
         documents.get(name).map(|doc| doc.parser.clone())
@@ -187,7 +186,7 @@ impl Module {
     pub fn get_idl_analyzer(
         &self,
         name: &str,
-    ) -> Option<Arc<Result<idl::analyzer::Analyzer, idl::analyzer::AnalyzerError>>> {
+    ) -> Option<Arc<Result<super::analyzer::Analyzer, super::analyzer::AnalyzerError>>> {
         let documents = self.idl_documents.read().unwrap();
         documents.get(name).map(|doc| doc.analyzer.clone())
     }
@@ -201,7 +200,7 @@ impl Module {
                 Ok(analyzer) => {
                     for node in &analyzer.nodes {
                         match node {
-                            idl::idl_nodes::IdlNode::TypeStruct(value) => {
+                            super::idl_nodes::IdlNode::TypeStruct(value) => {
                                 names.push(value.ident.to_owned());
                             }
                             _ => {}
@@ -212,7 +211,7 @@ impl Module {
                     if let Ok(analyzer) = &*doc.last_analyzer {
                         for node in &analyzer.nodes {
                             match node {
-                                idl::idl_nodes::IdlNode::TypeStruct(value) => {
+                                super::idl_nodes::IdlNode::TypeStruct(value) => {
                                     names.push(value.ident.to_owned());
                                 }
                                 _ => {}
@@ -235,7 +234,7 @@ impl Module {
                 Ok(analyzer) => {
                     for node in &analyzer.nodes {
                         match node {
-                            idl::idl_nodes::IdlNode::TypeList(value) => {
+                            super::idl_nodes::IdlNode::TypeList(value) => {
                                 names.push(value.ident.to_owned());
                             }
                             _ => {}
@@ -246,7 +245,7 @@ impl Module {
                     if let Ok(analyzer) = &*doc.last_analyzer {
                         for node in &analyzer.nodes {
                             match node {
-                                idl::idl_nodes::IdlNode::TypeList(value) => {
+                                super::idl_nodes::IdlNode::TypeList(value) => {
                                     names.push(value.ident.to_owned());
                                 }
                                 _ => {}
@@ -269,7 +268,7 @@ impl Module {
                 Ok(analyzer) => {
                     for node in &analyzer.nodes {
                         match node {
-                            idl::idl_nodes::IdlNode::TypeEnum(value) => {
+                            super::idl_nodes::IdlNode::TypeEnum(value) => {
                                 names.push(value.ident.to_owned());
                             }
                             _ => {}
@@ -280,7 +279,7 @@ impl Module {
                     if let Ok(analyzer) = &*doc.last_analyzer {
                         for node in &analyzer.nodes {
                             match node {
-                                idl::idl_nodes::IdlNode::TypeEnum(value) => {
+                                super::idl_nodes::IdlNode::TypeEnum(value) => {
                                     names.push(value.ident.to_owned());
                                 }
                                 _ => {}
@@ -303,7 +302,7 @@ impl Module {
                 Ok(analyzer) => {
                     for node in &analyzer.nodes {
                         match node {
-                            idl::idl_nodes::IdlNode::TypeConst(value) => {
+                            super::idl_nodes::IdlNode::TypeConst(value) => {
                                 names.push(value.ident.to_owned());
                             }
                             _ => {}
@@ -314,7 +313,7 @@ impl Module {
                     if let Ok(analyzer) = &*doc.last_analyzer {
                         for node in &analyzer.nodes {
                             match node {
-                                idl::idl_nodes::IdlNode::TypeConst(value) => {
+                                super::idl_nodes::IdlNode::TypeConst(value) => {
                                     names.push(value.ident.to_owned());
                                 }
                                 _ => {}
@@ -337,7 +336,7 @@ impl Module {
                 Ok(analyzer) => {
                     for node in &analyzer.nodes {
                         match node {
-                            idl::idl_nodes::IdlNode::TypeInterface(value) => {
+                            super::idl_nodes::IdlNode::TypeInterface(value) => {
                                 names.push(value.ident.to_owned());
                             }
                             _ => {}
@@ -348,7 +347,7 @@ impl Module {
                     if let Ok(analyzer) = &*doc.last_analyzer {
                         for node in &analyzer.nodes {
                             match node {
-                                idl::idl_nodes::IdlNode::TypeInterface(value) => {
+                                super::idl_nodes::IdlNode::TypeInterface(value) => {
                                     names.push(value.ident.to_owned());
                                 }
                                 _ => {}
@@ -364,12 +363,12 @@ impl Module {
 
     pub fn get_all_native_refs() -> Vec<String> {
         vec![
-            idl::parser::NativeTypes::Int.to_string(),
-            idl::parser::NativeTypes::Float.to_string(),
-            idl::parser::NativeTypes::String.to_string(),
-            idl::parser::NativeTypes::Bytes.to_string(),
-            idl::parser::NativeTypes::Bool.to_string(),
-            idl::parser::NativeTypes::None.to_string(),
+            super::parser::NativeTypes::Int.to_string(),
+            super::parser::NativeTypes::Float.to_string(),
+            super::parser::NativeTypes::String.to_string(),
+            super::parser::NativeTypes::Bytes.to_string(),
+            super::parser::NativeTypes::Bool.to_string(),
+            super::parser::NativeTypes::None.to_string(),
         ]
     }
 

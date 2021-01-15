@@ -202,12 +202,12 @@ pub enum Message {
     IdlAnalyzer {
         id: files::FileId,
         range: Range<usize>,
-        err: idl::idl::analyzer::AnalyzerError,
+        err: idl::analyzer::AnalyzerError,
     },
     IdlParser {
         id: files::FileId,
         range: Range<usize>,
-        err: idl::idl::parser::ParserError,
+        err: idl::parser::ParserError,
     },
     IdsAnalyzer {
         id: files::FileId,

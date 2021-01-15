@@ -1,7 +1,8 @@
 use crate::rust::string_pros::StringPros;
-use idl::idl::analyzer::Analyzer;
-use idl::idl::idl_nodes::*;
-use proc_macro2::{self, Ident, Span, TokenStream};
+use idl::analyzer::Analyzer;
+use idl::idl_nodes::*;
+use proc_macro2::{self, TokenStream};
+use quote::format_ident;
 use std::fmt;
 
 pub mod client;
@@ -20,15 +21,14 @@ impl fmt::Display for FFIMod {
 }
 
 impl FFIMod {
-    pub fn generate(analyzer: &Analyzer) -> Result<Self, ()> {
-        let impl_ident = Ident::new(&format!("impl_{}", analyzer.get_library_name()), Span::call_site());
+    pub fn generate(_analyzer: &Analyzer) -> Result<Self, ()> {
         let module = quote! {
-           mod idl_types; // rust types
-           mod idl_ffi; // interface and static functions
-           mod idl_ffi_types; // ffi types
-           mod idl_impl; // rust interface type
-           mod idl_ffi_impl; // ffi interface type
-           mod #impl_ident; // for the interfaces implementation
+            mod idl_ffi; // interface and static functions
+            mod ffi_types; // ffi types
+            mod ffi_impl; // ffi interface type
+
+            #[macro_use]
+            extern crate lazy_static;
         };
 
         Ok(FFIMod { module })
@@ -118,17 +118,17 @@ pub(crate) fn get_value_ffi_ty_ref(
         TypeName::StructTypeName(value)
         | TypeName::ListTypeName(value)
         | TypeName::EnumTypeName(value) => {
-            let ident = Ident::new(&value, Span::call_site());
+            let ident = format_ident!("{}", &value);
             if references {
                 // TODO ?? Would it be better?
-                quote! { super::idl_ffi_types::#ident }
+                quote! { super::ffi_types::#ident }
             } else {
                 quote! { #ident }
             }
         }
         TypeName::InterfaceTypeName(value) => {
-            let ident = Ident::new(&format!("{}Instance", value), Span::call_site());
-            quote! { super::idl_ffi_impl::#ident }
+            let ident = format_ident!("{}Instance", value);
+            quote! { ffi_impl::#ident }
         }
 
         sw => panic!("Invalid type `{:?}`", sw),
@@ -281,8 +281,8 @@ pub(crate) fn conv_ffi_value_to_value(
         TypeName::ListTypeName(value)
         | TypeName::StructTypeName(value)
         | TypeName::EnumTypeName(value) => {
-            let ident = Ident::new(&value, Span::call_site());
-            quote! { { super::idl_types::#ident::from(#ffi_name) } }
+            let ident = format_ident!("{}", &value);
+            quote! { { super::#ident::from(#ffi_name) } }
         }
         TypeName::ConstTypeName(value) => {
             let const_ty = analyzer
@@ -457,16 +457,16 @@ pub(crate) fn conv_value_to_ffi_value(
         TypeName::ListTypeName(value)
         | TypeName::StructTypeName(value)
         | TypeName::EnumTypeName(value) => {
-            let ident = Ident::new(value, Span::call_site());
+            let ident = format_ident!("{}", value);
             if references {
-                quote! { { super::idl_ffi_types::#ident::from(#value_name) } }
+                quote! { { super::ffi_types::#ident::from(#value_name) } }
             } else {
                 quote! { { #ident::from(#value_name) } }
             }
         }
         TypeName::InterfaceTypeName(value) => {
-            let ident = Ident::new(&format!("{}Instance", value), Span::call_site());
-            quote! { { super::idl_ffi_impl::#ident::from(#value_name) } }
+            let ident = format_ident!("{}Instance", value);
+            quote! { { ffi_impl::#ident::from(#value_name) } }
         }
         TypeName::ConstTypeName(value) => {
             let const_ty = analyzer
