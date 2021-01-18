@@ -8,18 +8,24 @@ interface Test {
     value_none: (value: none) -> none,
     value_bytes: (value: bytes) -> bytes,
     value_int_array: (value: int[]) -> int[],
-    value_point_struct: (value: Point) -> Point, 
-    value_int_map: (value: int[string]) -> int[string],
+    value_point_struct: (value: Point) -> Point,
+    value_int_map: (value: map[string, int]) -> map[int, string],
     value_int_int_map: (value: int[int]) -> int[int],
     value_types: (value: Types) -> Types,
-    value_option: (value: [int]) -> [int],
-    value_none_option:  [int],
-    value_result: (value: string) -> [string; bool],
-    value_result_err: [string; bool],
-    value_int_stream: stream string,
+    value_option: (value: option[int]) -> map[int],
+    value_none_option: option[int],
+    value_result: (value: string) -> result[string, bool],
+    value_result_err: result[string, bool],
+    value_int_stream: stream[string],
     value_names: (value: Names) -> Names,
     value_values: (value: ValuesFloat) -> ValuesFloat,
     static_value_int: static (value: int) -> int,
+}
+
+interface GetName {
+    names: (thef: stream[map[int, string]]),
+    ship: option[int],
+    numbers: result[bool, int],
 }
 
 struct Point {

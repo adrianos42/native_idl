@@ -28,6 +28,18 @@ struct TypeInterface {
     ident: string,
     fields: bytes[],
 }
+
+const Never {
+    ents: "pf",
+    vcxmxkv: "43242340"
+}
+
+
+interface GetName {
+    names: (thef: stream[map[Never, string]]),
+    ship: option[int],
+    numbers: result[bool, int],
+}
 "#;
 
     use idl::analyzer;
@@ -41,7 +53,7 @@ struct TypeInterface {
                 Err(err) => println!("Error: {}", err),
             },
             Err(err) => {
-                panic!("{} at {:#?}", err.1, err.1.get_range());
+                panic!("{} at {:?}", err.1, err.1.get_range());
             }
         }
     }

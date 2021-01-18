@@ -792,11 +792,13 @@ impl Analyzer {
             }
         }
 
-        Self::references_invalid_type(&analyzer.nodes, parsers)?;
-        Self::struct_has_recursive_reference(&analyzer.nodes, parsers)?;
-        Self::tuple_has_duplicate_fields(&analyzer.nodes, parsers)?;
-        Self::tuple_has_result_type(&analyzer.nodes, parsers)?;
-        Self::tuple_has_incorrect_stream_type(&analyzer.nodes, parsers)?;
+        analyzer.references_invalid_type(parsers)?;
+        analyzer.struct_has_recursive_reference(parsers)?;
+        analyzer.tuple_has_duplicate_fields(parsers)?;
+        analyzer.tuple_has_result_type(parsers)?;
+        analyzer.tuple_has_incorrect_stream_type(parsers)?;
+        analyzer.map_has_incorrect_types(parsers)?;
+        analyzer.array_has_incorrect_types(parsers)?;
 
         Ok(analyzer)
     }
@@ -815,10 +817,193 @@ impl Analyzer {
         }
     }
 
-    fn tuple_has_result_type(
-        nodes: &[idl_nodes::IdlNode],
+    // Iterates every interface, struct, and typelist to verify every map value type
+    fn map_has_incorrect_types(&self, parsers: &parser::Parser) -> Result<(), ReferenceError> {
+        for (ty, range) in self.get_all_types_recursive(parsers) {
+            if let idl_nodes::TypeName::TypeMap(map) = ty {
+                let index_ref = map.index_ty.get_type_reference(); // TODO get the real name of the type
+                let ty_ref = map.map_ty.get_type_reference();
+
+                let index_invalid = match &map.index_ty {
+                    idl_nodes::TypeName::Types(types) => match types {
+                        idl_nodes::Types::NatInt | idl_nodes::Types::NatString => None,
+                        _ => Some(index_ref),
+                    },
+                    idl_nodes::TypeName::EnumTypeName(_) => None, // Since it's a integer, can be used as an index.
+                    idl_nodes::TypeName::ConstTypeName(value) => {
+                        let const_ty = self.find_ty_const(value).unwrap();
+                        match const_ty.const_type {
+                            idl_nodes::ConstTypes::NatInt | idl_nodes::ConstTypes::NatString => {
+                                None
+                            }
+                            idl_nodes::ConstTypes::NatFloat => Some(index_ref),
+                        }
+                    }
+                    _ => Some(index_ref),
+                };
+
+                if let Some(ty) = index_invalid {
+                    return Err(ReferenceError(
+                        ReferenceErrorKind::Invalid,
+                        range,
+                        format!("map index `{}`", ty),
+                    ));
+                }
+
+                // Types that are allowed.
+                let ty_invalid = match &map.map_ty {
+                    idl_nodes::TypeName::Types(types) => match types {
+                        idl_nodes::Types::NatNone => Some(ty_ref),
+                        _ => None,
+                    },
+                    idl_nodes::TypeName::ListTypeName(_)
+                    | idl_nodes::TypeName::EnumTypeName(_)
+                    | idl_nodes::TypeName::StructTypeName(_)
+                    | idl_nodes::TypeName::ConstTypeName(_) => None,
+                    _ => Some(ty_ref),
+                };
+
+                if let Some(ty) = ty_invalid {
+                    return Err(ReferenceError(
+                        ReferenceErrorKind::Invalid,
+                        range,
+                        format!("map value type `{}`", ty),
+                    ));
+                }
+            };
+        }
+
+        Ok(())
+    }
+
+    // Iterates every interface, struct, and typelist to verify every array type
+    fn array_has_incorrect_types(&self, parsers: &parser::Parser) -> Result<(), ReferenceError> {
+        for (ty, range) in self.get_all_types_recursive(parsers) {
+            if let idl_nodes::TypeName::TypeArray(array) = ty {
+                let ty_ref = array.ty.get_type_reference(); // TODO get the real name of the type
+
+                let ty_invalid = match &array.ty {
+                    idl_nodes::TypeName::Types(types) => match types {
+                        idl_nodes::Types::NatNone => Some(ty_ref),
+                        _ => None,
+                    },
+                    idl_nodes::TypeName::ListTypeName(_)
+                    | idl_nodes::TypeName::EnumTypeName(_)
+                    | idl_nodes::TypeName::StructTypeName(_)
+                    | idl_nodes::TypeName::ConstTypeName(_) => None,
+                    _ => Some(ty_ref),
+                };
+
+                if let Some(ty) = ty_invalid {
+                    return Err(ReferenceError(
+                        ReferenceErrorKind::Invalid,
+                        range,
+                        format!("array type `{}`", ty),
+                    ));
+                }
+            };
+        }
+
+        Ok(())
+    }
+
+    fn add_types_for_recursive<'a>(
+        &self,
+        ty: &'a idl_nodes::TypeName,
+        range: Range,
+    ) -> Vec<(&'a idl_nodes::TypeName, Range)> {
+        let mut types = vec![];
+
+        let add_from_tuples = |tuple: &'a idl_nodes::TypeTuple| {
+            let mut result = vec![];
+            for field in &tuple.fields {
+                result.append(&mut self.add_types_for_recursive(&field.ty, range));
+            }
+            result
+        };
+
+        types.push((ty, range));
+
+        match ty {
+            idl_nodes::TypeName::TypeFunction(value) => {
+                types.append(&mut self.add_types_for_recursive(&value.return_ty, range));
+                if let idl_nodes::TypeName::TypeTuple(tuple) = &value.args {
+                    types.append(&mut add_from_tuples(tuple));
+                }
+            }
+            idl_nodes::TypeName::TypeTuple(tuple) => types.append(&mut add_from_tuples(tuple)),
+            idl_nodes::TypeName::TypeArray(value) => {
+                types.append(&mut self.add_types_for_recursive(&value.ty, range))
+            }
+            idl_nodes::TypeName::TypeMap(value) => {
+                types.append(&mut self.add_types_for_recursive(&value.index_ty, range));
+                types.append(&mut self.add_types_for_recursive(&value.map_ty, range));
+            }
+            idl_nodes::TypeName::TypeOption(value) => {
+                types.append(&mut self.add_types_for_recursive(&value.some_ty, range))
+            }
+            idl_nodes::TypeName::TypeResult(value) => {
+                types.append(&mut self.add_types_for_recursive(&value.ok_ty, range));
+                types.append(&mut self.add_types_for_recursive(&value.err_ty, range));
+            }
+            idl_nodes::TypeName::TypeStream(value) => {
+                types.append(&mut self.add_types_for_recursive(&value.s_ty, range))
+            }
+            _ => {},
+        };
+
+        types
+    }
+
+    fn get_all_types_recursive<'a>(
+        &'a self,
         parsers: &parser::Parser,
-    ) -> Result<(), ReferenceError> {
+    ) -> Vec<(&'a idl_nodes::TypeName, Range)> {
+        let mut result = vec![];
+
+        for node in &self.nodes {
+            match node {
+                idl_nodes::IdlNode::TypeInterface(value) => {
+                    for t_node in &value.fields {
+                        if let idl_nodes::InterfaceNode::InterfaceField(field) = t_node {
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                field.ident.as_str(),
+                            );
+                            result.append(&mut self.add_types_for_recursive(&field.ty, range))
+                        }
+                    }
+                }
+                idl_nodes::IdlNode::TypeStruct(value) => {
+                    for t_node in &value.fields {
+                        if let idl_nodes::StructNode::StructField(field) = t_node {
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                field.ident.as_str(),
+                            );
+                            result.append(&mut self.add_types_for_recursive(&field.ty, range))
+                        }
+                    }
+                }
+                idl_nodes::IdlNode::TypeList(value) => {
+                    for t_node in &value.fields {
+                        if let idl_nodes::TypeListNode::TypeListField(field) = t_node {
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                field.ident.as_str(),
+                            );
+                            result.append(&mut self.add_types_for_recursive(&field.ty, range))
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        result
+    }
+
+    fn tuple_has_result_type(&self, parsers: &parser::Parser) -> Result<(), ReferenceError> {
         let refences_result = |ty: &idl_nodes::TypeName, range: Range| {
             let tuple = match ty {
                 idl_nodes::TypeName::TypeFunction(value) => {
@@ -847,7 +1032,7 @@ impl Analyzer {
             Ok(())
         };
 
-        for node in nodes {
+        for node in &self.nodes {
             match node {
                 idl_nodes::IdlNode::TypeInterface(value) => {
                     for interface_node in &value.fields {
@@ -868,7 +1053,7 @@ impl Analyzer {
     }
 
     fn tuple_has_incorrect_stream_type(
-        nodes: &[idl_nodes::IdlNode],
+        &self,
         parsers: &parser::Parser,
     ) -> Result<(), ReferenceError> {
         let refences_stream = |ty: &idl_nodes::TypeName, range: Range| {
@@ -901,7 +1086,7 @@ impl Analyzer {
             Ok(())
         };
 
-        for node in nodes {
+        for node in &self.nodes {
             match node {
                 idl_nodes::IdlNode::TypeInterface(value) => {
                     for interface_node in &value.fields {
@@ -922,7 +1107,7 @@ impl Analyzer {
     }
 
     fn tuple_has_duplicate_fields(
-        nodes: &[idl_nodes::IdlNode],
+        &self,
         parsers: &parser::Parser,
     ) -> Result<(), DuplicateFieldNameError> {
         let has_duplicate_in_tuple = |ty: &idl_nodes::TypeName| {
@@ -952,7 +1137,7 @@ impl Analyzer {
             }
         };
 
-        for node in nodes {
+        for node in &self.nodes {
             match node {
                 idl_nodes::IdlNode::TypeInterface(value) => {
                     for interface_node in &value.fields {
@@ -975,11 +1160,8 @@ impl Analyzer {
         Ok(())
     }
 
-    fn references_invalid_type(
-        nodes: &[idl_nodes::IdlNode],
-        parsers: &parser::Parser,
-    ) -> Result<(), ReferenceError> {
-        for node in nodes {
+    fn references_invalid_type(&self, parsers: &parser::Parser) -> Result<(), ReferenceError> {
+        for node in &self.nodes {
             match node {
                 idl_nodes::IdlNode::TypeInterface(value) => {
                     for interface_node in value.fields.iter() {
@@ -1065,18 +1247,17 @@ impl Analyzer {
 
     // Given a type name, find if any other type inside references it.
     fn struct_has_recursive_reference(
-        nodes: &[idl_nodes::IdlNode],
+        &self,
         parsers: &parser::Parser,
     ) -> Result<(), ReferenceError> {
-        for node in nodes {
+        for node in &self.nodes {
             match node {
                 idl_nodes::IdlNode::TypeStruct(value) => {
                     let range = parsers.get_range_from_type_name(value.ident.as_str());
 
                     for struct_node in value.fields.iter() {
                         if let idl_nodes::StructNode::StructField(struct_field) = struct_node {
-                            if Self::has_type_reference_in_struct(
-                                nodes,
+                            if self.has_type_reference_in_struct(
                                 value.ident.as_str(),
                                 &struct_field.ty,
                             ) {
@@ -1097,24 +1278,19 @@ impl Analyzer {
     }
 
     // Finds if any type has the reference target inside a struct.
-    fn has_type_reference_in_struct(
-        nodes: &[idl_nodes::IdlNode],
-        target: &str,
-        refer: &idl_nodes::TypeName,
-    ) -> bool {
+    fn has_type_reference_in_struct(&self, target: &str, refer: &idl_nodes::TypeName) -> bool {
         match refer {
             idl_nodes::TypeName::StructTypeName(struct_ident) => {
                 if target == struct_ident {
                     return true;
                 }
 
-                for node in nodes {
+                for node in &self.nodes {
                     if let idl_nodes::IdlNode::TypeStruct(value) = node {
                         if value.ident.as_str() == struct_ident {
                             for struct_node in value.fields.iter() {
                                 if let idl_nodes::StructNode::StructField(field) = struct_node {
-                                    if Self::has_type_reference_in_struct(nodes, target, &field.ty)
-                                    {
+                                    if self.has_type_reference_in_struct(target, &field.ty) {
                                         return true;
                                     }
                                 }
@@ -1126,34 +1302,30 @@ impl Analyzer {
                 false
             }
             idl_nodes::TypeName::TypeArray(array) => {
-                Self::has_type_reference_in_struct(nodes, target, &array.ty)
+                self.has_type_reference_in_struct(target, &array.ty)
             }
             idl_nodes::TypeName::TypeMap(map) => {
-                Self::has_type_reference_in_struct(nodes, target, &map.map_ty)
-                    || Self::has_type_reference_in_struct(nodes, target, &map.map_ty)
+                self.has_type_reference_in_struct(target, &map.map_ty)
+                    || self.has_type_reference_in_struct(target, &map.map_ty)
             }
             _ => false,
         }
     }
 
     // Finds if any type has the reference target.
-    fn has_type_reference(
-        nodes: &[idl_nodes::IdlNode],
-        target: &str,
-        refer: &idl_nodes::TypeName,
-    ) -> bool {
+    fn has_type_reference(&self, target: &str, refer: &idl_nodes::TypeName) -> bool {
         match refer {
             idl_nodes::TypeName::StructTypeName(struct_ident) => {
                 if target == struct_ident {
                     return true;
                 }
 
-                for node in nodes {
+                for node in &self.nodes {
                     if let idl_nodes::IdlNode::TypeStruct(value) = node {
                         if value.ident.as_str() == struct_ident {
                             for struct_node in value.fields.iter() {
                                 if let idl_nodes::StructNode::StructField(field) = struct_node {
-                                    if Self::has_type_reference(nodes, target, &field.ty) {
+                                    if self.has_type_reference(target, &field.ty) {
                                         return true;
                                     }
                                 }
@@ -1169,14 +1341,14 @@ impl Analyzer {
                     return true;
                 }
 
-                for node in nodes {
+                for node in &self.nodes {
                     if let idl_nodes::IdlNode::TypeInterface(value) = node {
                         if value.ident.as_str() == interface_ident {
                             for interface_node in value.fields.iter() {
                                 if let idl_nodes::InterfaceNode::InterfaceField(field) =
                                     interface_node
                                 {
-                                    if Self::has_type_reference(nodes, target, &field.ty) {
+                                    if self.has_type_reference(target, &field.ty) {
                                         return true;
                                     }
                                 }
@@ -1192,12 +1364,12 @@ impl Analyzer {
                     return true;
                 }
 
-                for node in nodes {
+                for node in &self.nodes {
                     if let idl_nodes::IdlNode::TypeList(value) = node {
                         if value.ident.as_str() == list_ident {
                             for ty_node in value.fields.iter() {
                                 if let idl_nodes::TypeListNode::TypeListField(field) = ty_node {
-                                    if Self::has_type_reference(nodes, target, &field.ty) {
+                                    if self.has_type_reference(target, &field.ty) {
                                         return true;
                                     }
                                 }
@@ -1208,20 +1380,18 @@ impl Analyzer {
 
                 false
             }
-            idl_nodes::TypeName::TypeArray(array) => {
-                Self::has_type_reference(nodes, target, &array.ty)
-            }
+            idl_nodes::TypeName::TypeArray(array) => self.has_type_reference(target, &array.ty),
             idl_nodes::TypeName::TypeMap(map) => {
-                Self::has_type_reference(nodes, target, &map.map_ty)
-                    || Self::has_type_reference(nodes, target, &map.map_ty)
+                self.has_type_reference(target, &map.map_ty)
+                    || self.has_type_reference(target, &map.map_ty)
             }
             idl_nodes::TypeName::TypeFunction(function) => {
-                Self::has_type_reference(nodes, target, &function.return_ty)
-                    || Self::has_type_reference(nodes, target, &function.args)
+                self.has_type_reference(target, &function.return_ty)
+                    || self.has_type_reference(target, &function.args)
             }
             idl_nodes::TypeName::TypeTuple(tuple) => {
                 for ty in tuple.fields.iter() {
-                    if Self::has_type_reference(nodes, target, &ty.ty) {
+                    if self.has_type_reference(target, &ty.ty) {
                         return true;
                     }
                 }

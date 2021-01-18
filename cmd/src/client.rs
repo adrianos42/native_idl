@@ -83,7 +83,11 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
         return Err(anyhow!("Client `{}` not defined", client));
     }
 
-    let target_lang = analyzer_ids.find_client(client).unwrap().language().unwrap();
+    let target_lang = analyzer_ids
+        .find_client(client)
+        .unwrap()
+        .language()
+        .unwrap();
 
     let request = LanguageRequest {
         idl_nodes: analyzer_idl.nodes.clone(),
@@ -109,7 +113,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
         ResponseType::Undefined(err) => {
             diagnostic_generic("Request error", err.as_str())?;
             return Err(anyhow!(""));
-        } 
+        }
     }
 
     Ok(())
@@ -117,19 +121,19 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
 fn write_items(storage: &StorageItem, path: &Path) -> Result<()> {
     match storage {
-        idl_gen::lang::StorageItem::Source(source) => {
+        idl_gen::lang::StorageItem::Source { name, txt } => {
             let mut file = fs::OpenOptions::new()
                 .write(true)
                 .truncate(true)
                 .create(true)
-                .open(path.join(source.name.as_str()))?;
-            file.write_all(source.txt.as_bytes())?;
+                .open(path.join(name.as_str()))?;
+            file.write_all(txt.as_bytes())?;
         }
-        idl_gen::lang::StorageItem::Folder(dir) => {
-            let new_path = path.join(&dir.name);
+        idl_gen::lang::StorageItem::Folder { name, items } => {
+            let new_path = path.join(&name);
             fs::create_dir_all(&new_path)?;
 
-            for item in &dir.items {
+            for item in items {
                 write_items(item, &new_path)?;
             }
         }

@@ -47,169 +47,228 @@ impl crate::IdlGen for RustGen {
         &self,
         request: LanguageRequest,
     ) -> Result<LanguageResponse, crate::IdlGenError> {
-        let analyzer = idl::analyzer::Analyzer::from_nodes(request.idl_nodes);
+        match request.request_type {
+            RequestType::Server(_name) => {
+                let analyzer = idl::analyzer::Analyzer::from_nodes(request.idl_nodes);
 
-        let mut root_dir = vec![];
-        root_dir.push(StorageItem::Folder(Folder {
-            items: vec![],
-            name: "rust".to_owned(),
-        }));
+                let mut root_dir = vec![];
 
-        Ok(LanguageResponse {
-            gen_response: ResponseType::Generated(root_dir),
-        })
-    }
-}
+                let rus_ty = RustTypes::generate(&analyzer).unwrap();
+                let impl_mod = RustImpl::generate(&analyzer).unwrap();
+                let impl_lib = RustImplMod::generate(&analyzer).unwrap();
+                let impl_cargo = RustImplCargo::generate(&analyzer).unwrap();
 
-pub fn build_server(idl_path: &std::path::Path) -> Result<()> {
-    let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
-
-    let module = open_directory(idl_path)?;
-    module.update_module()?;
-
-    let library_name = module.library_name().unwrap();
-
-    let analyzer_r = &*module.get_idl_analyzer(&library_name).ok_or(anyhow!(""))?;
-    let analyzer = analyzer_r.as_ref().map_err(|_| anyhow!(""))?;
-
-    let impl_mod = RustImpl::generate(&analyzer).unwrap();
-    let rus_ty = RustTypes::generate(&analyzer).unwrap();
-    let ffi_server_impl = FFIServerImpl::generate(&analyzer).unwrap();
-    let ffi_server_types = FFIServerTypes::generate(&analyzer).unwrap();
-    let ffi_server = FFIServer::generate(&analyzer).unwrap();
-
-    let lib_ident = format_ident!("{}", library_name);
-
-    let interfaces: Vec<TokenStream> = analyzer
-        .nodes
-        .iter()
-        .filter_map(|node| match node {
-            idl::idl_nodes::IdlNode::TypeInterface(ty_interface) => {
-                let name = format_ident!("{}", &ty_interface.ident);
-                Some(quote! { type #name = super::#name; })
-            }
-            _ => None,
-        })
-        .collect();
-
-    let module_body = quote! {
-        pub(crate) mod #lib_ident {
-            #( #interfaces )*
-            #rus_ty
-
-            pub(crate) mod idl_impl {
-                #impl_mod
-            }
-
-            mod ffi_types {
-                #ffi_server_types
-            }
-
-            mod ffi_impl {
-                #ffi_server_impl
-            }
-
-            mod ffi {
-                #ffi_server
-            }
-        }
-    };
-
-    write_items(
-        &StorageItem::Source(Source {
-            name: format!("{}.rs", library_name),
-            txt: module_body.to_string().rust_fmt(),
-        }),
-        &out_dir,
-    )?;
-
-    Ok(())
-}
-
-fn write_items(storage: &StorageItem, path: &Path) -> Result<()> {
-    match storage {
-        StorageItem::Source(source) => {
-            let mut file = fs::OpenOptions::new()
-                .write(true)
-                .truncate(true)
-                .create(true)
-                .open(path.join(source.name.as_str()))?;
-            file.write_all(source.txt.as_bytes())?;
-        }
-        StorageItem::Folder(dir) => {
-            let new_path = path.join(&dir.name);
-            fs::create_dir_all(&new_path)?;
-
-            for item in &dir.items {
-                write_items(item, &new_path)?;
-            }
-        }
-    }
-
-    Ok(())
-}
-
-#[derive(Debug)]
-struct Document {
-    text: String,
-    file_stem: String,
-    file_type: String,
-}
-
-pub(crate) fn open_directory(path: &Path) -> Result<Module> {
-    let module = Module::new();
-
-    if !path.is_dir() {
-        return Err(anyhow!("Path is not a directory"));
-    }
-
-    for entry in fs::read_dir(path)? {
-        let item = entry?.path();
-
-        if item.is_file() {
-            if let Some(doc) = add_file(&item) {
-                match doc.file_type.as_str() {
-                    "idl" => {
-                        module.add_idl_document_and_update(&doc.file_stem, &doc.text)?;
-                    }
-                    "ids" => {
-                        module.add_ids_document_and_update(&doc.file_stem, &doc.text)?;
-                    }
-                    _ => panic!(),
-                }
-            }
-        }
-    }
-
-    Ok(module)
-}
-
-fn add_file(path: &Path) -> Option<Document> {
-    let file_stem_s = path.file_stem()?;
-    let file_type_s = path.extension()?;
-
-    let file_stem = file_stem_s.to_str()?.to_owned();
-    let file_type = file_type_s.to_str()?.to_owned();
-
-    match file_type.as_str() {
-        "idl" | "ids" => {
-            if let Ok(text) = fs::read_to_string(path) {
-                return Some(Document {
-                    file_stem,
-                    file_type,
-                    text,
+                root_dir.push(StorageItem::Folder {
+                    items: vec![
+                        StorageItem::Folder {
+                            name: "src".to_owned(),
+                            items: vec![
+                                StorageItem::Source {
+                                    name: "idl_impl.rs".to_owned(),
+                                    txt: impl_mod.to_string(),
+                                },
+                                StorageItem::Source {
+                                    name: "lib.rs".to_owned(),
+                                    txt: format!("{} {}", impl_lib.to_string(), rus_ty.to_string()),
+                                },
+                            ],
+                        },
+                        StorageItem::Source {
+                            name: "Cargo.toml".to_owned(),
+                            txt: impl_cargo.to_string(),
+                        },
+                    ],
+                    name: "idl_types".to_owned(),
                 });
+
+                let ffi_server_impl = FFIServerImpl::generate(&analyzer).unwrap();
+                let ffi_server_types = FFIServerTypes::generate(&analyzer).unwrap();
+                let ffi_server = FFIServer::generate(&analyzer).unwrap();
+                let ffi_lib = FFIMod::generate(&analyzer).unwrap();
+                let ffi_cargo = FFIServerCargo::generate(&analyzer).unwrap();
+
+                root_dir.push(StorageItem::Folder {
+                    items: vec![
+                        StorageItem::Folder {
+                            name: "src".to_owned(),
+                            items: vec![
+                                StorageItem::Source {
+                                    name: "ffi.rs".to_owned(),
+                                    txt: ffi_server.to_string(),
+                                },
+                                StorageItem::Source {
+                                    name: "ffi_impl.rs".to_owned(),
+                                    txt: ffi_server_impl.to_string(),
+                                },
+                                StorageItem::Source {
+                                    name: "ffi_types.rs".to_owned(),
+                                    txt: ffi_server_types.to_string(),
+                                },
+                                StorageItem::Source {
+                                    name: "lib.rs".to_owned(),
+                                    txt: ffi_lib.to_string(),
+                                },
+                            ],
+                        },
+                        StorageItem::Source {
+                            name: "Cargo.toml".to_owned(),
+                            txt: ffi_cargo.to_string(),
+                        },
+                    ],
+                    name: "idl_ffi".to_owned(),
+                });
+
+                Ok(LanguageResponse {
+                    gen_response: ResponseType::Generated(root_dir),
+                })
             }
+            _ => panic!(),
         }
-        _ => {}
     }
-
-    None
 }
 
-#[macro_export]
-macro_rules! include_idl {
-    ($library: tt) => {
-        include!(concat!(env!("OUT_DIR"), concat!("/", $library, ".rs")));
-    };
-}
+// pub fn build_server(idl_path: &std::path::Path) -> Result<()> {
+//     let out_dir = PathBuf::from(std::env::var("OUT_DIR").unwrap());
+
+//     let module = open_directory(idl_path)?;
+//     module.update_module()?;
+
+//     let library_name = module.library_name().unwrap();
+
+//     let analyzer_r = &*module.get_idl_analyzer(&library_name).ok_or(anyhow!(""))?;
+//     let analyzer = analyzer_r.as_ref().map_err(|_| anyhow!(""))?;
+
+//     let impl_mod = RustImpl::generate(&analyzer).unwrap();
+//     let rus_ty = RustTypes::generate(&analyzer).unwrap();
+//     let ffi_server_impl = FFIServerImpl::generate(&analyzer).unwrap();
+//     let ffi_server_types = FFIServerTypes::generate(&analyzer).unwrap();
+//     let ffi_server = FFIServer::generate(&analyzer).unwrap();
+
+//     let lib_ident = format_ident!("{}", library_name);
+
+//     let interfaces: Vec<TokenStream> = analyzer
+//         .nodes
+//         .iter()
+//         .filter_map(|node| match node {
+//             idl::idl_nodes::IdlNode::TypeInterface(ty_interface) => {
+//                 let name = format_ident!("{}", &ty_interface.ident);
+//                 Some(quote! { type #name = super::#name; })
+//             }
+//             _ => None,
+//         })
+//         .collect();
+
+//     let module_body = quote! {
+//         pub(crate) mod #lib_ident {
+//             #( #interfaces )*
+//             #rus_ty
+
+//             pub(crate) mod idl_impl {
+//                 #impl_mod
+//             }
+
+//             mod ffi_types {
+//                 #ffi_server_types
+//             }
+
+//             mod ffi_impl {
+//                 #ffi_server_impl
+//             }
+
+//             mod ffi {
+//                 #ffi_server
+//             }
+//         }
+//     };
+
+//     write_items(
+//         &StorageItem::Source {
+//             name: format!("{}.rs", library_name),
+//             txt: module_body.to_string().rust_fmt(),
+//         },
+//         &out_dir,
+//     )?;
+
+//     Ok(())
+// }
+
+// fn write_items(storage: &StorageItem, path: &Path) -> Result<()> {
+//     match storage {
+//         StorageItem::Source { name, txt } => {
+//             let mut file = fs::OpenOptions::new()
+//                 .write(true)
+//                 .truncate(true)
+//                 .create(true)
+//                 .open(path.join(name.as_str()))?;
+//             file.write_all(txt.as_bytes())?;
+//         }
+//         StorageItem::Folder { name, items } => {
+//             let new_path = path.join(&name);
+//             fs::create_dir_all(&new_path)?;
+
+//             for item in items {
+//                 write_items(item, &new_path)?;
+//             }
+//         }
+//     }
+
+//     Ok(())
+// }
+
+// #[derive(Debug)]
+// struct Document {
+//     text: String,
+//     file_stem: String,
+//     file_type: String,
+// }
+
+// pub(crate) fn open_directory(path: &Path) -> Result<Module> {
+//     let module = Module::new();
+
+//     if !path.is_dir() {
+//         return Err(anyhow!("Path is not a directory"));
+//     }
+
+//     for entry in fs::read_dir(path)? {
+//         let item = entry?.path();
+
+//         if item.is_file() {
+//             if let Some(doc) = add_file(&item) {
+//                 match doc.file_type.as_str() {
+//                     "idl" => {
+//                         module.add_idl_document_and_update(&doc.file_stem, &doc.text)?;
+//                     }
+//                     "ids" => {
+//                         module.add_ids_document_and_update(&doc.file_stem, &doc.text)?;
+//                     }
+//                     _ => panic!(),
+//                 }
+//             }
+//         }
+//     }
+
+//     Ok(module)
+// }
+
+// fn add_file(path: &Path) -> Option<Document> {
+//     let file_stem_s = path.file_stem()?;
+//     let file_type_s = path.extension()?;
+
+//     let file_stem = file_stem_s.to_str()?.to_owned();
+//     let file_type = file_type_s.to_str()?.to_owned();
+
+//     match file_type.as_str() {
+//         "idl" | "ids" => {
+//             if let Ok(text) = fs::read_to_string(path) {
+//                 return Some(Document {
+//                     file_stem,
+//                     file_type,
+//                     text,
+//                 });
+//             }
+//         }
+//         _ => {}
+//     }
+
+//     None
+// }

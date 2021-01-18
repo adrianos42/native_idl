@@ -711,9 +711,7 @@ impl fmt::Display for StructFieldErrorKind {
             StructFieldErrorKind::EmptyBody => "Field empty body".to_owned(),
             StructFieldErrorKind::IncompleteField => "Incomplete field".to_owned(),
             StructFieldErrorKind::ExpectedType(ident) => format!("Expected type, `{}`", ident),
-            StructFieldErrorKind::InvalidBracketPlacement => {
-                "Invalid bracket placement".to_owned()
-            }
+            StructFieldErrorKind::InvalidBracketPlacement => "Invalid bracket placement".to_owned(),
             StructFieldErrorKind::InvalidSymbol => "Invalid symbol".to_owned(),
             StructFieldErrorKind::MissingColon => "Missing `:`".to_owned(),
             StructFieldErrorKind::MissingComma => "Missing `,`".to_owned(),
@@ -925,9 +923,13 @@ impl fmt::Display for TypeErrorKind {
             TypeErrorKind::ArrayOfMapIsNotAllowed => "Array of map is not allowed".to_owned(),
             TypeErrorKind::InvalidMapDeclaration => "Invalid map declaration".to_owned(),
             TypeErrorKind::InvalidMapType(name) => format!("Invalid map type `{}`", name),
+            TypeErrorKind::InvalidMapIndexType(name) => {
+                format!("Invalid map index type `{}`", name)
+            }
             TypeErrorKind::InvalidType(name) => format!("Invalid type `{}`", name),
             TypeErrorKind::MapOfArrayIsNotAllowed => "Map of array is not allowed".to_owned(),
             TypeErrorKind::WrongNumberOfTypes => "Wrong number of types".to_owned(),
+            TypeErrorKind::InvalidArrayDeclaration => "Invalid array declaration".to_owned(),
         };
 
         write!(f, "{}", errstr)
@@ -939,8 +941,10 @@ pub enum TypeErrorKind {
     Undefined,
     InvalidType(String),
     InvalidMapType(String),
+    InvalidMapIndexType(String),
     WrongNumberOfTypes,
     InvalidMapDeclaration,
+    InvalidArrayDeclaration,
     ArrayOfMapIsNotAllowed,
     MapOfArrayIsNotAllowed,
 }
@@ -1628,9 +1632,6 @@ impl Parser {
         let mut last_range = Range::default();
         let mut comments = vec![];
 
-        // These are not part of the parsing enum because they are just modifiers
-        // and otherwise it would just make everything more complicated, but maybe
-        let mut returns_stream = false;
         let mut is_static = false;
 
         while let Some(n_stream) = word_stream.next() {
@@ -1685,43 +1686,12 @@ impl Parser {
                                     | InterfaceFieldParsing::Tuple
                                     | InterfaceFieldParsing::ReturnType
                                     | InterfaceFieldParsing::ExpectingComma => {
-                                        let t_ty = if returns_stream {
-                                            match ty.take().unwrap() {
-                                                Type::Function(function) => {
-                                                    Type::Function(Arc::new(TypeFunction {
-                                                        args: function.args.clone(),
-                                                        range: function.range,
-                                                        ret_ty: Arc::new(Type::Stream(Arc::new(
-                                                            TypeStream {
-                                                                range: function.ret_ty.get_range(),
-                                                                s_ty: function.ret_ty.clone(),
-                                                            },
-                                                        ))),
-                                                    }))
-                                                }
-                                                Type::Tuple(tuple) => {
-                                                    return Err(InterfaceFieldError(
-                                                        InterfaceFieldErrorKind::ExpectedType(
-                                                            tuple.to_string(),
-                                                        ),
-                                                        last_range.merge(range),
-                                                    ))
-                                                }
-                                                a_ty => Type::Stream(Arc::new(TypeStream {
-                                                    range: a_ty.get_range(),
-                                                    s_ty: Arc::new(a_ty),
-                                                })),
-                                            }
-                                        } else {
-                                            ty.take().unwrap()
-                                        };
-
                                         fields.push(InterfaceNode::InterfaceField(Arc::new(
                                             InterfaceField {
                                                 attributes,
                                                 ident: name.take().unwrap(),
                                                 is_static,
-                                                ty: Arc::new(t_ty),
+                                                ty: Arc::new(ty.take().unwrap()),
                                                 range: field_range,
                                             },
                                         )));
@@ -1730,7 +1700,6 @@ impl Parser {
                                         field_range = Range::default();
                                         parsing = InterfaceFieldParsing::ExpectingAttribute;
                                         last_range = range.end_as_range();
-                                        returns_stream = false;
                                         is_static = false;
                                     }
                                     InterfaceFieldParsing::ExpectingType => {
@@ -1749,17 +1718,56 @@ impl Parser {
                             }
                             WordStream::Keyword(keyword) => {
                                 let range = keyword.range;
-                                match keyword.get_word() {
+                                let keywords = *keyword.get_word();
+                                match keywords {
                                     Keywords::Stream
-                                        if parsing
-                                            == InterfaceFieldParsing::ExpectingReturnType
-                                            || parsing == InterfaceFieldParsing::ExpectingType =>
-                                    {
-                                        returns_stream = true
+                                    | Keywords::Map
+                                    | Keywords::Option
+                                    | Keywords::Result => {
+                                        if parsing == InterfaceFieldParsing::ExpectingReturnType {
+                                            let (ret_ty, range) = Self::get_romm(
+                                                &mut curly_word_stream,
+                                                keywords,
+                                                keyword.range.as_position(),
+                                            )?;
+
+                                            ty = ty.map(|args| {
+                                                let arg_range = match &args {
+                                                    Type::Tuple(value) => value.range,
+                                                    _ => panic!("Expected tuple"),
+                                                };
+
+                                                Type::Function(Arc::new(TypeFunction {
+                                                    ret_ty: Arc::new(ret_ty),
+                                                    args: Arc::new(args),
+                                                    range: arg_range.merge(range),
+                                                }))
+                                            });
+                                            field_range = field_range.merge(range);
+                                            last_range = range.end_as_range();
+                                            parsing = InterfaceFieldParsing::ExpectingComma
+                                        } else if parsing == InterfaceFieldParsing::ExpectingType {
+                                            let (t_ty, range) = Self::get_romm(
+                                                &mut curly_word_stream,
+                                                keywords,
+                                                keyword.range.as_position(),
+                                            )?;
+
+                                            ty = Some(t_ty);
+
+                                            field_range = field_range.merge(range);
+                                            last_range = range.end_as_range();
+                                            parsing = InterfaceFieldParsing::ExpectingComma
+                                        } else {
+                                            return Err(InterfaceFieldError(
+                                                InterfaceFieldErrorKind::TypeDeclaration,
+                                                last_range.merge(range),
+                                            ));
+                                        }
                                     }
                                     Keywords::Static
                                         if parsing == InterfaceFieldParsing::ExpectingType
-                                            && !returns_stream =>
+                                            && !is_static =>
                                     {
                                         is_static = true
                                     }
@@ -1843,7 +1851,7 @@ impl Parser {
                                         InterfaceFieldParsing::ExpectingAttribute
                                     }
                                     InterfaceFieldParsing::Type => {
-                                        let (arr_map, range) = Self::get_array_or_map(
+                                        let (arr_map, range) = Self::get_array(
                                             &mut curly_word_stream,
                                             Arc::new(ty.unwrap()),
                                             lq.range.as_position(),
@@ -1856,7 +1864,7 @@ impl Parser {
                                     InterfaceFieldParsing::ReturnType => {
                                         match ty {
                                             Some(Type::Function(methd)) => {
-                                                let (ret_ty, range) = Self::get_array_or_map(
+                                                let (ret_ty, range) = Self::get_array(
                                                     &mut curly_word_stream,
                                                     methd.ret_ty.clone(),
                                                     lq.range.as_position(),
@@ -1880,40 +1888,6 @@ impl Parser {
                                         }
                                         InterfaceFieldParsing::ReturnType
                                     }
-                                    InterfaceFieldParsing::ExpectingReturnType => {
-                                        let (ret_ty, range) = Self::get_result_or_option(
-                                            &mut curly_word_stream,
-                                            lq.range.as_position(),
-                                        )?;
-
-                                        ty = ty.map(|args| {
-                                            let arg_range = match &args {
-                                                Type::Tuple(value) => value.range,
-                                                _ => panic!("Expected tuple"),
-                                            };
-
-                                            Type::Function(Arc::new(TypeFunction {
-                                                ret_ty: Arc::new(ret_ty),
-                                                args: Arc::new(args),
-                                                range: arg_range.merge(range),
-                                            }))
-                                        });
-                                        field_range = field_range.merge(range);
-                                        last_range = range.end_as_range();
-                                        InterfaceFieldParsing::ExpectingComma
-                                    }
-                                    InterfaceFieldParsing::ExpectingType => {
-                                        let (t_ty, range) = Self::get_result_or_option(
-                                            &mut curly_word_stream,
-                                            lq.range.as_position(),
-                                        )?;
-
-                                        ty = Some(t_ty);
-
-                                        field_range = field_range.merge(range);
-                                        last_range = range.end_as_range();
-                                        InterfaceFieldParsing::ExpectingComma
-                                    }
                                     _ => {
                                         return Err(InterfaceFieldError(
                                             InterfaceFieldErrorKind::InvalidBracketPlacement,
@@ -1927,7 +1901,7 @@ impl Parser {
                                 let range = position.as_range();
 
                                 parsing = match parsing {
-                                    InterfaceFieldParsing::ExpectingType if !returns_stream => {
+                                    InterfaceFieldParsing::ExpectingType => {
                                         InterfaceFieldParsing::Tuple
                                     }
                                     InterfaceFieldParsing::ExpectingAttribute => {
@@ -2151,20 +2125,10 @@ impl Parser {
                         | InterfaceFieldParsing::ReturnType
                         | InterfaceFieldParsing::Tuple
                         | InterfaceFieldParsing::ExpectingComma => {
-                            let f_ty = Arc::new(ty.take().unwrap());
-
-                            let t_ty = if returns_stream {
-                                Arc::new(Type::Stream(Arc::new(TypeStream {
-                                    range: f_ty.get_range(),
-                                    s_ty: f_ty,
-                                })))
-                            } else {
-                                f_ty
-                            };
                             fields.push(InterfaceNode::InterfaceField(Arc::new(InterfaceField {
                                 attributes,
                                 ident: name.unwrap(),
-                                ty: t_ty,
+                                ty: Arc::new(ty.take().unwrap()),
                                 is_static,
                                 range: field_range,
                             })));
@@ -2302,7 +2266,7 @@ impl Parser {
         ))
     }
 
-    fn get_array_or_map<'a, I>(
+    fn get_array<'a, I>(
         word_stream: &mut I,
         ty: Arc<Type>,
         start_position: Position,
@@ -2313,108 +2277,25 @@ impl Parser {
         let mut ar_range = Range::from_position(start_position);
 
         match &*ty {
-            Type::Function(_) => {}
-            _ => {
+            Type::Native(_) | Type::Array(_) | Type::Name(_) => {
                 while let Some(b_stream) = word_stream.next() {
                     match b_stream {
                         // Array.
                         WordStream::RightSquareBracket(rq) => {
-                            if let Type::Map(_) = &*ty {
-                                return Err(TypeError(
-                                    TypeErrorKind::ArrayOfMapIsNotAllowed,
-                                    rq.range,
-                                ));
-                            }
+                            ar_range = ar_range.merge(rq.range);
+                            let arr_ty = Type::Array(Arc::new(TypeArray {
+                                array_ty: ty.clone(),
+                                range: ar_range,
+                            }));
 
-                            match &*ty {
-                                Type::Function(value) => {
-                                    return Err(TypeError(
-                                        TypeErrorKind::InvalidType(value.to_string()),
-                                        rq.range,
-                                    ));
-                                }
-                                _ => {
-                                    ar_range = ar_range.merge(rq.range);
-                                    let arr_ty = Type::Array(Arc::new(TypeArray {
-                                        array_ty: ty.clone(),
-                                        range: ar_range,
-                                    }));
-
-                                    return Ok((arr_ty, ar_range));
-                                }
-                            }
+                            return Ok((arr_ty, ar_range));
                         }
-                        // Could only be a map.
-                        WordStream::SquareBracketBody(sq_body) => {
-                            let mut w_stream = sq_body.iter();
-
-                            while let Some(bkt_stream) = w_stream.next() {
-                                match bkt_stream {
-                                    WordStream::NativeType(native_type) => {
-                                        let range = native_type.range;
-                                        let n_type = native_type.get_word();
-                                        match n_type {
-                                            NativeTypes::String | NativeTypes::Int => match &*ty {
-                                                Type::Array(_) => {
-                                                    return Err(TypeError(
-                                                        TypeErrorKind::MapOfArrayIsNotAllowed,
-                                                        range,
-                                                    ));
-                                                }
-                                                Type::Function(value) => {
-                                                    return Err(TypeError(
-                                                        TypeErrorKind::InvalidType(
-                                                            value.to_string(),
-                                                        ),
-                                                        range,
-                                                    ));
-                                                }
-                                                _ => {
-                                                    if let Some(m_stream) = word_stream.next() {
-                                                        if let WordStream::RightSquareBracket(rq) =
-                                                            m_stream
-                                                        {
-                                                            ar_range = ar_range.merge(rq.range);
-
-                                                            let index_ty = Type::Native(Arc::new(
-                                                                TypeNative {
-                                                                    ty: *native_type.get_word(),
-                                                                    range,
-                                                                },
-                                                            ));
-
-                                                            let map_ty =
-                                                                Type::Map(Arc::new(TypeMap {
-                                                                    index_ty: Arc::new(index_ty),
-                                                                    m_ty: ty.clone(),
-                                                                    range: ar_range,
-                                                                }));
-
-                                                            return Ok((map_ty, ar_range));
-                                                        }
-                                                    }
-
-                                                    return Err(TypeError(
-                                                        TypeErrorKind::InvalidMapDeclaration,
-                                                        range,
-                                                    ));
-                                                }
-                                            },
-                                            sw => {
-                                                return Err(TypeError(
-                                                    TypeErrorKind::InvalidMapType(sw.to_string()),
-                                                    range,
-                                                ))
-                                            }
-                                        }
-                                    }
-                                    sw => {
-                                        return Err(TypeError(
-                                            TypeErrorKind::InvalidMapType(sw.to_string()),
-                                            ar_range.merge(sw.get_range()),
-                                        ))
-                                    } // Must be a native type inside the brackets.
-                                }
+                        WordStream::SquareBracketBody(body) => {
+                            if body.len() > 0 {
+                                return Err(TypeError(
+                                    TypeErrorKind::InvalidArrayDeclaration,
+                                    ar_range.merge(ar_range),
+                                ));
                             }
                         }
                         sw => {
@@ -2426,13 +2307,19 @@ impl Parser {
                     }
                 }
             }
+            _ => {}
         }
 
         Err(TypeError(TypeErrorKind::Undefined, ar_range))
     }
 
-    fn get_result_or_option<'a, I>(
+    // result[Ok, Err]
+    // option[Some]
+    // stream[T]
+    // map[K, V]
+    fn get_romm<'a, I>(
         word_stream: &mut I,
+        keyword: Keywords,
         start_position: Position,
     ) -> Result<(Type, Range), TypeError>
     where
@@ -2443,6 +2330,20 @@ impl Parser {
         let mut second_ty: Option<Type> = None;
         let mut t_ty: Option<Type> = None;
 
+        if let Some(r_stream) = word_stream.next() {
+            match r_stream {
+                WordStream::LeftSquareBracket(_) => {}
+                sw => {
+                    return Err(TypeError(
+                        TypeErrorKind::InvalidType("Expect bracket".to_owned()), // TODO
+                        op_range.merge(sw.get_range()),
+                    ));
+                }
+            }
+        } else {
+            return Err(TypeError(TypeErrorKind::Undefined, op_range));
+        }
+
         while let Some(b_stream) = word_stream.next() {
             match b_stream {
                 WordStream::SquareBracketBody(sq_body) => {
@@ -2450,7 +2351,48 @@ impl Parser {
 
                     while let Some(bkt_stream) = w_stream.next() {
                         match bkt_stream {
-                            WordStream::SemiColon(cm) => {
+                            WordStream::LeftSquareBracket(lq) => {
+                                if t_ty.is_some() {
+                                    let (arr_map, range) = Self::get_array(
+                                        &mut w_stream,
+                                        Arc::new(t_ty.unwrap()),
+                                        lq.range.as_position(),
+                                    )?;
+                                    t_ty = Some(arr_map);
+                                    op_range = range.merge(range);
+                                } else {
+                                    return Err(TypeError(
+                                        TypeErrorKind::WrongNumberOfTypes,
+                                        op_range,
+                                    ));
+                                }
+                            }
+                            WordStream::Keyword(keyword) => {
+                                let keywords = *keyword.get_word();
+                                let range = keyword.range;
+                                match keywords {
+                                    Keywords::Map => {
+                                        if t_ty.is_none() {
+                                            let (r_map, range) = Self::get_romm(
+                                                &mut w_stream,
+                                                keywords,
+                                                range.as_position(),
+                                            )?;
+                                            t_ty = Some(r_map);
+                                            op_range = range.merge(range);
+                                        } else {
+                                            return Err(TypeError(
+                                                TypeErrorKind::WrongNumberOfTypes,
+                                                op_range,
+                                            ));
+                                        }
+                                    }
+                                    _ => {
+                                        return Err(TypeError(TypeErrorKind::Undefined, op_range));
+                                    }
+                                }
+                            }
+                            WordStream::Comma(cm) => {
                                 let range = cm.range;
                                 op_range = op_range.merge(range);
                                 match t_ty.take() {
@@ -2519,25 +2461,40 @@ impl Parser {
                         first_ty = t_ty.take();
                     }
 
-                    return if second_ty.is_some() {
-                        Ok((
-                            Type::Result(Arc::new(TypeResult {
+                    let ty_res = match keyword {
+                        Keywords::Result if second_ty.is_some() => {
+                            Some(Type::Result(Arc::new(TypeResult {
                                 ok_ty: Arc::new(first_ty.unwrap()),
                                 err_ty: Arc::new(second_ty.unwrap()),
                                 range: op_range,
-                            })),
-                            op_range,
-                        ))
-                    } else if first_ty.is_some() {
-                        Ok((
-                            Type::Option(Arc::new(TypeOption {
-                                some_ty: Arc::new(first_ty.unwrap()),
+                            })))
+                        }
+                        Keywords::Map if second_ty.is_some() => {
+                            let index_ty = first_ty.unwrap();
+
+                            Some(Type::Map(Arc::new(TypeMap {
+                                index_ty: Arc::new(index_ty),
+                                m_ty: Arc::new(second_ty.unwrap()),
                                 range: op_range,
-                            })),
-                            op_range,
-                        ))
-                    } else {
-                        return Err(TypeError(TypeErrorKind::WrongNumberOfTypes, op_range));
+                            })))
+                        }
+                        Keywords::Option => Some(Type::Option(Arc::new(TypeOption {
+                            some_ty: Arc::new(first_ty.unwrap()),
+                            range: op_range,
+                        }))),
+                        Keywords::Stream => Some(Type::Stream(Arc::new(TypeStream {
+                            range: op_range,
+                            s_ty: Arc::new(first_ty.unwrap()),
+                        }))),
+                        _ => None,
+                    };
+
+                    return match ty_res {
+                        Some(ty) => Ok((ty, op_range)),
+                        None => Err(TypeError(
+                            TypeErrorKind::Undefined,
+                            op_range.merge(op_range),
+                        )),
                     };
                 }
                 sw => {
@@ -2576,7 +2533,7 @@ impl Parser {
                         match w_stream {
                             WordStream::LeftSquareBracket(lq) => match parsing {
                                 TupleParsing::Type => {
-                                    let (arr_map, range) = Self::get_array_or_map(
+                                    let (arr_map, range) = Self::get_array(
                                         &mut s_stream,
                                         Arc::new(ty.unwrap()),
                                         lq.range.as_position(),
@@ -2585,17 +2542,6 @@ impl Parser {
                                     field_range = range.merge(range);
                                     last_range = range.end_as_range();
                                 }
-                                TupleParsing::ExpectingType => {
-                                    let (r_ty, range) = Self::get_result_or_option(
-                                        &mut s_stream,
-                                        lq.range.as_position(),
-                                    )?;
-
-                                    ty = Some(r_ty);
-                                    field_range = field_range.merge(range);
-                                    last_range = range.end_as_range();
-                                    parsing = TupleParsing::Type;
-                                }
                                 _ => {
                                     return Err(TypeTupleError(
                                         TypeTupleErrorKind::ExpectedType(lq.get_word().to_string()),
@@ -2603,11 +2549,23 @@ impl Parser {
                                     ))
                                 }
                             },
-                            WordStream::Keyword(value) => {
-                                let range = value.range;
-                                match value.get_word() {
-                                    Keywords::Stream if parsing == TupleParsing::ExpectingType => {
-                                        is_stream = true
+                            WordStream::Keyword(keyword) => {
+                                let range = keyword.range;
+                                let keywords = *keyword.get_word();
+                                match keywords {
+                                    Keywords::Stream | Keywords::Option | Keywords::Map
+                                        if parsing == TupleParsing::ExpectingType =>
+                                    {
+                                        let (r_ty, range) = Self::get_romm(
+                                            &mut s_stream,
+                                            keywords,
+                                            range.as_position(),
+                                        )?;
+                                        ty = Some(r_ty);
+                                        field_range = range.merge(range);
+                                        last_range = range.end_as_range();
+
+                                        parsing = TupleParsing::Type;
                                     }
                                     _ => {
                                         return Err(TypeTupleError(
@@ -2961,13 +2919,39 @@ impl Parser {
                                     }
                                 }
                             }
+                            WordStream::Keyword(keyword) => {
+                                let range = keyword.range;
+                                let keywords = *keyword.get_word();
+                                match keywords {
+                                    Keywords::Map
+                                        if parsing == StructFieldParsing::ExpectingType =>
+                                    {
+                                        let (r_ty, range) = Self::get_romm(
+                                            &mut curly_word_stream,
+                                            keywords,
+                                            range.as_position(),
+                                        )?;
+                                        ty = Some(r_ty);
+                                        field_range = range.merge(range);
+                                        last_range = range.end_as_range();
+
+                                        parsing = StructFieldParsing::Type;
+                                    }
+                                    _ => {
+                                        return Err(StructFieldError(
+                                            StructFieldErrorKind::Undefined,
+                                            last_range.merge(range),
+                                        ))
+                                    }
+                                }
+                            }
                             WordStream::LeftSquareBracket(lq) => {
                                 let position = lq.range.as_position();
                                 let range = position.as_range();
 
                                 match parsing {
                                     StructFieldParsing::Type => {
-                                        let (arr_map, range) = Self::get_array_or_map(
+                                        let (arr_map, range) = Self::get_array(
                                             &mut curly_word_stream,
                                             Arc::new(ty.unwrap()),
                                             position,
@@ -3503,6 +3487,32 @@ impl Parser {
                                     }
                                 }
                             }
+                            WordStream::Keyword(keyword) => {
+                                let range = keyword.range;
+                                let keywords = *keyword.get_word();
+                                match keywords {
+                                    Keywords::Map
+                                        if parsing == TypeListFieldParsing::ExpectingType =>
+                                    {
+                                        let (r_ty, range) = Self::get_romm(
+                                            &mut curly_word_stream,
+                                            keywords,
+                                            range.as_position(),
+                                        )?;
+                                        ty = Some(r_ty);
+                                        ty_range = range.merge(range);
+                                        last_range = range.end_as_range();
+
+                                        parsing = TypeListFieldParsing::Type;
+                                    }
+                                    _ => {
+                                        return Err(TypeListFieldError(
+                                            TypeListFieldErrorKind::Undefined,
+                                            last_range.merge(range),
+                                        ))
+                                    }
+                                }
+                            }
                             WordStream::Colon(cl) => {
                                 let range = cl.range;
                                 parsing = match parsing {
@@ -3533,7 +3543,7 @@ impl Parser {
                             }
                             WordStream::LeftSquareBracket(lq) => match parsing {
                                 TypeListFieldParsing::Type => {
-                                    let (arr_map, range) = Self::get_array_or_map(
+                                    let (arr_map, range) = Self::get_array(
                                         &mut curly_word_stream,
                                         Arc::new(ty.unwrap()),
                                         lq.range.as_position(),

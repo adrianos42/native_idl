@@ -1,6 +1,6 @@
-use serde::{Deserialize, Serialize};
 use idl::idl_nodes;
 use idl::ids::ids_nodes;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ClientType {
@@ -34,20 +34,14 @@ pub enum ResponseType {
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum StorageItem {
-    Source(Source),
-    Folder(Folder),
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Source {
-    pub name: String,
-    pub txt: String,
-}
-
-#[derive(Debug, Deserialize, Serialize)]
-pub struct Folder {
-    pub name: String,
-    pub items: Vec<StorageItem>,
+    Source {
+        name: String,
+        txt: String,
+    },
+    Folder {
+        name: String,
+        items: Vec<StorageItem>,
+    },
 }
 
 #[derive(Debug, Deserialize, Serialize)]

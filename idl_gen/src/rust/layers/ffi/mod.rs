@@ -23,12 +23,9 @@ impl fmt::Display for FFIMod {
 impl FFIMod {
     pub fn generate(_analyzer: &Analyzer) -> Result<Self, ()> {
         let module = quote! {
-            mod idl_ffi; // interface and static functions
+            mod ffi; // interface and static functions
             mod ffi_types; // ffi types
             mod ffi_impl; // ffi interface type
-
-            #[macro_use]
-            extern crate lazy_static;
         };
 
         Ok(FFIMod { module })
@@ -115,13 +112,13 @@ pub(crate) fn get_value_ffi_ty_ref(
                 ConstTypes::NatFloat => quote! { f64 },
             }
         }
+        TypeName::EnumTypeName(_) => quote! { i64 },
         TypeName::StructTypeName(value)
-        | TypeName::ListTypeName(value)
-        | TypeName::EnumTypeName(value) => {
+        | TypeName::ListTypeName(value) => {
             let ident = format_ident!("{}", &value);
             if references {
                 // TODO ?? Would it be better?
-                quote! { super::ffi_types::#ident }
+                quote! { crate::ffi_types::#ident }
             } else {
                 quote! { #ident }
             }
@@ -282,7 +279,7 @@ pub(crate) fn conv_ffi_value_to_value(
         | TypeName::StructTypeName(value)
         | TypeName::EnumTypeName(value) => {
             let ident = format_ident!("{}", &value);
-            quote! { { super::#ident::from(#ffi_name) } }
+            quote! { { idl_types::#ident::from(crate::ffi_types::#ident::from(#ffi_name)) } }
         }
         TypeName::ConstTypeName(value) => {
             let const_ty = analyzer
@@ -459,7 +456,7 @@ pub(crate) fn conv_value_to_ffi_value(
         | TypeName::EnumTypeName(value) => {
             let ident = format_ident!("{}", value);
             if references {
-                quote! { { super::ffi_types::#ident::from(#value_name) } }
+                quote! { { crate::ffi_types::#ident::from(#value_name).into() } }
             } else {
                 quote! { { #ident::from(#value_name) } }
             }

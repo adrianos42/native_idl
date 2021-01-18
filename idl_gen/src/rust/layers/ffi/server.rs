@@ -56,6 +56,8 @@ impl FFIServer {
         context.module.push(quote! {
             use idl_internal::{ffi::ffi_types::*, #( #deps ),* };
             use super::ffi_impl;
+            use super::ffi_types;
+            use idl_types;
         });
 
         let nodes: &[IdlNode] = &analyzer.nodes;
@@ -83,7 +85,7 @@ impl FFIServer {
         let ident = &ty_interface.ident;
 
         let mut fields = vec![];
-        let interface_ident = format_ident!("{}", &ident);
+        //let interface_ident = format_ident!("{}", &ident);
         let interface_instance_ident = format_ident!("{}Instance", &ident);
         let interface_static_ident = format_ident!("{}Static", &ident);
         let library_ident_ffi_impl = quote! { ffi_impl };
@@ -165,6 +167,12 @@ impl FFIServer {
 
                     let mut args_value = vec![];
                     let mut args_ffi = vec![];
+
+                    let instance_call = if field.is_static {
+                        quote! { ffi_impl::#interface_static_ident:: }
+                    } else {
+                        quote! { #instance_ident. }
+                    };
 
                     let (args, ret_ty) = match &field.ty {
                         TypeName::TypeFunction(value) => (
@@ -248,10 +256,8 @@ impl FFIServer {
                     let (body_ident, instance_args) = if field.is_static {
                         (
                             quote! {
-                                let #ins_ident = #library_ident_ffi_impl::#interface_static_ident::get_instance();
-                                let #instance_ident = &#ins_ident.instance;
                                 #( #args_conv_ffi );*
-                                #ret_value_ident #instance_ident.#func_ident( #( #args_value ),* );
+                                #ret_value_ident #instance_call#func_ident( #( #args_value ),* );
                                 #( #ret_conv_ffi );*
                                 return AbiInternalError::Ok;
                             },
@@ -263,7 +269,7 @@ impl FFIServer {
                                 let mut #ins_ident = unsafe { Box::from_raw(#instance_ident) };
                                 let mut #instance_ident = &mut #ins_ident.instance;
                                 #( #args_conv_ffi );*
-                                #ret_value_ident #instance_ident.#func_ident( #( #args_value ),* );
+                                #ret_value_ident #instance_call#func_ident( #( #args_value ),* );
                                 #( #ret_conv_ffi );*
                                 std::mem::forget(#ins_ident);
                                 return AbiInternalError::Ok;
@@ -301,7 +307,7 @@ impl FFIServer {
 
                         let body_stream = quote! {
                             let #stream_value_ident = #con;
-                            let _result = #instance_ident.#func_ident(#conv,#stream_value_ident.into());
+                            let _result = #instance_call#func_ident(#conv,#stream_value_ident.into());
                             unsafe {
                                 *#stream_result_ident = { Box::into_raw(Box::new({ _result.into_abi() })) as *mut AbiStream };
                             }
@@ -310,8 +316,6 @@ impl FFIServer {
 
                         let body_ident = if field.is_static {
                             quote! {
-                                let #ins_ident = #library_ident_ffi_impl::#interface_static_ident::get_instance();
-                                let #instance_ident = &#ins_ident.instance;
                                 #body_stream
                                 return AbiInternalError::Ok;
                             }
@@ -373,7 +377,7 @@ impl FFIServer {
 
                         let body_stream = quote! {
                             let #stream_value_ident = #con;
-                            let _result = #instance_ident.#func_ident(#conv,#stream_value_ident.into_sender());
+                            let _result = #instance_call#func_ident(#conv,#stream_value_ident.into_sender());
                             unsafe {
                                 *#stream_result_ident = { Box::into_raw(Box::new({ _result.into() })) as *mut AbiStream };
                             }
@@ -381,8 +385,6 @@ impl FFIServer {
 
                         let body_ident = if field.is_static {
                             quote! {
-                                let #ins_ident = #library_ident_ffi_impl::#interface_static_ident::get_instance();
-                                let #instance_ident = &#ins_ident.instance;
                                 #body_stream
                                 return AbiInternalError::Ok;
                             }
@@ -420,7 +422,7 @@ impl FFIServer {
             let (ret_conv_ffi, arg_ident) = {
                 let interface_ty_ident = TypeName::InterfaceTypeName(ident.to_owned());
                 let result_ident = quote! { _result };
-                let result_val_ident = quote! { _result_val };
+                // let result_val_ident = quote! { _result_val };
 
                 let result_ty_ident = get_ffi_ty_ref(&interface_ty_ident, true, analyzer);
 
@@ -429,7 +431,6 @@ impl FFIServer {
                             ffi_impl::#interface_instance_ident::new()
                         })) as *const ffi_impl::#interface_instance_ident
                 };
-                let r_ty = get_rust_ty_ref(&interface_ty_ident, true);
                 (
                     quote! { unsafe { *#result_ident = #result_conv; } },
                     quote! { #result_ident: *mut #result_ty_ident },
@@ -450,7 +451,7 @@ impl FFIServer {
             let arg_ident = {
                 let interface_ty_ident = TypeName::InterfaceTypeName(ident.to_owned());
                 let result_ident = quote! { _result };
-                let result_val_ident = quote! { _result_val };
+               // let result_val_ident = quote! { _result_val };
 
                 let result_ty_ident = get_ffi_ty_ref(&interface_ty_ident, true, analyzer);
 
@@ -460,8 +461,8 @@ impl FFIServer {
             let field_name = format!("dispose_{}", ident.to_snake_case());
             let func_ffi_ident = format_ident!("{}", &field_name);
 
-            let ins_ident = quote! { _ins };
-            let instance_ident = quote! { _instance };
+            // let ins_ident = quote! { _ins };
+            // let instance_ident = quote! { _instance };
 
             // let instance_body = quote! { let #instance_ident = 0 as *mut #library_ident_ffi_impl::#interface_static_ident; };
 
@@ -618,6 +619,7 @@ impl FFIServerTypes {
 
         context.module.push(quote! {
             use idl_internal::ffi::ffi_types::*;
+            use idl_types;
         });
 
         let nodes: &[IdlNode] = &analyzer.nodes;
@@ -667,14 +669,14 @@ impl FFIServerTypes {
             #[repr(C)]
             pub struct #struct_ident { #( #fields )* }
 
-            impl From<super::#struct_ident> for #struct_ident {
+            impl From<idl_types::#struct_ident> for #struct_ident {
                 #[allow(unused_braces)]
-                fn from(value: super::#struct_ident) -> Self {
+                fn from(value: idl_types::#struct_ident) -> Self {
                     Self { #( #fields_conv ),* }
                 }
             }
 
-            impl From<#struct_ident> for super::#struct_ident {
+            impl From<#struct_ident> for idl_types::#struct_ident {
                 #[allow(unused_braces)]
                 fn from(value: #struct_ident) -> Self {
                     Self { #( #fields_value_conv ),* }
@@ -693,7 +695,7 @@ impl FFIServerTypes {
         let ident = &type_list.ident;
 
         let ty_name_ident = format_ident!("{}", &ident);
-        let list_ty_name = quote! { super::#ty_name_ident };
+        let list_ty_name = quote! { idl_types::#ty_name_ident };
 
         let mut m_tys = vec![];
         let mut m_tys_value = vec![];
@@ -744,15 +746,15 @@ impl FFIServerTypes {
         self.module.push(quote! {
             pub type #ty_name_ident = AbiVariant;
 
-            impl From<super::#ty_name_ident> for #ty_name_ident {
+            impl From<idl_types::#ty_name_ident> for #ty_name_ident {
                 #[allow(unused_braces)]
-                fn from(value: super::#ty_name_ident) -> Self {
+                fn from(value: idl_types::#ty_name_ident) -> Self {
                     let (_name, _data) = match value { #( #m_tys )* };
                     AbiVariant { index: _name, data: _data }
                 }
             }
 
-            impl From<#ty_name_ident> for super::#ty_name_ident {
+            impl From<#ty_name_ident> for idl_types::#ty_name_ident {
                 #[allow(unused_braces)]
                 fn from(value: #ty_name_ident) -> Self {
                     match value.index {
@@ -770,7 +772,7 @@ impl FFIServerTypes {
         let ident = &ty_enum.ident;
 
         let enum_name_ident = format_ident!("{}", &ident);
-        let enum_ty_name = quote! { super::#enum_name_ident };
+        let enum_ty_name = quote! { idl_types::#enum_name_ident };
 
         let mut m_tys = vec![];
         let mut m_tys_value = vec![];
@@ -797,17 +799,29 @@ impl FFIServerTypes {
         }
 
         self.module.push(quote! {
-            pub type #enum_name_ident = i64;
+            pub struct #enum_name_ident(i64);
 
-            impl From<super::#enum_name_ident> for #enum_name_ident {
-                fn from(value: super::#enum_name_ident) -> Self {
-                    match value { #( #m_tys )* }
+            impl From<#enum_name_ident> for i64 {
+                fn from(value: #enum_name_ident) -> Self {
+                    value.0
                 }
             }
 
-            impl From<#enum_name_ident> for super::#enum_name_ident {
+            impl From<i64> for #enum_name_ident {
+                fn from(value: i64) -> Self {
+                    Self(value)
+                }
+            }
+
+            impl From<idl_types::#enum_name_ident> for #enum_name_ident {
+                fn from(value: idl_types::#enum_name_ident) -> Self {
+                    match value { #( #m_tys )* }.into()
+                }
+            }
+
+            impl From<#enum_name_ident> for idl_types::#enum_name_ident {
                 fn from(value: #enum_name_ident) -> Self {
-                    match value {
+                    match value.0 {
                         #( #m_tys_value )*
                         _ => panic!()
                     }
@@ -849,10 +863,12 @@ impl FFIServerImpl {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, FFIServerError> {
         let mut context = FFIServerImpl::new();
 
+        let lib_ident = format_ident!("{}", analyzer.get_library_name());
+
         context.module.push(quote! {
             use idl_internal::*;
-            use super::idl_impl;
-
+            use idl_types::idl_impl;
+            use #lib_ident;
         });
 
         let nodes: &[IdlNode] = &analyzer.nodes;
@@ -918,9 +934,11 @@ impl FFIServerImpl {
 
         self.module.push(quote! { #( #stream_im )* });
 
+        let interface_ident = format_ident!("{}", &ident);
+            let lib_ident = format_ident!("{}", analyzer.get_library_name());
+
         if Analyzer::interface_has_non_static_field(ty_interface) {
             let interface_instance_ident = format_ident!("{}Instance", &ident);
-            let interface_ident = format_ident!("{}", &ident);
 
             self.module.push(quote! {
                 pub struct #interface_instance_ident {
@@ -929,7 +947,7 @@ impl FFIServerImpl {
                 impl #interface_instance_ident {
                     pub(super) fn new() -> Self { 
                         Self {
-                            instance: Box::new(super::#interface_ident::new()),
+                            instance: Box::new(#lib_ident::#interface_ident::new()),
                         }
                     }
                 }
@@ -945,24 +963,119 @@ impl FFIServerImpl {
 
         if Analyzer::interface_has_static_field(ty_interface) {
             let interface_static_ident = format_ident!("{}Static", &ident);
-            let static_instance_ident = format_ident!("INSTANCE_{}", ident.to_snake_case_upper());
+            let interface_static_instance_ident = format_ident!("{}InstanceStatic", &ident);
 
-            self.module.push(quote! {
-                pub struct #interface_static_ident {
-                    pub(super) instance: Option<Box<dyn #library_ident_impl::#interface_static_ident + Sync>>,
-                }
-                impl #interface_static_ident {
-                    pub(super) fn get_instance() -> &'static #interface_static_ident {
-                        #static_instance_ident
-                    }
-                }
+            let mut static_fields = vec![];
+            let mut static_instance_fields = vec![];
 
-                lazy_static! {
-                    static ref INSTANCE_PROGRAMMER: #interface_static_ident = #interface_static_ident {
-                        instance: None,
+            for field in ty_interface.fields.iter().filter_map(|m| match m {
+                InterfaceNode::InterfaceField(field) if field.is_static =>  {
+                    Some(field)
+                }
+                _ => None,
+            }) {
+                let mut args_name = vec![];
+                let mut args_ident = vec![];
+                let func_ident = format_ident!("{}", &field.ident);
+
+                    let (args, ret_ty) = match &field.ty {
+                        TypeName::TypeFunction(value) => (
+                            Some(match &value.args {
+                                TypeName::TypeTuple(tuple) => &tuple.fields,
+                                _ => panic!("Invalid function type"),
+                            }),
+                            &value.return_ty,
+                        ),
+                        TypeName::TypeTuple(tuple) => {
+                            (Some(&tuple.fields), &TypeName::Types(Types::NatNone))
+                        }
+                        _ => (None, &field.ty),
                     };
-                }
-            });
+
+                    let mut stream_arg: Option<(&TypeName, &TypeName)> = None;
+                    let mut stream_ret: Option<(&TypeName, &TypeName)> = None;
+
+                    if let Some(args) = args {
+                        for arg in args {
+                            let arg_ident = format_ident!("{}", &arg.ident);
+                            let arg_ty_ident = get_rust_ty_ref(&arg.ty, true);
+                            args_ident.push(quote! { #arg_ident });
+                            args_name.push(quote! { #arg_ident: #arg_ty_ident });
+
+                            if let TypeName::TypeStream(value) = &arg.ty {
+                                stream_arg = Some((&arg.ty, &value.s_ty));
+                            }
+                        }
+                    }
+
+                    let ret_value_ident = match ret_ty {
+                        TypeName::Types(Types::NatNone) | TypeName::TypeStream(_) => {
+                            if let TypeName::TypeStream(value) = ret_ty {
+                                let stream_ty_ident = get_rust_ty_ref(&ret_ty, true);
+                                args_ident.push(quote! { stream_instance });
+                                args_name.push(quote! { stream_instance: #stream_ty_ident });
+                                stream_ret = Some((ret_ty, &value.s_ty));
+                            }
+                            quote! {}
+                        }
+                        _ => {
+                            let ret_ty_ident = get_rust_ty_ref(&ret_ty, true);
+                            quote! { -> #ret_ty_ident }
+                        }
+                    };
+
+                    static_fields.push(quote! {
+                        pub fn #func_ident(#( #args_name ),* )#ret_value_ident {
+                            #interface_static_instance_ident::#func_ident::<#lib_ident::#interface_ident>(#( #args_ident ),*)
+                        }
+                    });
+
+                    static_instance_fields.push(quote! {
+                        fn #func_ident<T: #library_ident_impl::#interface_static_ident>(#( #args_name ),* )#ret_value_ident {
+                            T::#func_ident(#( #args_ident ),*)
+                        }
+                    });
+
+                    if let Some((arg_ty, stream_ty)) = stream_arg {
+                        let f_ident = format_ident!("{}_stream_sender", &field.ident);
+                        let a_ty = get_rust_ty_ref(arg_ty, true);
+                        let s_ty = get_rust_ty_ref(stream_ty, true);
+                        static_fields.push(quote! {
+                            pub(crate) fn #f_ident(stream_instance: #a_ty, stream: StreamSender<#s_ty>) -> StreamReceiver {
+                                #interface_static_instance_ident::#f_ident::<#lib_ident::#interface_ident>(stream_instance, stream)
+                            }
+                        });
+                        static_instance_fields.push(quote! {
+                            fn #f_ident<T: #library_ident_impl::#interface_static_ident>(stream_instance: #a_ty, stream: StreamSender<#s_ty>) -> StreamReceiver {
+                                T::#f_ident(stream_instance,stream)
+                            }
+                        });
+                    }
+                    if let Some((ret_ty, stream_ty)) = stream_ret {
+                        let f_ident = format_ident!("{}_stream", &field.ident);
+                        let r_ty = get_rust_ty_ref(ret_ty, true);
+                        let s_ty = get_rust_ty_ref(stream_ty, true);
+                        static_fields.push(quote! {
+                            pub(crate) fn #f_ident(stream_instance: #r_ty, stream: StreamReceiver) -> StreamSender<#s_ty> {
+                                #interface_static_instance_ident::#f_ident::<#lib_ident::#interface_ident>(stream_instance, stream)
+                            }
+                        });
+
+                        static_instance_fields.push(quote! {
+                            fn #f_ident<T: #library_ident_impl::#interface_static_ident>(stream_instance: #r_ty, stream: StreamReceiver) -> StreamSender<#s_ty> {
+                                T::#f_ident(stream_instance,stream)
+                            }
+                        });
+                    }
+            }
+            
+            self.module.push(quote! {
+                pub (crate) struct #interface_static_ident;
+                impl #interface_static_ident { #( #static_fields )* }
+                struct #interface_static_instance_ident;
+                impl #interface_static_instance_ident { #( #static_instance_fields )* }
+            })
+
         }
 
         Ok(())
@@ -987,16 +1100,16 @@ impl FFIServerCargo {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, FFIServerError> {
         let mut context = FFIServerCargo::new();
 
-        let pkg_name = format!("{}_ffi", analyzer.get_library_name());
+        let pkg_name = "idl_ffi";
         let version = "0.1.0";
         let author = "Adriano Souza";
         let edition = "2018";
         let lib_name = analyzer.get_library_name();
-        let lib_name_impl = format!("{}_impl", lib_name);
-        let path = "../../../calc_manager_impl";
+        let lib_name_impl = &lib_name;
+        let path = format!("../{}", &lib_name);
 
-        let types_src = format!("{}_types", lib_name);
-        let types_path = format!("../{}", types_src);
+        let types_src = format!("idl_types");
+        let types_path = format!("../idl_types");
 
         context.cargo_toml = format!(
             r#"[package]
@@ -1005,16 +1118,11 @@ version = "{}"
 authors = ["{}"]
 edition = "{}"
 
-[dependencies.conquer-once]
-version = "0.2.1"
-default-features = false
-
 [lib]
 name = "{}"
 crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
-lazy_static = "1.4.0"
 idl_internal = {{ git = "https://github.com/adrianos42/native_idl" }}
 {} = {{ path = "{}" }}
 {} = {{ path = "{}" }}"#,

@@ -11,31 +11,33 @@ enum GenArgs {
 }
 
 pub fn create_command<'a>() -> App<'a> {
-    App::new("server").about("Generate server files for implementation").args(&[
-        Arg::new("output")
-            .about("Output path")
-            .short('o')
-            .default_value(".")
-            .long("output")
-            .takes_value(true),
-        Arg::new("library")
-            .about("Target library name")
-            .short('l')
-            .long("library")
-            .takes_value(true),
-        Arg::new("input")
-            .about("Idl path")
-            .default_value("idl/")
-            .short('i')
-            .long("input")
-            .takes_value(true),
-        Arg::new("server")
-            .about("Server")
-            .short('s')
-            .long("server")
-            .default_value("Main")
-            .takes_value(true),
-    ])
+    App::new("server")
+        .about("Generate server files for implementation")
+        .args(&[
+            Arg::new("output")
+                .about("Output path")
+                .short('o')
+                .default_value(".")
+                .long("output")
+                .takes_value(true),
+            Arg::new("library")
+                .about("Target library name")
+                .short('l')
+                .long("library")
+                .takes_value(true),
+            Arg::new("input")
+                .about("Idl path")
+                .default_value("idl/")
+                .short('i')
+                .long("input")
+                .takes_value(true),
+            Arg::new("server")
+                .about("Server")
+                .short('s')
+                .long("server")
+                .default_value("Main")
+                .takes_value(true),
+        ])
 }
 
 pub fn parse(matches: &ArgMatches) -> Result<()> {
@@ -80,7 +82,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
     match response.gen_response {
         ResponseType::Generated(value) => {
-            let src = Path::new(output).join(&library_name);
+            let src = Path::new(output).join(&library_name).join("rust");
             fs::create_dir_all(&src)?;
 
             for item in value {
@@ -97,19 +99,20 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
 fn write_items(storage: &StorageItem, path: &Path) -> Result<()> {
     match storage {
-        idl_gen::lang::StorageItem::Source(source) => {
+        idl_gen::lang::StorageItem::Source { name, txt } => {
             let mut file = fs::OpenOptions::new()
                 .write(true)
                 .truncate(true)
                 .create(true)
-                .open(path.join(source.name.as_str()))?;
-            file.write_all(source.txt.as_bytes())?;
+                .open(path.join(name.as_str()))?;
+            file.write_all(txt.as_bytes())?;
         }
-        idl_gen::lang::StorageItem::Folder(dir) => {
-            let new_path = path.join(&dir.name);
+        idl_gen::lang::StorageItem::Folder { name, items } => {
+            let new_path = path.join(&name);
+            let _ = fs::remove_dir_all(&new_path);
             fs::create_dir_all(&new_path)?;
 
-            for item in &dir.items {
+            for item in items {
                 write_items(item, &new_path)?;
             }
         }

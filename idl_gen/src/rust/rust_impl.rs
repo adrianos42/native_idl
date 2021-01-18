@@ -95,7 +95,7 @@ impl RustImpl {
                     if let Some(args) = args {
                         for arg in args {
                             let arg_ident = format_ident!("{}", &arg.ident);
-                            let arg_ty_ident = get_rust_ty_ref(&arg.ty, true);
+                            let arg_ty_ident = get_rust_ty_ref(&arg.ty, false);
                             args_name.push(quote! { #arg_ident: #arg_ty_ident });
 
                             if let TypeName::TypeStream(value) = &arg.ty {
@@ -107,42 +107,42 @@ impl RustImpl {
                     let ret_value_ident = match ret_ty {
                         TypeName::Types(Types::NatNone) | TypeName::TypeStream(_) => {
                             if let TypeName::TypeStream(value) = ret_ty {
-                                let stream_ty_ident = get_rust_ty_ref(&ret_ty, true);
+                                let stream_ty_ident = get_rust_ty_ref(&ret_ty, false);
                                 args_name.push(quote! { stream_instance: #stream_ty_ident });
                                 stream_ret = Some((ret_ty, &value.s_ty));
                             }
                             quote! {}
                         }
                         _ => {
-                            let ret_ty_ident = get_rust_ty_ref(&ret_ty, true);
+                            let ret_ty_ident = get_rust_ty_ref(&ret_ty, false);
                             quote! { -> #ret_ty_ident }
                         }
                     };
 
                     let (fields_add, self_ident) = if field.is_static {
-                        (&mut static_fields, quote! { &self })
+                        (&mut static_fields, quote! { })
                     } else {
-                        (&mut fields, quote! { &mut self })
+                        (&mut fields, quote! { &mut self, })
                     };
 
                     fields_add.push(quote! {
-                        fn #func_ident(#self_ident, #( #args_name ),* )#ret_value_ident;
+                        fn #func_ident(#self_ident #( #args_name ),* )#ret_value_ident;
                     });
 
                     if let Some((arg_ty, stream_ty)) = stream_arg {
                         let ident = format_ident!("{}_stream_sender", &field.ident);
-                        let a_ty = get_rust_ty_ref(arg_ty, true);
-                        let s_ty = get_rust_ty_ref(stream_ty, true);
+                        let a_ty = get_rust_ty_ref(arg_ty, false);
+                        let s_ty = get_rust_ty_ref(stream_ty, false);
                         fields_add.push(quote! {
-                            fn #ident(#self_ident, stream_instance: #a_ty, stream: StreamSender<#s_ty>) -> StreamReceiver;
+                            fn #ident(#self_ident stream_instance: #a_ty, stream: StreamSender<#s_ty>) -> StreamReceiver;
                         });
                     }
                     if let Some((ret_ty, stream_ty)) = stream_ret {
                         let ident = format_ident!("{}_stream", &field.ident);
-                        let r_ty = get_rust_ty_ref(ret_ty, true);
-                        let s_ty = get_rust_ty_ref(stream_ty, true);
+                        let r_ty = get_rust_ty_ref(ret_ty, false);
+                        let s_ty = get_rust_ty_ref(stream_ty, false);
                         fields_add.push(quote! {
-                            fn #ident(#self_ident, stream_instance: #r_ty, stream: StreamReceiver) -> StreamSender<#s_ty>;
+                            fn #ident(#self_ident stream_instance: #r_ty, stream: StreamReceiver) -> StreamSender<#s_ty>;
                         });
                     }
                 }
@@ -180,11 +180,16 @@ impl fmt::Display for RustImplMod {
     }
 }
 
+impl ToTokens for RustImplMod {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append_all(self.module.to_token_stream());
+    }
+}
+
 impl RustImplMod {
     pub fn generate(_analyzer: &Analyzer) -> Result<Self, ()> {
         let module = quote! {
             pub mod idl_impl; // rust interface type
-            pub mod idl_types; // rust types
         };
 
         Ok(RustImplMod { module })
@@ -202,10 +207,10 @@ impl fmt::Display for RustImplCargo {
 }
 
 impl RustImplCargo {
-    pub fn generate(analyzer: &Analyzer) -> Result<Self, ()> {
+    pub fn generate(_analyzer: &Analyzer) -> Result<Self, ()> {
         let mut context = RustImplCargo::new();
 
-        let pkg_name = format!("{}_types", analyzer.get_library_name());
+        let pkg_name = "idl_types";
         let version = "0.1.0";
         let author = "Adriano Souza";
         let edition = "2018";
@@ -218,7 +223,6 @@ authors = ["{}"]
 edition = "{}"
 
 [dependencies]
-lazy_static = "1.4.0"
 idl_internal = {{ git = "https://github.com/adrianos42/native_idl" }}"#,
             pkg_name, version, author, edition
         );

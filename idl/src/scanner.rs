@@ -16,6 +16,9 @@ static KEYWORDS: &'static [&str] = &[
     "layer",
     "server",
     "client",
+    "map",
+    "result",
+    "option",
 ];
 
 static BOOLEAN_VALUES: &'static [&str] = &["false", "true"];
@@ -38,6 +41,34 @@ pub enum Keywords {
     Layer,
     Server,
     Client,
+    Map,
+    Result,
+    Option,
+    Set,
+}
+
+impl From<&str> for Keywords {
+    fn from(value: &str) -> Self {
+        match value {
+            "enum" => Keywords::Enum,
+            "struct" => Keywords::Struct,
+            "interface" => Keywords::Interface,
+            "import" => Keywords::Import,
+            "library" => Keywords::Library,
+            "static" => Keywords::Static,
+            "stream" => Keywords::Stream,
+            "type" => Keywords::Type,
+            "const" => Keywords::Const,
+            "layer" => Keywords::Layer,
+            "server" => Keywords::Server,
+            "client" => Keywords::Client,
+            "map" => Keywords::Map,
+            "result" => Keywords::Result,
+            "option" => Keywords::Option,
+            "set" => Keywords::Set,
+            _ => panic!(),
+        }
+    }
 }
 
 impl fmt::Display for Keywords {
@@ -55,6 +86,10 @@ impl fmt::Display for Keywords {
             Keywords::Layer => "layer",
             Keywords::Server => "server",
             Keywords::Client => "client",
+            Keywords::Result => "result",
+            Keywords::Option => "option",
+            Keywords::Map => "map",
+            Keywords::Set => "set",
         };
 
         write!(f, "{}", name)
@@ -69,6 +104,20 @@ pub enum NativeTypes {
     Bytes,
     Bool,
     None,
+}
+
+impl From<&str> for NativeTypes {
+    fn from(value: &str) -> Self {
+        match value {
+            "int" => NativeTypes::Int,
+            "float"  => NativeTypes::Float,
+            "string"  => NativeTypes::String,
+            "bytes" => NativeTypes::Bytes,
+            "bool" => NativeTypes::Bool,
+            "none" => NativeTypes::None,
+            _ => panic!(),
+        }
+    }
 }
 
 impl fmt::Display for NativeTypes {
@@ -110,7 +159,10 @@ pub(super) struct WordRange<T> {
 impl Range {
     fn new_with_length(line: usize, index: usize, length: usize) -> Self {
         Self {
-            start: Position { line, column: index },
+            start: Position {
+                line,
+                column: index,
+            },
             end: Position {
                 line,
                 column: index + length,
@@ -176,7 +228,7 @@ impl WordStream {
             | WordStream::Comment(value)
             | WordStream::Literal(value)
             | WordStream::FloatValue(value)
-            |WordStream::BooleanValue(value)
+            | WordStream::BooleanValue(value)
             | WordStream::IntegerValue(value) => value.range,
             WordStream::Keyword(value) => value.range,
             WordStream::NativeType(value) => value.range,
@@ -596,22 +648,7 @@ impl ContextStream {
         }
 
         if KEYWORDS.contains(&ident.as_str()) {
-            let keyword = match ident.as_str() {
-                "interface" => Keywords::Interface,
-                "struct" => Keywords::Struct,
-                "enum" => Keywords::Enum,
-                "library" => Keywords::Library,
-                "import" => Keywords::Import,
-                "type" => Keywords::Type,
-                "const" => Keywords::Const,
-                "stream" => Keywords::Stream,
-                "static" => Keywords::Static,
-                "server" => Keywords::Server,
-                "client" => Keywords::Client,
-                "layer" => Keywords::Layer,
-                _ => panic!("Not a keyword"),
-            };
-
+            let keyword = Keywords::from(ident.as_str());
             let word_range = WordRange {
                 range: Range::new_with_length(self.cur_line, index, ident.len()),
                 word: keyword,
@@ -619,16 +656,7 @@ impl ContextStream {
 
             word_stream.push(WordStream::Keyword(word_range));
         } else if NATIVE_TYPES.contains(&ident.as_str()) {
-            let native_type = match ident.as_str() {
-                "int" => NativeTypes::Int,
-                "float" => NativeTypes::Float,
-                "bool" => NativeTypes::Bool,
-                "string" => NativeTypes::String,
-                "bytes" => NativeTypes::Bytes,
-                "none" => NativeTypes::None,
-                _ => panic!("Not a native type"),
-            };
-
+            let native_type = NativeTypes::from(ident.as_str());
             let word_range = WordRange {
                 range: Range::new_with_length(self.cur_line, index, ident.len()),
                 word: native_type,
@@ -636,7 +664,6 @@ impl ContextStream {
 
             word_stream.push(WordStream::NativeType(word_range));
         } else if BOOLEAN_VALUES.contains(&ident.as_str()) {
-
             let word_range = WordRange {
                 range: Range::new_with_length(self.cur_line, index, ident.len()),
                 word: ident.to_owned(),
@@ -717,7 +744,7 @@ impl ContextStream {
         }
 
         let word_range = WordRange {
-            range: Range::new_with_length(self.cur_line, self.cur_char, ident.len()),// TODO
+            range: Range::new_with_length(self.cur_line, self.cur_char, ident.len()), // TODO
             word: ident.to_owned(),
         };
 

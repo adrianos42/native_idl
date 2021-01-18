@@ -52,9 +52,9 @@ pub(crate) fn get_rust_ty_ref(ty: &TypeName, references: bool) -> TokenStream {
         | TypeName::ConstTypeName(value) => {
             let ident = format_ident!("{}", &value);
             if references {
-                quote! { super::#ident }
+                quote! { idl_types::#ident }
             } else {
-                quote! { #ident }
+                quote! { crate::#ident }
             }
         }
         TypeName::TypeStream(_) => {
