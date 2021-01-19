@@ -1,11 +1,11 @@
 use super::diagnostics;
+use crate::{server, write_items};
 use anyhow::{anyhow, Result};
 use clap::{App, Arg, ArgMatches};
 use diagnostics::diagnostic_generic;
 use idl_gen::lang::*;
-use std::collections::HashMap;
 use std::fs;
-use std::{io::Write, path::Path};
+use std::path::Path;
 
 enum GenArgs {
     TargetLanguage(String),
@@ -41,6 +41,10 @@ pub fn create_command<'a>() -> App<'a> {
             .long("client")
             .default_value("Main")
             .takes_value(true),
+        Arg::new("clean")
+            .about("Remove all generated files")
+            .long("clean")
+            .takes_value(false),
     ])
 }
 
@@ -74,6 +78,14 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
         }
     };
 
+    if matches.is_present("clean") {
+        let src = Path::new(output).join(&library_name);
+        let _ = fs::remove_dir_all(&src);
+        let build = Path::new(output).join("build").join(&library_name);
+        let _ = fs::remove_dir_all(&build);
+        return Ok(());
+    }
+
     let analyzer_r = &*module.get_idl_analyzer(&library_name).ok_or(anyhow!(""))?;
     let analyzer_idl = analyzer_r.as_ref().map_err(|err| anyhow!("{}", err))?;
     let analyzer_i = &*module.get_ids_analyzer(&library_name).ok_or(anyhow!(""))?;
@@ -83,11 +95,8 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
         return Err(anyhow!("Client `{}` not defined", client));
     }
 
-    let target_lang = analyzer_ids
-        .find_client(client)
-        .unwrap()
-        .language()
-        .unwrap();
+    let target_client = analyzer_ids.find_client(client).unwrap();
+    let target_lang = target_client.language().unwrap();
 
     let request = LanguageRequest {
         idl_nodes: analyzer_idl.nodes.clone(),
@@ -102,6 +111,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
     match response.gen_response {
         ResponseType::Generated(value) => {
             let src = Path::new(output).join(&library_name);
+            let _ = fs::remove_dir_all(&src);
             fs::create_dir_all(&src)?;
 
             for item in value {
@@ -116,27 +126,48 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
         }
     }
 
-    Ok(())
-}
+    match target_client.servers(&analyzer_ids) {
+        Some(servers) => {
+            let target_server =
+                match server.and_then(|name| servers.iter().find(|v| v.ident == name)) {
+                    Some(&value) => value,
+                    None => servers.first().unwrap(),
+                };
 
-fn write_items(storage: &StorageItem, path: &Path) -> Result<()> {
-    match storage {
-        idl_gen::lang::StorageItem::Source { name, txt } => {
-            let mut file = fs::OpenOptions::new()
-                .write(true)
-                .truncate(true)
-                .create(true)
-                .open(path.join(name.as_str()))?;
-            file.write_all(txt.as_bytes())?;
-        }
-        idl_gen::lang::StorageItem::Folder { name, items } => {
-            let new_path = path.join(&name);
-            fs::create_dir_all(&new_path)?;
+            let target_lang = target_server.language().unwrap();
 
-            for item in items {
-                write_items(item, &new_path)?;
+            let server_request = LanguageRequest {
+                idl_nodes: analyzer_idl.nodes.clone(),
+                ids_nodes: analyzer_ids.nodes.clone(),
+                request_type: RequestType::Server(ServerType {
+                    args: ServerArg::Build,
+                    server_name: target_server.ident.clone(),
+                }),
+            };
+
+            println!("Sending language `{}` request for building", target_lang);
+            let gen = idl_gen::for_language(&target_lang)?;
+            let response = gen.send_request(server_request)?;
+
+            match response.gen_response {
+                ResponseType::Generated(value) => {
+                    let src = Path::new(output).join("build").join(&library_name);
+                    let _ = fs::remove_dir_all(&src); // Always remove the contents of `build` folder.
+                    fs::create_dir_all(&src)?;
+
+                    for item in value {
+                        write_items(&item, &src)?;
+                    }
+
+                    println!("Generated build files at {:#?}", src);
+                }
+                ResponseType::Undefined(err) => {
+                    diagnostic_generic("Request error", err.as_str())?;
+                    return Err(anyhow!(""));
+                }
             }
         }
+        None => {}
     }
 
     Ok(())

@@ -6,30 +6,11 @@ mod string_pros;
 
 pub(crate) mod con_idl;
 
-use std::path::PathBuf;
-
-use proc_macro2::{Ident, TokenStream};
-use string_pros::StringPros;
-use thiserror::Error;
-
-use idl::ids;
-use idl::module::Module;
-
 use crate::lang::*;
-use layers::ffi::{
-    server::{FFIServer, FFIServerCargo, FFIServerImpl, FFIServerTypes},
-    FFIMod,
-};
-use rust_impl::{RustImpl, RustImplCargo, RustImplMod};
-use rust_types::RustTypes;
-
-use anyhow::{anyhow, Result};
-use std::fs;
-use std::{io::Write, path::Path};
-
-enum GenArgs {
-    TargetLanguage(String),
-}
+use anyhow::Result;
+use layers::{Layer, LayerBuilder};
+use rust_impl::rust_impl_files;
+use thiserror::Error;
 
 #[derive(Debug, Error)]
 pub enum RustGenError {}
@@ -48,78 +29,23 @@ impl crate::IdlGen for RustGen {
         request: LanguageRequest,
     ) -> Result<LanguageResponse, crate::IdlGenError> {
         match request.request_type {
-            RequestType::Server(_name) => {
+            RequestType::Server(name) => {
                 let analyzer = idl::analyzer::Analyzer::from_nodes(request.idl_nodes);
+                let ids_analyzer = idl::ids::analyzer::Analyzer::from_nodes(request.ids_nodes);
+                let mut root_items = vec![];
 
-                let mut root_dir = vec![];
-
-                let rus_ty = RustTypes::generate(&analyzer).unwrap();
-                let impl_mod = RustImpl::generate(&analyzer).unwrap();
-                let impl_lib = RustImplMod::generate(&analyzer).unwrap();
-                let impl_cargo = RustImplCargo::generate(&analyzer).unwrap();
-
-                root_dir.push(StorageItem::Folder {
-                    items: vec![
-                        StorageItem::Folder {
-                            name: "src".to_owned(),
-                            items: vec![
-                                StorageItem::Source {
-                                    name: "idl_impl.rs".to_owned(),
-                                    txt: impl_mod.to_string(),
-                                },
-                                StorageItem::Source {
-                                    name: "lib.rs".to_owned(),
-                                    txt: format!("{} {}", impl_lib.to_string(), rus_ty.to_string()),
-                                },
-                            ],
-                        },
-                        StorageItem::Source {
-                            name: "Cargo.toml".to_owned(),
-                            txt: impl_cargo.to_string(),
-                        },
-                    ],
-                    name: "idl_types".to_owned(),
-                });
-
-                let ffi_server_impl = FFIServerImpl::generate(&analyzer).unwrap();
-                let ffi_server_types = FFIServerTypes::generate(&analyzer).unwrap();
-                let ffi_server = FFIServer::generate(&analyzer).unwrap();
-                let ffi_lib = FFIMod::generate(&analyzer).unwrap();
-                let ffi_cargo = FFIServerCargo::generate(&analyzer).unwrap();
-
-                root_dir.push(StorageItem::Folder {
-                    items: vec![
-                        StorageItem::Folder {
-                            name: "src".to_owned(),
-                            items: vec![
-                                StorageItem::Source {
-                                    name: "ffi.rs".to_owned(),
-                                    txt: ffi_server.to_string(),
-                                },
-                                StorageItem::Source {
-                                    name: "ffi_impl.rs".to_owned(),
-                                    txt: ffi_server_impl.to_string(),
-                                },
-                                StorageItem::Source {
-                                    name: "ffi_types.rs".to_owned(),
-                                    txt: ffi_server_types.to_string(),
-                                },
-                                StorageItem::Source {
-                                    name: "lib.rs".to_owned(),
-                                    txt: ffi_lib.to_string(),
-                                },
-                            ],
-                        },
-                        StorageItem::Source {
-                            name: "Cargo.toml".to_owned(),
-                            txt: ffi_cargo.to_string(),
-                        },
-                    ],
-                    name: "idl_ffi".to_owned(),
-                });
-
+                match name.args {
+                    ServerArg::Build => {
+                        let layer = Layer::layer_builder(name.server_name.to_owned());
+                        root_items.append(&mut layer.build(&analyzer, &ids_analyzer));
+                    }
+                    ServerArg::Generate => {
+                        root_items.push(rust_impl_files(&analyzer, &ids_analyzer));
+                        //root_items.push(ffi_server_files(&analyzer));
+                    }
+                }
                 Ok(LanguageResponse {
-                    gen_response: ResponseType::Generated(root_dir),
+                    gen_response: ResponseType::Generated(root_items),
                 })
             }
             _ => panic!(),

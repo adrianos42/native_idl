@@ -1,10 +1,10 @@
+use std::{fs, path::Path};
+
 use super::diagnostics;
 use anyhow::{anyhow, Result};
 use clap::{App, Arg, ArgMatches};
 use idl_gen::lang::*;
-use std::collections::HashMap;
-use std::fs;
-use std::{io::Write, path::Path};
+use crate::write_items;
 
 enum GenArgs {
     TargetLanguage(String),
@@ -74,7 +74,10 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
     let request = LanguageRequest {
         idl_nodes: analyzer.nodes.clone(),
         ids_nodes: vec![],
-        request_type: RequestType::Server(server.to_owned()),
+        request_type: RequestType::Server(ServerType {
+            server_name: server.to_owned(),
+            args: ServerArg::Generate,
+        }),
     };
 
     let gen = idl_gen::for_language("rust")?;
@@ -82,8 +85,8 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
     match response.gen_response {
         ResponseType::Generated(value) => {
-            let src = Path::new(output).join(&library_name).join("rust");
-            fs::create_dir_all(&src)?;
+            let src = Path::new(output).join("rust").join(&library_name);
+            fs::create_dir_all(&src)?; // The language folder is never cleaned.
 
             for item in value {
                 write_items(&item, &src)?;
@@ -92,30 +95,6 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
             println!("Generated files at {:#?}", src);
         }
         ResponseType::Undefined(err) => return Err(anyhow!("Response error `{}`", err)),
-    }
-
-    Ok(())
-}
-
-fn write_items(storage: &StorageItem, path: &Path) -> Result<()> {
-    match storage {
-        idl_gen::lang::StorageItem::Source { name, txt } => {
-            let mut file = fs::OpenOptions::new()
-                .write(true)
-                .truncate(true)
-                .create(true)
-                .open(path.join(name.as_str()))?;
-            file.write_all(txt.as_bytes())?;
-        }
-        idl_gen::lang::StorageItem::Folder { name, items } => {
-            let new_path = path.join(&name);
-            let _ = fs::remove_dir_all(&new_path);
-            fs::create_dir_all(&new_path)?;
-
-            for item in items {
-                write_items(item, &new_path)?;
-            }
-        }
     }
 
     Ok(())

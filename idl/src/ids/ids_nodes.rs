@@ -10,10 +10,10 @@ pub enum Keywords {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum ItemType {
-    NatInt(String),
-    NatFloat(String),
+    NatInt(i64),
+    NatFloat(f64),
     NatString(String),
-    NatBool(String),
+    NatBool(bool),
     LayerTypeName(String),
     ClientTypeName(String),
     ServerTypeName(String),
@@ -69,6 +69,62 @@ impl ItemType {
             _ => false,
         }
     }
+
+    pub fn as_string(&self) -> Option<String> {
+        match self {
+            ItemType::NatString(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn as_int(&self) -> Option<i64> {
+        match self {
+            ItemType::NatInt(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    pub fn as_float(&self) -> Option<f64> {
+        match self {
+            ItemType::NatFloat(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    pub fn as_bool(&self) -> Option<bool> {
+        match self {
+            ItemType::NatBool(value) => Some(*value),
+            _ => None,
+        }
+    }
+
+    pub fn as_layer_name(&self) -> Option<String> {
+        match self {
+            ItemType::LayerTypeName(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn as_client_name(&self) -> Option<String> {
+        match self {
+            ItemType::ClientTypeName(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn as_server_name(&self) -> Option<String> {
+        match self {
+            ItemType::ServerTypeName(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn as_values(&self) -> Option<Vec<ItemType>> {
+        match self {
+            ItemType::Values(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -96,5 +152,3 @@ pub struct LibraryField {
     pub ident: String,
     pub value: Box<ItemType>,
 }
-
-

@@ -1,14 +1,15 @@
 use idl::analyzer::Analyzer;
 use idl::idl_nodes::*;
+use idl::ids;
+use crate::lang::StorageItem;
 
-use super::con_idl::get_rust_ty_ref;
+use super::{con_idl::get_rust_ty_ref, rust_types::RustTypes};
 
 use super::string_pros::StringPros;
 use proc_macro2::{self, TokenStream};
-use quote::{TokenStreamExt, ToTokens};
 use quote::format_ident;
+use quote::{ToTokens, TokenStreamExt};
 use std::fmt;
-
 
 #[derive(Debug)]
 pub enum RustImplError {
@@ -120,7 +121,7 @@ impl RustImpl {
                     };
 
                     let (fields_add, self_ident) = if field.is_static {
-                        (&mut static_fields, quote! { })
+                        (&mut static_fields, quote! {})
                     } else {
                         (&mut fields, quote! { &mut self, })
                     };
@@ -196,43 +197,86 @@ impl RustImplMod {
     }
 }
 
-pub struct RustImplCargo {
-    cargo_toml: String,
-}
+mod impl_cargo {
+    use crate::cargo_md::*;
+    use core::fmt;
+    use idl::ids;
+    use serde::Serialize;
 
-impl fmt::Display for RustImplCargo {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.cargo_toml)
-    }
-}
-
-impl RustImplCargo {
-    pub fn generate(_analyzer: &Analyzer) -> Result<Self, ()> {
-        let mut context = RustImplCargo::new();
-
-        let pkg_name = "idl_types";
-        let version = "0.1.0";
-        let author = "Adriano Souza";
-        let edition = "2018";
-
-        context.cargo_toml = format!(
-            r#"[package]
-name = "{}"
-version = "{}"
-authors = ["{}"]
-edition = "{}"
-
-[dependencies]
-idl_internal = {{ git = "https://github.com/adrianos42/native_idl" }}"#,
-            pkg_name, version, author, edition
-        );
-
-        Ok(context)
+    pub struct RustImplCargo {
+        cargo_toml: Option<String>,
     }
 
-    fn new() -> Self {
-        Self {
-            cargo_toml: String::new(),
+    impl fmt::Display for RustImplCargo {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            write!(f, "{}", self.cargo_toml.as_ref().unwrap())
         }
+    }
+
+    #[derive(Serialize)]
+    struct CargoFFIDeps {
+        idl_internal: CargoGit,
+    }
+
+    impl RustImplCargo {
+        pub fn generate(analyzer: &ids::analyzer::Analyzer) -> Result<Self, ()> {
+            let mut context = RustImplCargo::new();
+            let lib_name = analyzer.library_name().unwrap();
+
+            let fields = CargoFields {
+                package: CargoPackage {
+                    name: "idl_types".to_owned(),
+                    authors: None,
+                    edition: Some("2018".to_owned()),
+                    version: "0.1.0".to_owned(),
+                },
+                lib: None,
+                dependencies: Some(CargoFFIDeps {
+                    idl_internal: CargoGit {
+                        git: "https://github.com/adrianos42/native_idl".to_owned(),
+                    },
+                }),
+            };
+
+            context.cargo_toml = Some(create_cargo(fields));
+
+            Ok(context)
+        }
+
+        fn new() -> Self {
+            Self {
+                cargo_toml: None,
+            }
+        }
+    }
+}
+
+pub fn rust_impl_files(analyzer: &idl::analyzer::Analyzer, ids_analyzer: &ids::analyzer::Analyzer) -> StorageItem {
+    let rus_ty = RustTypes::generate(&analyzer).unwrap();
+    let impl_mod = RustImpl::generate(&analyzer).unwrap();
+    let impl_lib = RustImplMod::generate(&analyzer).unwrap();
+    let impl_cargo = impl_cargo::RustImplCargo::generate(&ids_analyzer).unwrap();
+
+    StorageItem::Folder {
+        items: vec![
+            StorageItem::Folder {
+                name: "src".to_owned(),
+                items: vec![
+                    StorageItem::Source {
+                        name: "idl_impl.rs".to_owned(),
+                        txt: impl_mod.to_string(),
+                    },
+                    StorageItem::Source {
+                        name: "lib.rs".to_owned(),
+                        txt: format!("{} {}", impl_lib.to_string(), rus_ty.to_string()),
+                    },
+                ],
+            },
+            StorageItem::Source {
+                name: "Cargo.toml".to_owned(),
+                txt: impl_cargo.to_string(),
+            },
+        ],
+        name: "idl_types".to_owned(),
     }
 }

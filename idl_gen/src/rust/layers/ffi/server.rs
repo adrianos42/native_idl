@@ -1,7 +1,8 @@
 use idl::analyzer::Analyzer;
 use idl::idl_nodes::*;
+use idl::ids;
 
-use crate::rust::con_idl::{get_rust_ty_name, get_rust_ty_ref};
+use crate::{rust::con_idl::{get_rust_ty_name, get_rust_ty_ref}};
 
 use crate::rust::string_pros::StringPros;
 use proc_macro2::{self, Literal, TokenStream};
@@ -16,6 +17,7 @@ use super::*;
 pub enum FFIServerError {
     UnexpectedType,
     InvalidLiteral,
+    Undefined,
 }
 
 pub struct FFIServer {
@@ -1083,66 +1085,5 @@ impl FFIServerImpl {
 
     fn new() -> Self {
         Self { module: vec![] }
-    }
-}
-
-pub struct FFIServerCargo {
-    cargo_toml: String,
-}
-
-impl fmt::Display for FFIServerCargo {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.cargo_toml)
-    }
-}
-
-impl FFIServerCargo {
-    pub fn generate(analyzer: &Analyzer) -> Result<Self, FFIServerError> {
-        let mut context = FFIServerCargo::new();
-
-        let pkg_name = "idl_ffi";
-        let version = "0.1.0";
-        let author = "Adriano Souza";
-        let edition = "2018";
-        let lib_name = analyzer.get_library_name();
-        let lib_name_impl = &lib_name;
-        let path = format!("../{}", &lib_name);
-
-        let types_src = format!("idl_types");
-        let types_path = format!("../idl_types");
-
-        context.cargo_toml = format!(
-            r#"[package]
-name = "{}"
-version = "{}"
-authors = ["{}"]
-edition = "{}"
-
-[lib]
-name = "{}"
-crate-type = ["staticlib", "cdylib"]
-
-[dependencies]
-idl_internal = {{ git = "https://github.com/adrianos42/native_idl" }}
-{} = {{ path = "{}" }}
-{} = {{ path = "{}" }}"#,
-            pkg_name,
-            version,
-            author,
-            edition,
-            lib_name,
-            types_src,
-            types_path,
-            lib_name_impl,
-            path
-        );
-
-        Ok(context)
-    }
-
-    fn new() -> Self {
-        Self {
-            cargo_toml: String::new(),
-        }
     }
 }

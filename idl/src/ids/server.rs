@@ -9,6 +9,29 @@ pub struct Server {
     pub nodes: Vec<ServerNode>,
 }
 
+impl Server {
+    pub fn language(&self) -> Option<String> {
+        match self.get_field("language") {
+            Some(ItemType::NatString(value)) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn get_field(&self, name: &str) -> Option<&ItemType> {
+        for node in &self.nodes {
+            match node {
+                ServerNode::ServerField(field) => {
+                    if field.ident == name {
+                        return Some(&field.value);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+}
+
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum ServerNode {
     ServerField(Box<ServerField>),

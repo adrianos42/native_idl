@@ -122,10 +122,35 @@ pub(super) struct AnalyzerItems {
 impl AnalyzerItems {
     pub(super) fn get_ids_node(&self, item: &parser::ItemType) -> Result<ItemType, ReferenceError> {
         match item {
-            parser::ItemType::Int(value) => Ok(ItemType::NatInt(value.to_owned())),
-            parser::ItemType::Float(value) => Ok(ItemType::NatFloat(value.to_owned())),
+            parser::ItemType::Int(value) => {
+                Ok(ItemType::NatInt(value.parse::<i64>().map_err(|_| {
+                    ReferenceError(
+                        ReferenceErrorKind::NotInt,
+                        Range::default(),
+                        "Integer".to_owned(),
+                    )
+                })?))
+            }
+            parser::ItemType::Float(value) => {
+                Ok(ItemType::NatFloat(value.parse::<f64>().map_err(|_| {
+                    ReferenceError(
+                        ReferenceErrorKind::NotFloat,
+                        Range::default(),
+                        "Float".to_owned(),
+                    )
+                })?))
+            }
+
+            parser::ItemType::Boolean(value) => {
+                Ok(ItemType::NatBool(value.parse::<bool>().map_err(|_| {
+                    ReferenceError(
+                        ReferenceErrorKind::NotBoolean,
+                        Range::default(),
+                        "Boolean".to_owned(),
+                    )
+                })?))
+            }
             parser::ItemType::String(value) => Ok(ItemType::NatString(value.to_owned())),
-            parser::ItemType::Boolean(value) => Ok(ItemType::NatBool(value.to_owned())),
             parser::ItemType::TypeName(value) => {
                 if self.clients.contains(&value.ident) {
                     Ok(ItemType::ClientTypeName(value.ident.to_owned()))
@@ -247,6 +272,16 @@ impl Analyzer {
         Ok(Self::from_nodes(nodes))
     }
 
+    pub fn library_name(&self) -> Option<String> {
+        for node in &self.nodes {
+            if let IdsNode::Library(name) = node {
+                return Some(name.ident.clone());
+            }
+        }
+
+        None
+    }
+
     pub fn find_client(&self, name: &str) -> Option<&Box<client::Client>> {
         for node in &self.nodes {
             match node {
@@ -292,7 +327,7 @@ impl Analyzer {
         None
     }
 
-     pub fn has_server(&self, name: &str) -> bool {
+    pub fn has_server(&self, name: &str) -> bool {
         for node in &self.nodes {
             match node {
                 IdsNode::Server(value) => {

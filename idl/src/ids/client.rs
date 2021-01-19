@@ -23,20 +23,49 @@ pub struct Client {
 
 impl Client {
     pub fn language(&self) -> Option<String> {
+        match self.get_field("language") {
+            Some(ItemType::NatString(value)) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn servers<'a>(
+        &'a self,
+        analyzer: &'a super::analyzer::Analyzer,
+    ) -> Option<Vec<&'a super::server::Server>> {
+        match self.get_field("servers") {
+            Some(ItemType::Values(values)) => {
+                if values.iter().all(|v| v.is_server()) {
+                    Some(
+                        values
+                            .iter()
+                            .filter_map(|value| match value {
+                                ItemType::ServerTypeName(name) => {
+                                    Some(analyzer.find_server(name).unwrap().as_ref())
+                                }
+                                _ => None,
+                            })
+                            .collect(),
+                    )
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        }
+    }
+
+    pub fn get_field(&self, name: &str) -> Option<&ItemType> {
         for node in &self.nodes {
             match node {
                 ClientNode::ClientField(field) => {
-                    if field.ident == "language" {
-                        match field.value.as_ref() {
-                            ItemType::NatString(value) => return Some(value.clone()),
-                            _ => {}
-                        }
+                    if field.ident == name {
+                        return Some(&field.value);
                     }
                 }
-                ClientNode::Comment(_) => {}
+                _ => {}
             }
         }
-
         None
     }
 }

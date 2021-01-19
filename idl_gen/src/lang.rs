@@ -9,14 +9,21 @@ pub struct ClientType {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub enum ServerArg {
+    Build,
+    Generate,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct ServerType {
     pub server_name: String,
+    pub args: ServerArg,
 }
 
 #[derive(Debug, Deserialize, Serialize)]
 pub enum RequestType {
     Client(String),
-    Server(String),
+    Server(ServerType),
 }
 
 #[derive(Debug, Deserialize, Serialize)]
@@ -42,6 +49,10 @@ pub enum StorageItem {
         name: String,
         items: Vec<StorageItem>,
     },
+    BinarySource {
+        name: String,
+        data: String,
+    }
 }
 
 #[derive(Debug, Deserialize, Serialize)]
