@@ -4,7 +4,6 @@ use super::diagnostics;
 use anyhow::{anyhow, Result};
 use clap::{App, Arg, ArgMatches};
 use idl_gen::lang::*;
-use crate::write_items;
 
 enum GenArgs {
     TargetLanguage(String),
@@ -89,7 +88,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
             fs::create_dir_all(&src)?; // The language folder is never cleaned.
 
             for item in value {
-                write_items(&item, &src)?;
+                item.write_items(&src, false)?;
             }
 
             println!("Generated files at {:#?}", src);

@@ -1,5 +1,5 @@
 use super::diagnostics;
-use crate::{server, write_items};
+use crate::server;
 use anyhow::{anyhow, Result};
 use clap::{App, Arg, ArgMatches};
 use diagnostics::diagnostic_generic;
@@ -115,7 +115,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
             fs::create_dir_all(&src)?;
 
             for item in value {
-                write_items(&item, &src)?;
+                item.write_items(&src, true)?;
             }
 
             println!("Generated files at {:#?}", src);
@@ -151,12 +151,12 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
             match response.gen_response {
                 ResponseType::Generated(value) => {
-                    let src = Path::new(output).join("build").join(&library_name);
+                    let src = Path::new(output).join(&library_name).join("build").join("idl");
                     let _ = fs::remove_dir_all(&src); // Always remove the contents of `build` folder.
                     fs::create_dir_all(&src)?;
 
                     for item in value {
-                        write_items(&item, &src)?;
+                        item.write_items(&src, true)?;
                     }
 
                     println!("Generated build files at {:#?}", src);

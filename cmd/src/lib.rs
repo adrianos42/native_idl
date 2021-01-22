@@ -68,37 +68,3 @@ fn add_file(path: &path::Path) -> Option<Document> {
 
     None
 }
-
-
-
-pub(crate) fn write_items(storage: &StorageItem, path: &Path) -> Result<()> {
-    match storage {
-        idl_gen::lang::StorageItem::Source { name, txt } => {
-            let mut file = fs::OpenOptions::new()
-                .write(true)
-                .truncate(true)
-                .create(true)
-                .open(path.join(name.as_str()))?;
-            file.write_all(txt.as_bytes())?;
-        }
-        idl_gen::lang::StorageItem::Folder { name, items } => {
-            let new_path = path.join(&name);
-            let _ = fs::remove_dir_all(&new_path);
-            fs::create_dir_all(&new_path)?;
-
-            for item in items {
-                write_items(item, &new_path)?;
-            }
-        }
-        idl_gen::lang::StorageItem::BinarySource { name, data } => {
-            let mut file = fs::OpenOptions::new()
-                .write(true)
-                .truncate(true)
-                .create(true)
-                .open(path.join(name.as_str()))?;
-            file.write_all(data.as_bytes())?;
-        }
-    }
-
-    Ok(())
-}

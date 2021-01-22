@@ -1,5 +1,5 @@
 use crate::lang::StorageItem;
-
+use thiserror::Error;
 mod ffi;
 
 pub trait LayerBuilder {
@@ -7,13 +7,13 @@ pub trait LayerBuilder {
         &self,
         analyzer: &idl::analyzer::Analyzer,
         ids_analyzer: &idl::ids::analyzer::Analyzer,
-    ) -> Vec<StorageItem>;
+    ) -> anyhow::Result<Vec<StorageItem>>;
 }
 
 pub struct Layer;
 
 impl Layer {
     pub fn layer_builder(server_name: String) -> impl LayerBuilder {
-        ffi::FFILayer::new(server_name)
+        ffi::server::compile::FFILayer::new(server_name)
     }
 }

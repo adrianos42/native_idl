@@ -1,4 +1,4 @@
-[package]
+[package]   
 name = "cmd"
 version = "0.1.0"
 authors = ["Adriano Souza <adriano.souza113@gmail.com>"]

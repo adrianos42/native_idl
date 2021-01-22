@@ -727,9 +727,8 @@ impl Parser {
                 WordStream::RightSquareBracket(rq) => {
                     if let Some(item) = item_type.take() {
                         fields.push(item);
-                    } else if fields.is_empty() {
-                        return Err(ItemFieldError(ItemFieldErrorKind::EmptyBody, rq.range));
                     }
+                    
                     return Ok((
                         ItemType::Values(fields),
                         Range {

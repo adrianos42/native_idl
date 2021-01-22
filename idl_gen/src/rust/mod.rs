@@ -13,7 +13,10 @@ use rust_impl::rust_impl_files;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
-pub enum RustGenError {}
+pub enum RustGenError {
+    #[error("{0}")]
+    Undefined(String),
+}
 
 pub struct RustGen {}
 
@@ -37,7 +40,11 @@ impl crate::IdlGen for RustGen {
                 match name.args {
                     ServerArg::Build => {
                         let layer = Layer::layer_builder(name.server_name.to_owned());
-                        root_items.append(&mut layer.build(&analyzer, &ids_analyzer));
+                        root_items.append(
+                            &mut layer
+                                .build(&analyzer, &ids_analyzer)
+                                .map_err(|err| RustGenError::Undefined(err.to_string()))?,
+                        );
                     }
                     ServerArg::Generate => {
                         root_items.push(rust_impl_files(&analyzer, &ids_analyzer));

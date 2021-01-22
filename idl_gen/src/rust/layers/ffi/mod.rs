@@ -8,76 +8,8 @@ use std::fmt;
 
 use super::LayerBuilder;
 
-pub mod client;
-pub mod server;
-pub mod server_cargo;
-
-// TODO Check to see if arguments and returned values are valid const values defined in idl.
-
-pub fn ffi_server_files(
-    analyzer: &idl::analyzer::Analyzer,
-    ids_analyzer: &ids::analyzer::Analyzer,
-    server_name: &str,
-) -> StorageItem {
-    let ffi_server_impl = server::FFIServerImpl::generate(&analyzer).unwrap();
-    let ffi_server_types = server::FFIServerTypes::generate(&analyzer).unwrap();
-    let ffi_server = server::FFIServer::generate(&analyzer).unwrap();
-    let ffi_lib = FFIMod::generate(&analyzer).unwrap();
-    let ffi_cargo = server_cargo::FFIServerCargo::generate(&ids_analyzer, server_name).unwrap();
-
-    StorageItem::Folder {
-        items: vec![
-            StorageItem::Folder {
-                name: "src".to_owned(),
-                items: vec![
-                    StorageItem::Source {
-                        name: "ffi.rs".to_owned(),
-                        txt: ffi_server.to_string(),
-                    },
-                    StorageItem::Source {
-                        name: "ffi_impl.rs".to_owned(),
-                        txt: ffi_server_impl.to_string(),
-                    },
-                    StorageItem::Source {
-                        name: "ffi_types.rs".to_owned(),
-                        txt: ffi_server_types.to_string(),
-                    },
-                    StorageItem::Source {
-                        name: "lib.rs".to_owned(),
-                        txt: ffi_lib.to_string(),
-                    },
-                ],
-            },
-            StorageItem::Source {
-                name: "Cargo.toml".to_owned(),
-                txt: ffi_cargo.to_string(),
-            },
-        ],
-        name: "idl_ffi".to_owned(),
-    }
-}
-
-pub(crate) struct FFILayer {
-    server_name: String,
-}
-
-impl FFILayer {
-    pub(crate) fn new(server_name: String) -> Self {
-        Self { server_name }
-    }
-}
-
-impl LayerBuilder for FFILayer {
-    fn build(
-        &self,
-        analyzer: &idl::analyzer::Analyzer,
-        ids_analyzer: &ids::analyzer::Analyzer,
-    ) -> Vec<StorageItem> {
-        let mut files = vec![];
-        files.push(ffi_server_files(analyzer, ids_analyzer, &self.server_name));
-        files
-    }
-}
+pub(crate) mod client;
+pub(crate) mod server;
 
 pub struct FFIMod {
     module: TokenStream,

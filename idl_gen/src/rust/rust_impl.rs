@@ -221,7 +221,7 @@ mod impl_cargo {
     impl RustImplCargo {
         pub fn generate(analyzer: &ids::analyzer::Analyzer) -> Result<Self, ()> {
             let mut context = RustImplCargo::new();
-            let lib_name = analyzer.library_name().unwrap();
+            //let lib_name = analyzer.library_name().unwrap();
 
             let fields = CargoFields {
                 package: CargoPackage {
