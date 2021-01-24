@@ -41,10 +41,16 @@ pub fn create_command<'a>() -> App<'a> {
             .long("client")
             .default_value("Main")
             .takes_value(true),
+        Arg::new("no_build")
+            .about("Don't build server files")
+            .long("no-build")
+            .takes_value(false)
+            .conflicts_with_all(&["clean"]),
         Arg::new("clean")
             .about("Remove all generated files")
             .long("clean")
-            .takes_value(false),
+            .takes_value(false)
+            .conflicts_with("no_build"),
     ])
 }
 
@@ -55,6 +61,8 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
     let library = matches.value_of("library");
     let server = matches.value_of("server");
+
+    let no_building = matches.is_present("no_build");
 
     //let mut layers = vec![];
 
@@ -145,25 +153,30 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
                 }),
             };
 
-            println!("Sending language `{}` request for building", target_lang);
-            let gen = idl_gen::for_language(&target_lang)?;
-            let response = gen.send_request(server_request)?;
+            if !no_building {
+                println!("Sending language `{}` request for building", target_lang);
+                let gen = idl_gen::for_language(&target_lang)?;
+                let response = gen.send_request(server_request)?;
 
-            match response.gen_response {
-                ResponseType::Generated(value) => {
-                    let src = Path::new(output).join(&library_name).join("build").join("idl");
-                    let _ = fs::remove_dir_all(&src); // Always remove the contents of `build` folder.
-                    fs::create_dir_all(&src)?;
+                match response.gen_response {
+                    ResponseType::Generated(value) => {
+                        let src = Path::new(output)
+                            .join(&library_name)
+                            .join("build")
+                            .join("idl");
+                        let _ = fs::remove_dir_all(&src); // Always remove the contents of `build` folder.
+                        fs::create_dir_all(&src)?;
 
-                    for item in value {
-                        item.write_items(&src, true)?;
+                        for item in value {
+                            item.write_items(&src, true)?;
+                        }
+
+                        println!("Generated build files at {:#?}", src);
                     }
-
-                    println!("Generated build files at {:#?}", src);
-                }
-                ResponseType::Undefined(err) => {
-                    diagnostic_generic("Request error", err.as_str())?;
-                    return Err(anyhow!(""));
+                    ResponseType::Undefined(err) => {
+                        diagnostic_generic("Request error", err.as_str())?;
+                        return Err(anyhow!(""));
+                    }
                 }
             }
         }
