@@ -64,19 +64,6 @@ pub fn diagnostic(module: &module::Module) -> anyhow::Result<bool> {
     Ok(has_error)
 }
 
-pub fn diagnostic_generic(name: &str, message: &str) -> anyhow::Result<()> {
-    let mut writer = StandardStream::stderr(ColorChoice::Always);
-    let config = term::Config::default();
-
-    let mut files = SimpleFiles::new();
-    let id = files.add(name, message);
-    let diagnostic = Diagnostic::error().with_labels(vec![Label::primary(id, 0..message.len())]);
-
-    term::emit(&mut writer, &config, &files, &diagnostic)?;
-
-    Ok(())
-}
-
 mod files {
     use codespan_reporting::files;
     use std::{collections::HashMap, ops::Range};

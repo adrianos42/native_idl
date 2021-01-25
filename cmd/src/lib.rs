@@ -4,6 +4,7 @@ pub mod client;
 pub mod server;
 pub mod analyze;
 pub mod clean;
+pub mod message;
 
 use anyhow::{anyhow, Result};
 use idl_gen::lang::StorageItem;

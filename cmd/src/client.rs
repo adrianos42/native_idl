@@ -1,8 +1,8 @@
 use super::diagnostics;
-use crate::server;
+use crate::{message, server};
 use anyhow::{anyhow, Result};
 use clap::{App, Arg, ArgMatches};
-use diagnostics::diagnostic_generic;
+use message::Message;
 use idl_gen::lang::*;
 use std::fs;
 use std::path::Path;
@@ -112,9 +112,11 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
         request_type: RequestType::Client(client.to_owned()),
     };
 
-    println!("Sending language `{}` request", target_lang);
+    Message::info(&format!("Sending language `{}` request", target_lang))?;
     let gen = idl_gen::for_language(&target_lang)?;
     let response = gen.send_request(request)?;
+    
+    Message::normal("Response message", response.response_messages)?;
 
     match response.gen_response {
         ResponseType::Generated(value) => {
@@ -126,10 +128,10 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
                 item.write_items(&src, true)?;
             }
 
-            println!("Generated files at {:#?}", src);
+            Message::info(&format!("Generated files at {:#?}", src))?;
         }
         ResponseType::Undefined(err) => {
-            diagnostic_generic("Request error", err.as_str())?;
+            Message::error("Request error", err.as_str())?;
             return Err(anyhow!(""));
         }
     }
@@ -154,7 +156,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
             };
 
             if !no_building {
-                println!("Sending language `{}` request for building", target_lang);
+                Message::info(&format!("Sending language `{}` request for building", target_lang))?;
                 let gen = idl_gen::for_language(&target_lang)?;
                 let response = gen.send_request(server_request)?;
 
@@ -171,10 +173,10 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
                             item.write_items(&src, true)?;
                         }
 
-                        println!("Generated build files at {:#?}", src);
+                        Message::info(&format!("Generated build files at {:#?}", src))?;
                     }
                     ResponseType::Undefined(err) => {
-                        diagnostic_generic("Request error", err.as_str())?;
+                        Message::error("Request error", err.as_str())?;
                         return Err(anyhow!(""));
                     }
                 }

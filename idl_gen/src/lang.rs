@@ -60,6 +60,7 @@ pub enum StorageItem {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct LanguageResponse {
     pub gen_response: ResponseType,
+    pub response_messages: Vec<String>,
 }
 
 impl StorageItem {

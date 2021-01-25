@@ -1,5 +1,7 @@
 use std::{fs, path::Path};
 
+use crate::message::Message;
+
 use super::diagnostics;
 use anyhow::{anyhow, Result};
 use clap::{App, Arg, ArgMatches};
@@ -91,7 +93,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
                 item.write_items(&src, false)?;
             }
 
-            println!("Generated files at {:#?}", src);
+            Message::info(&format!("Generated files at {:#?}", src))?;
         }
         ResponseType::Undefined(err) => return Err(anyhow!("Response error `{}`", err)),
     }

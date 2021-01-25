@@ -53,6 +53,7 @@ impl crate::IdlGen for RustGen {
                 }
                 Ok(LanguageResponse {
                     gen_response: ResponseType::Generated(root_items),
+                    response_messages: vec![],
                 })
             }
             _ => panic!(),

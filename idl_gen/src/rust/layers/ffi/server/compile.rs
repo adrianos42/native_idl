@@ -1,9 +1,8 @@
 use idl::ids;
 
 use crate::{lang::StorageItem, rust::layers::LayerBuilder};
-use cargo::{core::{VirtualManifest, manifest::TargetSourcePath}, util::paths::read_bytes};
 use cargo::core::{PackageId, Target, TargetKind, Workspace};
-use cargo::util::{dylib_path, process, CargoResult, ProcessBuilder, interning::InternedString};
+use cargo::util::{dylib_path, interning::InternedString, process, CargoResult, ProcessBuilder};
 use cargo::{
     core::{
         compiler::{CompileKind, CompileMode, CompileTarget, Executor},
@@ -11,6 +10,10 @@ use cargo::{
     },
     ops::CompileOptions,
     Config,
+};
+use cargo::{
+    core::{manifest::TargetSourcePath, Verbosity, VirtualManifest},
+    util::{paths::read_bytes, ConfigValue},
 };
 
 use std::io::{self, Write};
@@ -90,9 +93,9 @@ impl LayerBuilder for FFILayer {
 
         let mut compile_options = CompileOptions::new(&config, CompileMode::Build)?;
         compile_options.build_config.requested_profile = InternedString::new("release");
-        
+
         let comp = cargo::ops::compile(&ws, &compile_options)?;
-        
+
         let mut files = vec![];
 
         for (unit, path) in comp.cdylibs {
@@ -101,7 +104,7 @@ impl LayerBuilder for FFILayer {
                 name: path.file_name().unwrap().to_str().unwrap().to_owned(),
                 data: read_bytes(&path)?,
             });
-            
+
             let so_path = path.with_extension("so");
             files.push(StorageItem::BinarySource {
                 name: so_path.file_name().unwrap().to_str().unwrap().to_owned(),
