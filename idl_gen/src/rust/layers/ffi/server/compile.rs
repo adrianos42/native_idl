@@ -1,24 +1,14 @@
 use idl::ids;
-
 use crate::{lang::StorageItem, rust::layers::LayerBuilder};
-use cargo::core::{PackageId, Target, TargetKind, Workspace};
-use cargo::util::{dylib_path, interning::InternedString, process, CargoResult, ProcessBuilder};
-use cargo::{
-    core::{
-        compiler::{CompileKind, CompileMode, CompileTarget, Executor},
-        Shell,
-    },
-    ops::CompileOptions,
-    Config,
-};
-use cargo::{
-    core::{manifest::TargetSourcePath, Verbosity, VirtualManifest},
-    util::{paths::read_bytes, ConfigValue},
-};
-
-use std::io::{self, Write};
+use std::{collections::HashMap, io::{self, Write}};
 use std::{fs::File, path::PathBuf, str::FromStr};
 use tempfile::tempdir;
+use cargo::{Config, core::{Verbosity, compiler::Executor}, ops::CompileOptions, util::{ConfigValue, config::Definition, interning::InternedString, paths::read_bytes}};
+use cargo::core::compiler::{CompileKind, CompileMode, CompileTarget};
+use cargo::core::manifest::TargetSourcePath;
+use cargo::core::{PackageId, Target, TargetKind, Workspace};
+use cargo::util::command_prelude::{ArgMatchesExt, ProfileChecking};
+use cargo::util::{process, CargoResult, ProcessBuilder, dylib_path};
 
 pub fn ffi_server_files(
     analyzer: &idl::analyzer::Analyzer,
