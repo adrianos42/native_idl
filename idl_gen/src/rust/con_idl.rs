@@ -42,6 +42,11 @@ pub(crate) fn get_rust_ty_ref(ty: &TypeName, references: bool) -> TokenStream {
             let err_ty = get_rust_ty_ref(&value.err_ty, references);
             quote! { Result<#ok_ty, #err_ty> }
         }
+        TypeName::TypePair(value) => {
+            let first_ty = get_rust_ty_ref(&value.first_ty, references);
+            let second_ty = get_rust_ty_ref(&value.second_ty, references);
+            quote! { (#first_ty, #second_ty) }
+        }
         TypeName::TypeOption(value) => {
             let some_ty = get_rust_ty_ref(&value.some_ty, references);
             quote! { Option<#some_ty> }
@@ -105,6 +110,11 @@ pub(crate) fn get_rust_ty_name(ty: &TypeName) -> String {
             let ok_ty = get_rust_ty_name(&value.ok_ty);
             let err_ty = get_rust_ty_name(&value.err_ty);
             format!("Result{}{}_", ok_ty, err_ty)
+        }
+        TypeName::TypePair(value) => {
+            let first_ty = get_rust_ty_name(&value.first_ty);
+            let second_ty = get_rust_ty_name(&value.second_ty);
+            format!("Pair{}{}_", first_ty, second_ty)
         }
         TypeName::TypeOption(value) => {
             let some_ty = get_rust_ty_name(&value.some_ty);

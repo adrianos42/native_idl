@@ -379,11 +379,10 @@ impl Analyzer {
 
     fn has_duplicate_names(items: &AnalyzerItems) -> Result<(), DuplicateNameError> {
         let names = items
-            .clients
+            .layers
             .iter()
-            .filter(|&x| x != "Main")
-            .chain(items.servers.iter().filter(|&x| x != "Main"))
-            .chain(items.layers.iter());
+            .chain(items.clients.iter().filter(|&x| x != "Main"))
+            .chain(items.servers.iter().filter(|&x| x != "Main"));
         if let Some(value) = names
             .clone()
             .find(|v| names.clone().filter(|f| f == v).count() != 1)

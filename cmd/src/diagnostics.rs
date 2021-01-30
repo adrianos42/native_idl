@@ -214,6 +214,7 @@ impl Message {
             //Message::Spec { id, range, err } => Diagnostic::error().with_message("spec error"),
             Message::IdlParser { id, range, err } => {
                 let (message, e_range) = err.get_message_with_range();
+                //let message = format!("{:?}", err);
 
                 Diagnostic::error()
                     .with_message("parser error")

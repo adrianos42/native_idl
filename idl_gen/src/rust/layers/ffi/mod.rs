@@ -33,26 +33,32 @@ impl FFIMod {
     }
 }
 
-pub(crate) fn get_ffi_ty_ref(ty: &TypeName, references: bool, analyzer: &Analyzer) -> TokenStream {
-    let ident_ty = get_value_ffi_ty_ref(ty, references, analyzer);
+pub(crate) trait FFITypeName {
+    fn get_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
+}
 
-    match ty {
-        TypeName::Types(types) => match types {
-            Types::NatInt | Types::NatBool | Types::NatNone | Types::NatFloat => ident_ty,
-            _ => quote! { *const #ident_ty },
-        },
-        TypeName::EnumTypeName(_) => ident_ty,
-        TypeName::ConstTypeName(value) => {
-            let const_ty = analyzer
-                .find_ty_const(&value)
-                .expect("Could not reference const type");
-            match const_ty.const_type {
-                ConstTypes::NatString => quote! { *const #ident_ty },
-                ConstTypes::NatInt | ConstTypes::NatFloat => ident_ty,
+impl FFITypeName for TypeName {
+    fn get_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream {
+        let ident_ty = get_value_ffi_ty_ref(self, references, analyzer);
+
+        match self {
+            TypeName::Types(types) => match types {
+                Types::NatInt | Types::NatBool | Types::NatNone | Types::NatFloat => ident_ty,
+                _ => quote! { *const #ident_ty },
+            },
+            TypeName::EnumTypeName(_) => ident_ty,
+            TypeName::ConstTypeName(value) => {
+                let const_ty = analyzer
+                    .find_ty_const(&value)
+                    .expect("Could not reference const type");
+                match const_ty.const_type {
+                    ConstTypes::NatString => quote! { *const #ident_ty },
+                    ConstTypes::NatInt | ConstTypes::NatFloat => ident_ty,
+                }
             }
+            TypeName::TypeFunction(_) | TypeName::TypeTuple(_) => panic!("Invalid type `{:?}`", self),
+            _ => quote! { *const #ident_ty },
         }
-        TypeName::TypeFunction(_) | TypeName::TypeTuple(_) => panic!("Invalid type `{:?}`", ty),
-        _ => quote! { *const #ident_ty },
     }
 }
 
@@ -100,6 +106,7 @@ pub(crate) fn get_value_ffi_ty_ref(
         },
         TypeName::TypeArray(_) => quote! { AbiArray },
         TypeName::TypeMap(_) => quote! { AbiMap },
+        TypeName::TypePair(_) => quote! { AbiPair },
         TypeName::TypeStream(_) => quote! { AbiStream },
         TypeName::TypeOption(_) | TypeName::TypeResult(_) => quote! { AbiVariant },
         TypeName::ConstTypeName(value) => {
@@ -127,7 +134,6 @@ pub(crate) fn get_value_ffi_ty_ref(
             let ident = format_ident!("{}Instance", value);
             quote! { ffi_impl::#ident }
         }
-
         sw => panic!("Invalid type `{:?}`", sw),
     }
 }
@@ -152,7 +158,8 @@ pub(crate) fn conv_ffi_to_value(
         | TypeName::StructTypeName(_)
         | TypeName::TypeStream(_)
         | TypeName::TypeOption(_)
-        | TypeName::TypeResult(_) => {
+        | TypeName::TypeResult(_)
+        | TypeName::TypePair(_) => {
             return conv_ffi_ptr_to_value(ty_name, ffi_name, references, analyzer)
         }
         TypeName::ConstTypeName(value) => {
@@ -167,7 +174,10 @@ pub(crate) fn conv_ffi_to_value(
                 _ => {}
             };
         }
-        _ => {}
+        TypeName::TypeFunction(_)
+        | TypeName::TypeTuple(_)
+        | TypeName::EnumTypeName(_)
+        | TypeName::InterfaceTypeName(_) => {}
     }
 
     conv_ffi_value_to_value(ty_name, ffi_name, references, analyzer)
@@ -245,6 +255,22 @@ pub(crate) fn conv_ffi_value_to_value(
                 _map_result
             } }
         }
+        TypeName::TypePair(value) => {
+            let first_value = quote! { _first_value };
+            let second_value = quote! { _second_value };
+            let first_ty_ident = get_value_ffi_ty_ref(&value.first_ty, references, analyzer);
+            let second_ty_ident = get_value_ffi_ty_ref(&value.second_ty, references, analyzer);
+            let con_first_name =
+                conv_ffi_ptr_to_value(&value.first_ty, &first_value, references, analyzer);
+            let con_second_name =
+                conv_ffi_ptr_to_value(&value.second_ty, &second_value, references, analyzer);
+            quote! { {
+                let _pair = #ffi_name;
+                let #first_value = _pair.first_data as *const #first_ty_ident;
+                let #second_value = _pair.second_data as *const #second_ty_ident;
+                (#con_first_name, #con_second_name)
+            } }
+        }
         TypeName::TypeOption(value) => {
             let some_value = quote! { _some_value };
             let con_name = conv_ffi_ptr_to_value(&value.some_ty, &some_value, references, analyzer);
@@ -294,7 +320,9 @@ pub(crate) fn conv_ffi_value_to_value(
 
             conv_ffi_value_to_value(c_ty, ffi_name, references, analyzer)
         }
-        sw => panic!("Invalid type `{:?}`", sw),
+        TypeName::TypeFunction(_) | TypeName::TypeTuple(_) | TypeName::InterfaceTypeName(_) => {
+            panic!("Invalid type")
+        }
     }
 }
 
@@ -325,6 +353,7 @@ pub(crate) fn conv_value_to_ffi(
         },
         TypeName::TypeArray(_)
         | TypeName::TypeMap(_)
+        | TypeName::TypePair(_)
         | TypeName::TypeOption(_)
         | TypeName::TypeResult(_)
         | TypeName::ListTypeName(_)
@@ -410,6 +439,20 @@ pub(crate) fn conv_value_to_ffi_value(
                 std::mem::forget(_array_map_k);
                 std::mem::forget(_array_map_v);
                 _inn_array_map
+            } }
+        }
+        TypeName::TypePair(value) => {
+            let first_value = quote! { #value_name.0 };
+            let second_value = quote! { #value_name.1 };
+            let to_first =
+                conv_value_to_ffi_boxed(&value.first_ty, &first_value, references, analyzer);
+            let to_second =
+                conv_value_to_ffi_boxed(&value.second_ty, &second_value, references, analyzer);
+
+            quote! { {
+                let _first_data = #to_first as *const ::core::ffi::c_void;
+                let _second_data = #to_second as *const ::core::ffi::c_void;
+                AbiPair { first_data: _first_data, second_data: _second_data }
             } }
         }
         TypeName::TypeOption(value) => {

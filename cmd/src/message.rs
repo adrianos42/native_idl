@@ -1,15 +1,11 @@
-use term;
-
+use ansi_term::Color;
 pub struct Message;
 
 impl Message {
     pub fn error(name: &str, message: &str) -> anyhow::Result<()> {
         if !message.is_empty() {
-            let mut terminal = term::stdout().unwrap();
-            println!("{}: ", name);
-            terminal.fg(term::color::RED)?;
-            println!("{}", message);
-            terminal.reset()?;
+            println!("{}: ", Color::White.paint(name));
+            println!("{}", Color::Red.paint(message));
         }
 
         Ok(())
@@ -17,13 +13,10 @@ impl Message {
 
     pub fn normal(name: &str, messages: Vec<String>) -> anyhow::Result<()> {
         if !messages.is_empty() && messages.iter().any(|v| !v.is_empty()) {
-            println!("{}: ", name);
-            let mut terminal = term::stdout().unwrap();
-            terminal.fg(term::color::BRIGHT_BLUE)?;
+            println!("{}: ", Color::White.paint(name));
             for message in messages {
-                println!("{}", message);
+                println!("{}", Color::Blue.paint(message));
             }
-            terminal.reset()?;
         }
 
         Ok(())
@@ -31,7 +24,7 @@ impl Message {
 
     pub fn info(message: &str) -> anyhow::Result<()> {
         if !message.is_empty() {
-            println!("{}", message);
+            println!("{}", Color::White.paint(message));
         }
 
         Ok(())

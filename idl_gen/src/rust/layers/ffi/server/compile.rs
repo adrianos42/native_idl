@@ -83,7 +83,7 @@ impl LayerBuilder for FFILayer {
 
         let mut compile_options = CompileOptions::new(&config, CompileMode::Build)?;
         compile_options.build_config.requested_profile = InternedString::new("release");
-
+        
         let comp = cargo::ops::compile(&ws, &compile_options)?;
 
         let mut files = vec![];

@@ -22,11 +22,15 @@ type IdlNode {
     StreamComment: string[],
     TypeListComment: string[],
     TypeInterface: TypeInterface,
+    Tokens: pair[string, bytes][][],
+    Mpp: map[string, bool][],
 }
 
 struct TypeInterface {
     ident: string,
     fields: bytes[],
+    tokens: pair[string, bytes],
+    mp: map[string, bool],
 }
 
 const Never {
@@ -34,11 +38,12 @@ const Never {
     vcxmxkv: "43242340"
 }
 
-
 interface GetName {
     names: (thef: stream[map[Never, string]]),
     ship: option[int],
     numbers: result[bool, int],
+    tokens: pair[string, bytes][],
+    mp: map[string, bool][],
 }
 "#;
 
@@ -53,7 +58,7 @@ interface GetName {
                 Err(err) => println!("Error: {}", err),
             },
             Err(err) => {
-                panic!("{} at {:?}", err.1, err.1.get_range());
+                panic!("{:?} at {:?}", err.1, err.1.get_range());
             }
         }
     }

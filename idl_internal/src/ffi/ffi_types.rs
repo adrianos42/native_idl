@@ -90,14 +90,6 @@ pub struct AbiStream {
     pub wake_handle: i64,
     pub wake_object: *const ::core::ffi::c_void,
     pub wake_callback: *const ::core::ffi::c_void,
-    // Complete: null
-    // Close: null?
-    // Send: `AbiStreamSize`
-    // Partial: `AbiStreamPartial`
-    // Values: null
-    // Event: result type
-    // Waiting: the stream length
-    // Error: null?
     pub data: *const ::core::ffi::c_void,
 }
 
@@ -130,6 +122,12 @@ pub struct AbiMap {
     pub length: i64,
     pub key: *const ::core::ffi::c_void,
     pub data: *const ::core::ffi::c_void,
+}
+
+#[repr(C)]
+pub struct AbiPair {
+    pub first_data: *const ::core::ffi::c_void,
+    pub second_data: *const ::core::ffi::c_void,
 }
 
 #[repr(C)]

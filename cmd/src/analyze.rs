@@ -29,15 +29,15 @@ pub fn create_command<'a>() -> App<'a> {
 pub fn parse(matches: &ArgMatches) -> Result<()> {
     let input = matches.value_of("input").unwrap();
     let library = matches.value_of("library");
-
+    
     println!("Analyzing files...");
 
     let module = crate::open_directory(std::path::Path::new(input))?;
     module.update_module()?;
 
-    diagnostics::diagnostic(&module)?;
-
-    println!("ok");
-
+    if !diagnostics::diagnostic(&module)? {
+        println!("ok");
+    } 
+    
     Ok(())
 }

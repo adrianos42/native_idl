@@ -6,8 +6,9 @@ use crate::reserved::{
     field_name_is_valid, is_reserved_type, is_reserved_word, type_name_is_valid, NameError,
 };
 use crate::scanner;
-use std::fmt;
+use std::{fmt, path::Path};
 use std::sync::Arc;
+use idl_nodes::TypePair;
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy)]
@@ -803,6 +804,7 @@ impl Analyzer {
         Ok(analyzer)
     }
 
+   
     fn returns_interface(ty_name: &idl_nodes::TypeName) -> bool {
         match ty_name {
             // Result cannot be returned as an error
@@ -859,6 +861,7 @@ impl Analyzer {
                     idl_nodes::TypeName::ListTypeName(_)
                     | idl_nodes::TypeName::EnumTypeName(_)
                     | idl_nodes::TypeName::StructTypeName(_)
+                    | idl_nodes::TypeName::TypePair(_)
                     | idl_nodes::TypeName::ConstTypeName(_) => None,
                     _ => Some(ty_ref),
                 };
@@ -890,6 +893,8 @@ impl Analyzer {
                     idl_nodes::TypeName::ListTypeName(_)
                     | idl_nodes::TypeName::EnumTypeName(_)
                     | idl_nodes::TypeName::StructTypeName(_)
+                    | idl_nodes::TypeName::TypeMap(_)
+                    | idl_nodes::TypeName::TypePair(_)
                     | idl_nodes::TypeName::ConstTypeName(_) => None,
                     _ => Some(ty_ref),
                 };
@@ -949,7 +954,7 @@ impl Analyzer {
             idl_nodes::TypeName::TypeStream(value) => {
                 types.append(&mut self.add_types_for_recursive(&value.s_ty, range))
             }
-            _ => {},
+            _ => {}
         };
 
         types
@@ -1490,6 +1495,12 @@ impl AnalyzerItems {
                     ok_ty: self.get_type(result.ok_ty.clone())?,
                     err_ty: self.get_type(result.err_ty.clone())?,
                 },
+            ))),
+            parser::Type::Pair(pair) => Ok(idl_nodes::TypeName::TypePair(Box::new(
+                idl_nodes::TypePair {
+                    first_ty: self.get_type(pair.first_ty.clone())?,
+                    second_ty: self.get_type(pair.second_ty.clone())?,
+                }
             ))),
             parser::Type::Stream(stream) => Ok(idl_nodes::TypeName::TypeStream(Box::new(
                 idl_nodes::TypeStream {

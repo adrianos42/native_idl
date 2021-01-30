@@ -201,7 +201,7 @@ impl FFIServer {
                     if let Some(args) = args {
                         for arg in args {
                             let arg_ident = format_ident!("{}", &arg.ident);
-                            let arg_ty_ident = get_ffi_ty_ref(&arg.ty, true, analyzer);
+                            let arg_ty_ident = arg.ty.get_ffi_ty_ref(true, analyzer);
 
                             let arg_call_name = format!("_{}_arg_val", arg.ident);
                             let arg_value_ident = format_ident!("{}", &arg_call_name);
@@ -229,7 +229,7 @@ impl FFIServer {
                             // Add the argument that is converted to a rust value
                             let stream_ident = quote! { _stream };
                             let stream_value_ident = quote! { _stream_val };
-                            let arg_ty_ident = get_ffi_ty_ref(&ret_ty, true, analyzer);
+                            let arg_ty_ident = ret_ty.get_ffi_ty_ref(true, analyzer);
                             args_value.push(quote! { #stream_value_ident });
                             args_ffi.push(quote! { #stream_ident: #arg_ty_ident });
                             let con = conv_ffi_to_value(&ret_ty, &stream_ident, true, analyzer);
@@ -241,7 +241,7 @@ impl FFIServer {
                         }
                         _ => {
                             let result_ident = quote! { _result };
-                            let result_ty_ident = get_ffi_ty_ref(ret_ty, true, analyzer);
+                            let result_ty_ident = ret_ty.get_ffi_ty_ref(true, analyzer);
                             args_ffi.push(quote! { #result_ident: *mut #result_ty_ident });
 
                             let result_val_ident = quote! { _result_val };
@@ -353,7 +353,7 @@ impl FFIServer {
                         let func_ffi_ident = format_ident!("dispose_{}", field_name);
 
                         let result_ident = quote! { _result };
-                        let result_ty_ident = get_ffi_ty_ref(ret_ty, true, analyzer);
+                        let result_ty_ident = ret_ty.get_ffi_ty_ref(true, analyzer);
                         let args_ident =
                             quote! { #instance_args #result_ident: *mut #result_ty_ident };
                         let body_ident = quote! {
@@ -429,7 +429,7 @@ impl FFIServer {
                 let result_ident = quote! { _result };
                 // let result_val_ident = quote! { _result_val };
 
-                let result_ty_ident = get_ffi_ty_ref(&interface_ty_ident, true, analyzer);
+                let result_ty_ident = interface_ty_ident.get_ffi_ty_ref(true, analyzer);
 
                 let result_conv = quote! {
                     Box::into_raw(Box::new({
@@ -458,7 +458,7 @@ impl FFIServer {
                 let result_ident = quote! { _result };
                // let result_val_ident = quote! { _result_val };
 
-                let result_ty_ident = get_ffi_ty_ref(&interface_ty_ident, true, analyzer);
+                let result_ty_ident = interface_ty_ident.get_ffi_ty_ref(true, analyzer);
 
                 quote! { #result_ident: *mut #result_ty_ident }
             };
@@ -659,7 +659,7 @@ impl FFIServerTypes {
             match field_node {
                 StructNode::StructField(field) => {
                     let field_name = format_ident!("{}", &field.ident);
-                    let field_ty_name = get_ffi_ty_ref(&field.ty, false, analyzer);
+                    let field_ty_name = field.ty.get_ffi_ty_ref(false, analyzer);
                     let field_value = quote! { value.#field_name };
                     fields.push(quote! { pub #field_name: #field_ty_name, });
 

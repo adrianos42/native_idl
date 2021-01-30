@@ -9,16 +9,18 @@ static KEYWORDS: &'static [&str] = &[
     "interface",
     "import",
     "library",
-    "static",
-    "stream",
     "type",
     "const",
+    "static",
+    "stream",
     "layer",
     "server",
     "client",
-    "map",
     "result",
     "option",
+    "map",
+    "set",
+    "pair",
 ];
 
 static BOOLEAN_VALUES: &'static [&str] = &["false", "true"];
@@ -27,7 +29,7 @@ static NATIVE_TYPES: &'static [&str] = &["int", "float", "bool", "string", "byte
 
 static ATTRIBUTES_NAMES: &'static [&str] = &["deprecated"];
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Keywords {
     Enum,
     Struct,
@@ -41,10 +43,11 @@ pub enum Keywords {
     Layer,
     Server,
     Client,
-    Map,
     Result,
     Option,
+    Map,
     Set,
+    Pair,
 }
 
 impl From<&str> for Keywords {
@@ -66,6 +69,7 @@ impl From<&str> for Keywords {
             "result" => Keywords::Result,
             "option" => Keywords::Option,
             "set" => Keywords::Set,
+            "pair" => Keywords::Pair,
             _ => panic!(),
         }
     }
@@ -90,6 +94,7 @@ impl fmt::Display for Keywords {
             Keywords::Option => "option",
             Keywords::Map => "map",
             Keywords::Set => "set",
+            Keywords::Pair => "pair",
         };
 
         write!(f, "{}", name)
