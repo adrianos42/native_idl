@@ -1,7 +1,7 @@
 mod server;
 mod client;
 mod layer;
-mod library;
+mod package;
 pub mod analyzer;
 pub mod parser;
 pub mod ids_nodes;

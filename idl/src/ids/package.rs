@@ -17,7 +17,7 @@ pub(super) fn get_node(
     let mut has_server = false;
 
     let create_field_node = |ident: &str, value| {
-        LibraryNode::LibraryField(Box::new(LibraryField {
+        PackageNode::PackageField(Box::new(PackageField {
             value: Box::new(value),
             ident: ident.to_owned(),
         }))
@@ -28,6 +28,28 @@ pub(super) fn get_node(
             parser::ItemNode::ItemField(field) => {
                 let value = analyzer_items.get_ids_node(&field.value)?;
                 match field.ident.as_str() {
+                    "libs" => match &value {
+                        ItemType::Values(values) => {
+                            for value in values {
+                                if !value.is_identifier() {
+                                    return Err(analyzer::ReferenceError(
+                                        analyzer::ReferenceErrorKind::NotIdentifier,
+                                        field.range,
+                                        value.to_string(),
+                                    )
+                                    .into());
+                                }
+                            }
+                        }
+                        _ => {
+                            return Err(analyzer::ReferenceError(
+                                analyzer::ReferenceErrorKind::NotValues,
+                                field.range,
+                                field.ident.to_owned(),
+                            )
+                            .into());
+                        }
+                    },
                     "version" => {
                         if !value.is_string() {
                             return Err(analyzer::ReferenceError(
@@ -134,7 +156,10 @@ pub(super) fn get_node(
     }
 
     if !has_author {
-        nodes.push(create_field_node("author", ItemType::NatString("".to_owned())))
+        nodes.push(create_field_node(
+            "author",
+            ItemType::NatString("".to_owned()),
+        ))
     }
 
     if !has_client {
@@ -153,8 +178,8 @@ pub(super) fn get_node(
 
     let ident = match &item.ident {
         parser::ItemIdent::Identifier(value) => value.ident.to_owned(),
-        parser::ItemIdent::TypeName(_) => return Err(analyzer::AnalyzerError::LibraryDefinition),
+        parser::ItemIdent::TypeName(_) => return Err(analyzer::AnalyzerError::PackageDefinition),
     };
 
-    Ok(IdsNode::Library(Box::new(Library { ident, nodes })))
+    Ok(IdsNode::Package(Box::new(Package { ident, nodes })))
 }

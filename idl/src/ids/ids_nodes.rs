@@ -1,8 +1,10 @@
-use serde::{Deserialize, Serialize};
+use core::fmt;
+
+use serde::{de::value, Deserialize, Serialize};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Keywords {
-    Library,
+    Package,
     Layer,
     Client,
     Server,
@@ -14,10 +16,36 @@ pub enum ItemType {
     NatFloat(f64),
     NatString(String),
     NatBool(bool),
+    Identifier(String),
     LayerTypeName(String),
     ClientTypeName(String),
     ServerTypeName(String),
     Values(Vec<ItemType>),
+}
+
+impl fmt::Display for ItemType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let errstr = match self {
+            ItemType::NatInt(value) => value.to_string(),
+            ItemType::NatFloat(value) => value.to_string(),
+            ItemType::NatString(value) => format!("\"{}\"", value),
+            ItemType::NatBool(value) => value.to_string(),
+            ItemType::Identifier(value) => value.to_owned(),
+            ItemType::ServerTypeName(value)
+            | ItemType::ClientTypeName(value)
+            | ItemType::LayerTypeName(value) => value.to_owned(),
+            ItemType::Values(value) => {
+                format!(
+                    "{}]",
+                    value
+                        .iter()
+                        .fold("[".to_owned(), |p, val| format!("{}{},", p, val))
+                )
+            }
+        };
+
+        write!(f, "{}", errstr)
+    }
 }
 
 impl ItemType {
@@ -27,42 +55,56 @@ impl ItemType {
             _ => false,
         }
     }
+
     pub fn is_float(&self) -> bool {
         match self {
             ItemType::NatFloat(_) => true,
             _ => false,
         }
     }
+
     pub fn is_string(&self) -> bool {
         match self {
             ItemType::NatString(_) => true,
             _ => false,
         }
     }
+
     pub fn is_boolean(&self) -> bool {
         match self {
             ItemType::NatBool(_) => true,
             _ => false,
         }
     }
+
     pub fn is_layer(&self) -> bool {
         match self {
             ItemType::LayerTypeName(_) => true,
             _ => false,
         }
     }
+
     pub fn is_client(&self) -> bool {
         match self {
             ItemType::ClientTypeName(_) => true,
             _ => false,
         }
     }
+
     pub fn is_server(&self) -> bool {
         match self {
             ItemType::ServerTypeName(_) => true,
             _ => false,
         }
     }
+
+    pub fn is_identifier(&self) -> bool {
+        match self {
+            ItemType::Identifier(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_values(&self) -> bool {
         match self {
             ItemType::Values(_) => true,
@@ -129,26 +171,26 @@ impl ItemType {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum IdsNode {
-    Library(Box<Library>),
+    Package(Box<Package>),
     Layer(Box<super::layer::Layer>),
     Server(Box<super::server::Server>),
     Client(Box<super::client::Client>),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Library {
+pub struct Package {
     pub ident: String,
-    pub nodes: Vec<LibraryNode>,
+    pub nodes: Vec<PackageNode>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub enum LibraryNode {
-    LibraryField(Box<LibraryField>),
+pub enum PackageNode {
+    PackageField(Box<PackageField>),
     Comment(Vec<String>),
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct LibraryField {
+pub struct PackageField {
     pub ident: String,
     pub value: Box<ItemType>,
 }

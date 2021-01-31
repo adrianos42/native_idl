@@ -1,13 +1,13 @@
-use crate::scanner::{ContextStream, WordStream};
-use std::{sync::Arc, fmt};
-use thiserror::Error;
 use crate::range::{Position, Range};
+use crate::scanner::{ContextStream, WordStream};
+use std::{fmt, sync::Arc};
+use thiserror::Error;
 
-pub use crate::parser::{Keywords, ScannerError, TypeName};
+pub use crate::parser::{Identifier, Keywords, ScannerError, TypeName};
 
 #[derive(Debug)]
 pub enum ParserNode {
-    Library(Arc<Item>),
+    Package(Arc<Item>),
     Layer(Arc<Item>),
     Server(Arc<Item>),
     Client(Arc<Item>),
@@ -15,8 +15,21 @@ pub enum ParserNode {
 
 #[derive(Debug)]
 pub enum ItemIdent {
-    TypeName(TypeName),   // Type declaration
-    Identifier(TypeName), // Usually, only the library declarion
+    TypeName(TypeName),     // Type declaration
+    Identifier(Identifier), // Usually, only the library declarion
+}
+
+impl fmt::Display for ItemIdent {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                ItemIdent::TypeName(name) => &name.ident,
+                ItemIdent::Identifier(name) => &name.ident,
+            }
+        )
+    }
 }
 
 #[derive(Debug)]
@@ -39,6 +52,7 @@ pub enum ItemType {
     String(String),
     Boolean(String),
     TypeName(TypeName),
+    Identifier(Identifier),
     Values(Vec<ItemType>),
 }
 
@@ -73,6 +87,7 @@ impl fmt::Display for ItemType {
                         p + ", "
                     } + &v.to_string())
                 ),
+                ItemType::Identifier(value) => value.ident.to_owned(),
             }
         )
     }
@@ -143,7 +158,7 @@ impl fmt::Display for ItemFieldErrorKind {
             ItemFieldErrorKind::MissingComma => "Missing `,`",
             ItemFieldErrorKind::MissingCurlyBracket => "Missing `}`",
             ItemFieldErrorKind::MissingIdentifier => "Missing identifier",
-            ItemFieldErrorKind::MultipleIdentifier => "Multiple identifier",
+            ItemFieldErrorKind::MultipleIdentifiers => "Multiple identifier",
             ItemFieldErrorKind::MissingSquareBracket => "Missing `]`",
         };
 
@@ -157,7 +172,7 @@ pub enum ItemFieldErrorKind {
     EmptyBody,
     IncompleteField,
     ItemTypeMustBeUnique,
-    MultipleIdentifier,
+    MultipleIdentifiers,
     InvalidSymbol,
     MissingIdentifier,
     MissingAssignment,
@@ -178,14 +193,13 @@ pub enum ParserError {
     Item(#[from] ItemError),
 }
 
-
 impl ParserError {
     pub fn get_message_with_range(&self) -> (String, Range) {
         match self {
             ParserError::Closed => (self.to_string(), Range::default()),
             ParserError::Undefined(_, range) => (self.to_string(), *range),
             ParserError::Text(ScannerError(kind, range)) => (kind.to_string(), *range),
-            ParserError::Item(ItemError(kind, range)) => (kind.to_string(), *range)
+            ParserError::Item(ItemError(kind, range)) => (kind.to_string(), *range),
         }
     }
 
@@ -198,7 +212,6 @@ impl ParserError {
         }
     }
 }
-
 
 #[derive(Debug, Default)]
 pub struct Parser {
@@ -237,19 +250,25 @@ impl Parser {
                         }
                         Keywords::Server => {
                             match Self::consume_item(&mut word_stream, start_position) {
-                                Ok(value) => context.nodes.push(ParserNode::Server(Arc::new(value))),
+                                Ok(value) => {
+                                    context.nodes.push(ParserNode::Server(Arc::new(value)))
+                                }
                                 Err(err) => return Err((context, err.into())),
                             }
                         }
-                        Keywords::Library => {
+                        Keywords::Package => {
                             match Self::consume_item(&mut word_stream, start_position) {
-                                Ok(value) => context.nodes.push(ParserNode::Library(Arc::new(value))),
+                                Ok(value) => {
+                                    context.nodes.push(ParserNode::Package(Arc::new(value)))
+                                }
                                 Err(err) => return Err((context, err.into())),
                             }
                         }
                         Keywords::Client => {
                             match Self::consume_item(&mut word_stream, start_position) {
-                                Ok(value) => context.nodes.push(ParserNode::Client(Arc::new(value))),
+                                Ok(value) => {
+                                    context.nodes.push(ParserNode::Client(Arc::new(value)))
+                                }
                                 Err(err) => return Err((context, err.into())),
                             }
                         }
@@ -328,7 +347,7 @@ impl Parser {
                         return Err(ItemError(ItemErrorKind::TypeDeclaration, name_range));
                     }
 
-                    item_name = Some(ItemIdent::Identifier(TypeName {
+                    item_name = Some(ItemIdent::Identifier(Identifier {
                         ident: name.get_word().to_owned(),
                         range: name_range,
                     }));
@@ -426,16 +445,27 @@ impl Parser {
                                 }
                             }
                             WordStream::Identifier(ident) => {
+                                let range = ident.range;
+
                                 parsing = match parsing {
+                                    ItemFieldParsing::ExpectingValue => {
+                                        item_type = Some(ItemType::Identifier(Identifier {
+                                            ident: ident.get_word().to_owned(),
+                                            range,
+                                        }));
+                                        field_range = field_range.merge(range);
+                                        last_range = range.end_as_range();
+                                        ItemFieldParsing::Value
+                                    }
                                     ItemFieldParsing::ExpectingIdentifier => {
                                         field_name = Some(ident.get_word().to_owned());
-                                        field_range = ident.range;
+                                        field_range = range;
                                         last_range = field_range.end_as_range();
                                         ItemFieldParsing::ExpectingColon
                                     }
                                     ItemFieldParsing::ExpectingColon => {
                                         return Err(ItemFieldError(
-                                            ItemFieldErrorKind::MultipleIdentifier,
+                                            ItemFieldErrorKind::MultipleIdentifiers,
                                             ident.range,
                                         ))
                                     }
@@ -503,13 +533,12 @@ impl Parser {
                             WordStream::TypeName(type_name) => {
                                 let range = type_name.range;
 
-                                item_type = Some(ItemType::TypeName(TypeName {
-                                    ident: type_name.get_word().to_owned(),
-                                    range,
-                                }));
-
                                 parsing = match parsing {
                                     ItemFieldParsing::ExpectingValue => {
+                                        item_type = Some(ItemType::TypeName(TypeName {
+                                            ident: type_name.get_word().to_owned(),
+                                            range,
+                                        }));
                                         field_range = field_range.merge(range);
                                         last_range = range.end_as_range();
 
@@ -673,13 +702,30 @@ impl Parser {
 
                                 if !expecting_value {
                                     return Err(ItemFieldError(
-                                        ItemFieldErrorKind::MultipleIdentifier,
+                                        ItemFieldErrorKind::MultipleIdentifiers,
                                         last_range.merge(range),
                                     ));
                                 }
 
                                 item_type = Some(ItemType::TypeName(TypeName {
                                     ident: type_name.get_word().to_owned(),
+                                    range,
+                                }));
+
+                                expecting_value = false;
+                            }
+                            WordStream::Identifier(ident) => {
+                                let range = ident.range;
+
+                                if !expecting_value {
+                                    return Err(ItemFieldError(
+                                        ItemFieldErrorKind::MultipleIdentifiers,
+                                        last_range.merge(range),
+                                    ));
+                                }
+
+                                item_type = Some(ItemType::Identifier(Identifier {
+                                    ident: ident.get_word().to_owned(),
                                     range,
                                 }));
 
@@ -693,7 +739,7 @@ impl Parser {
 
                                 if !expecting_value {
                                     return Err(ItemFieldError(
-                                        ItemFieldErrorKind::MultipleIdentifier,
+                                        ItemFieldErrorKind::MultipleIdentifiers,
                                         last_range.merge(range),
                                     ));
                                 }
@@ -728,7 +774,7 @@ impl Parser {
                     if let Some(item) = item_type.take() {
                         fields.push(item);
                     }
-                    
+
                     return Ok((
                         ItemType::Values(fields),
                         Range {

@@ -38,7 +38,8 @@ struct IdsDocument {
 #[derive(Debug, Default)]
 pub struct Module {
     idl_documents: RwLock<HashMap<String, IdlDocument>>,
-    ids_documents: RwLock<HashMap<String, IdsDocument>>,
+    ids_document: RwLock<Option<(String, IdsDocument)>>,
+    modules: RwLock<Vec<Module>>,
 }
 
 impl Module {
@@ -507,12 +508,8 @@ impl Module {
 
     // The current target library
     pub fn library_name(&self) -> Option<String> {
-        let documents = self.ids_documents.read().unwrap();
-        if documents.len() > 1 {
-            panic!("More than one ids not supported yet");
-        }
-
+        let document = self.ids_document.read().unwrap();
         // TODO proper option conversion
-        Some(documents.keys().last().unwrap().to_owned())
+        Some(document.unwrap().1..to_owned())
     }
 }

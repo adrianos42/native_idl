@@ -1,8 +1,9 @@
 mod analyzer {
     static IDS_FIRST: &str = r#"
-library idl_nodes {
+package idl_nodes {
     version: "1.0",
     idl_version: "0.1",
+    libs: [programmer],
 }
 
 server Main {
@@ -15,25 +16,31 @@ client Maine {
 }
 
 layer FFI {
-    description: "This is supposed to be the tranlation layer.",
+    description: "This is supposed to be the translation layer.",
 }
 "#;
 
+    use ansi_term::Color;
+    use anyhow::{format_err, Result};
     use idl::ids::analyzer;
     use idl::ids::parser;
 
     #[test]
-    fn try_this() {
+    fn try_this() -> Result<()> {
         match parser::Parser::parse(IDS_FIRST) {
-            Ok(parser) => {
-                match analyzer::Analyzer::resolve(&parser, None) {
-                    Ok(value) => {}
-                    Err(err) => println!("Error: {}", err),
-                }
-            }
+            Ok(parser) => match analyzer::Analyzer::resolve(&parser, None) {
+                Ok(_) => return Ok(()),
+                Err(err) => println!("Error: {}", Color::Red.paint(format!("{}", err))),
+            },
             Err(err) => {
-                println!("{} at {:?}", err.1, err.1.get_range());
+                println!(
+                    "{} at {:?}",
+                    Color::Red.paint(err.1.to_string()),
+                    err.1.get_range()
+                );
             }
         }
+
+        Err(format_err!(""))
     }
 }

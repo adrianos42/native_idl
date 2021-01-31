@@ -8,7 +8,7 @@ use crate::reserved::{
 
 use super::client;
 use super::layer;
-use super::library;
+use super::package;
 use super::server;
 
 use std::fmt;
@@ -26,6 +26,7 @@ pub enum ReferenceErrorKind {
     NotLayerTypeName,
     NotClientTypeName,
     NotServerTypeName,
+    NotIdentifier,
     NotValues,
 }
 
@@ -48,6 +49,7 @@ impl fmt::Display for ReferenceError {
             ReferenceErrorKind::NotClientTypeName => format!("Not a client `{}`", name),
             ReferenceErrorKind::NotServerTypeName => format!("Not a server `{}`", name),
             ReferenceErrorKind::NotValues => format!("Not a value vector `{}`", name),
+            ReferenceErrorKind::NotIdentifier => format!("Not an identifier `{}`", name),
         };
 
         write!(f, "{}", errstr)
@@ -77,10 +79,10 @@ pub enum AnalyzerError {
     Undefined,
     #[error("Analyzer closed")]
     Closed,
-    #[error("Library redefinition")]
-    LibraryDefinition,
+    #[error("Package redefinition")]
+    PackageDefinition,
     #[error("Missing library definition")]
-    MissingLibraryDefinition,
+    MissingPackageDefinition,
     #[error("Duplicate name `{0}`")]
     DuplicateName(#[from] DuplicateNameError),
     #[error("Duplicate name field `{0}`")]
@@ -96,8 +98,8 @@ impl AnalyzerError {
         match self {
             AnalyzerError::Undefined
             | AnalyzerError::Closed
-            | AnalyzerError::LibraryDefinition
-            | AnalyzerError::MissingLibraryDefinition => (self.to_string(), Range::default()),
+            | AnalyzerError::PackageDefinition
+            | AnalyzerError::MissingPackageDefinition => (self.to_string(), Range::default()),
             AnalyzerError::DuplicateFieldNameError(value) => (self.to_string(), value.1),
             AnalyzerError::DuplicateName(_value) => (self.to_string(), Range::default()),
             AnalyzerError::ReferenceError(value) => (self.to_string(), value.1),
@@ -151,6 +153,7 @@ impl AnalyzerItems {
                 })?))
             }
             parser::ItemType::String(value) => Ok(ItemType::NatString(value.to_owned())),
+            parser::ItemType::Identifier(value) => Ok(ItemType::Identifier(value.ident.to_owned())),
             parser::ItemType::TypeName(value) => {
                 if self.clients.contains(&value.ident) {
                     Ok(ItemType::ClientTypeName(value.ident.to_owned()))
@@ -195,15 +198,15 @@ impl Analyzer {
 
         for p_value in parsers.nodes.iter() {
             match p_value {
-                parser::ParserNode::Library(value) => {
+                parser::ParserNode::Package(value) => {
                     if items.library.is_some() {
-                        return Err(AnalyzerError::LibraryDefinition);
+                        return Err(AnalyzerError::PackageDefinition);
                     }
 
                     let name = match &value.ident {
                         parser::ItemIdent::Identifier(value) => value,
                         parser::ItemIdent::TypeName(_) => {
-                            return Err(AnalyzerError::LibraryDefinition)
+                            return Err(AnalyzerError::PackageDefinition)
                         }
                     };
 
@@ -260,8 +263,8 @@ impl Analyzer {
 
         for p_value in parsers.nodes.iter() {
             match p_value {
-                parser::ParserNode::Library(value) => {
-                    nodes.push(library::get_node(&value, &items)?)
+                parser::ParserNode::Package(value) => {
+                    nodes.push(package::get_node(&value, &items)?)
                 }
                 parser::ParserNode::Layer(value) => nodes.push(layer::get_node(&value, &items)?),
                 parser::ParserNode::Server(value) => nodes.push(server::get_node(&value, &items)?),
@@ -274,7 +277,7 @@ impl Analyzer {
 
     pub fn library_name(&self) -> Option<String> {
         for node in &self.nodes {
-            if let IdsNode::Library(name) = node {
+            if let IdsNode::Package(name) = node {
                 return Some(name.ident.clone());
             }
         }

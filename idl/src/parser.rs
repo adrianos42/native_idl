@@ -153,6 +153,18 @@ impl fmt::Display for TypeName {
 }
 
 #[derive(Debug)]
+pub struct Identifier {
+    pub ident: String,
+    pub range: Range,
+}
+
+impl fmt::Display for Identifier {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.ident.as_str())
+    }
+}
+
+#[derive(Debug)]
 pub struct TypeStream {
     pub s_ty: Arc<Type>,
     pub range: Range,
@@ -577,7 +589,7 @@ impl fmt::Display for InterfaceFieldErrorKind {
             InterfaceFieldErrorKind::MissingColon => "Missing `:`".to_owned(),
             InterfaceFieldErrorKind::MissingCurlyBracket => "Missing `}`".to_owned(),
             InterfaceFieldErrorKind::MissingIdentifier => "Missing identifier".to_owned(),
-            InterfaceFieldErrorKind::MultipleIdentifier => "Multiple identifier".to_owned(),
+            InterfaceFieldErrorKind::MultipleIdentifiers => "Multiple identifiers".to_owned(),
             InterfaceFieldErrorKind::Type(ty) => format!("Type error `{}`", ty.to_string()),
             InterfaceFieldErrorKind::TypeDeclaration => "Invalid type declaration".to_owned(),
             InterfaceFieldErrorKind::TypeTuple(ty) => format!("Tuple error `{}`", ty.to_string()),
@@ -593,7 +605,7 @@ pub enum InterfaceFieldErrorKind {
     Undefined(String),
     EmptyBody,
     IncompleteField,
-    MultipleIdentifier,
+    MultipleIdentifiers,
     MissingIdentifier,
     InvalidSymbol,
     InvalidBracketPlacement,
@@ -733,7 +745,7 @@ impl fmt::Display for StructFieldErrorKind {
             StructFieldErrorKind::MissingComma => "Missing `,`".to_owned(),
             StructFieldErrorKind::MissingCurlyBracket => "Missing `}`".to_owned(),
             StructFieldErrorKind::MissingIdentifier => "Missing identifier".to_owned(),
-            StructFieldErrorKind::MultipleIdentifier => "Multiple identifier".to_owned(),
+            StructFieldErrorKind::MultipleIdentifiers => "Multiple identifiers".to_owned(),
             StructFieldErrorKind::Type(ty) => ty.to_string(),
             StructFieldErrorKind::TypeDeclaration => "Type declaration".to_owned(),
         };
@@ -747,7 +759,7 @@ pub enum StructFieldErrorKind {
     Undefined,
     EmptyBody,
     IncompleteField,
-    MultipleIdentifier,
+    MultipleIdentifiers,
     InvalidSymbol,
     InvalidBracketPlacement,
     TypeDeclaration,
@@ -831,7 +843,7 @@ impl fmt::Display for TypeListFieldErrorKind {
             TypeListFieldErrorKind::Type(ty) => ty.to_string(),
             TypeListFieldErrorKind::TypeDeclaration => "Type declaration".to_owned(),
             TypeListFieldErrorKind::IncompleteField => "Incomplete field".to_owned(),
-            TypeListFieldErrorKind::MultipleIdentifier => "Multiple identifier".to_owned(),
+            TypeListFieldErrorKind::MultipleIdentifiers => "Multiple identifiers".to_owned(),
             TypeListFieldErrorKind::MissingIdentifier => "Missing identifier".to_owned(),
             TypeListFieldErrorKind::MissingColon => "Missing colon".to_owned(),
             TypeListFieldErrorKind::MissingComma => "Missing comma".to_owned(),
@@ -847,7 +859,7 @@ pub enum TypeListFieldErrorKind {
     Undefined,
     EmptyBody,
     IncompleteField,
-    MultipleIdentifier,
+    MultipleIdentifiers,
     InvalidSymbol,
     InvalidBracketPlacement,
     TypeDeclaration,
@@ -1084,7 +1096,7 @@ impl fmt::Display for ConstFieldErrorKind {
             ConstFieldErrorKind::MissingComma => "Missing `,`",
             ConstFieldErrorKind::MissingCurlyBracket => "Missing `}`",
             ConstFieldErrorKind::MissingIdentifier => "Missing identifier",
-            ConstFieldErrorKind::MultipleIdentifier => "Multiple identifier",
+            ConstFieldErrorKind::MultipleIdentifiers => "Multiple identifiers",
         };
 
         write!(f, "{}", errstr)
@@ -1097,7 +1109,7 @@ pub enum ConstFieldErrorKind {
     EmptyBody,
     IncompleteField,
     ConstTypeMustBeUnique,
-    MultipleIdentifier,
+    MultipleIdentifiers,
     InvalidSymbol,
     MissingIdentifier,
     MissingColon,
@@ -1775,7 +1787,7 @@ impl Parser {
                                             }
                                             InterfaceFieldParsing::ExpectingAttribute => {
                                                 return Err(InterfaceFieldError(
-                                                    InterfaceFieldErrorKind::MultipleIdentifier,
+                                                    InterfaceFieldErrorKind::MultipleIdentifiers,
                                                     last_range.merge(range),
                                                 ))
                                             }
@@ -1858,7 +1870,7 @@ impl Parser {
                                     }
                                     InterfaceFieldParsing::ExpectingColon => {
                                         return Err(InterfaceFieldError(
-                                            InterfaceFieldErrorKind::MultipleIdentifier,
+                                            InterfaceFieldErrorKind::MultipleIdentifiers,
                                             last_range.merge(range),
                                         ))
                                     }
@@ -1978,7 +1990,7 @@ impl Parser {
                                     }
                                     InterfaceFieldParsing::ExpectingAttribute => {
                                         return Err(InterfaceFieldError(
-                                            InterfaceFieldErrorKind::MultipleIdentifier,
+                                            InterfaceFieldErrorKind::MultipleIdentifiers,
                                             last_range.merge(range),
                                         ))
                                     }
@@ -2042,7 +2054,7 @@ impl Parser {
                                     }
                                     InterfaceFieldParsing::ExpectingAttribute => {
                                         return Err(InterfaceFieldError(
-                                            InterfaceFieldErrorKind::MultipleIdentifier,
+                                            InterfaceFieldErrorKind::MultipleIdentifiers,
                                             last_range.merge(range),
                                         ))
                                     }
@@ -2101,7 +2113,7 @@ impl Parser {
                                     }
                                     InterfaceFieldParsing::ExpectingAttribute => {
                                         return Err(InterfaceFieldError(
-                                            InterfaceFieldErrorKind::MultipleIdentifier,
+                                            InterfaceFieldErrorKind::MultipleIdentifiers,
                                             last_range.merge(range),
                                         ))
                                     }
@@ -3173,7 +3185,7 @@ impl Parser {
                                     }
                                     StructFieldParsing::ExpectingColon => {
                                         return Err(StructFieldError(
-                                            StructFieldErrorKind::MultipleIdentifier,
+                                            StructFieldErrorKind::MultipleIdentifiers,
                                             last_range.merge(range),
                                         ))
                                     }
@@ -3969,7 +3981,7 @@ impl Parser {
                                     }
                                     ConstFieldParsing::ExpectingColon => {
                                         return Err(ConstFieldError(
-                                            ConstFieldErrorKind::MultipleIdentifier,
+                                            ConstFieldErrorKind::MultipleIdentifiers,
                                             ident.range,
                                         ))
                                     }

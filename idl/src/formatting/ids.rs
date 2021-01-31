@@ -14,19 +14,19 @@ pub fn format_document(parser: &Parser) -> Option<String> {
 
     for node in &parser.nodes {
         match node {
-            ParserNode::Library(value)
+            ParserNode::Package(value)
             | ParserNode::Layer(value)
             | ParserNode::Server(value)
             | ParserNode::Client(value) => {
                 let keyword = match node {
-                    ParserNode::Library(_) => Keywords::Library,
+                    ParserNode::Package(_) => Keywords::Package,
                     ParserNode::Layer(_) => Keywords::Layer,
                     ParserNode::Server(_) => Keywords::Server,
                     ParserNode::Client(_) => Keywords::Client,
                 };
 
                 let body = match node {
-                    ParserNode::Library(_) => &mut library_body,
+                    ParserNode::Package(_) => &mut library_body,
                     _ => &mut body,
                 };
 
