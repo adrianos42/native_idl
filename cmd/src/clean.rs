@@ -12,11 +12,6 @@ enum GenArgs {
 
 pub fn create_command<'a>() -> App<'a> {
     App::new("clean").about("Clean generated files").args(&[
-        Arg::new("library")
-            .about("Target library name")
-            .short('l')
-            .long("library")
-            .takes_value(true),
         Arg::new("output")
             .about("Output path")
             .short('o')
@@ -24,7 +19,7 @@ pub fn create_command<'a>() -> App<'a> {
             .long("output")
             .takes_value(true),
         Arg::new("input")
-            .about("Library path")
+            .about("Package path")
             .default_value("idl/")
             .short('i')
             .long("input")
@@ -35,24 +30,11 @@ pub fn create_command<'a>() -> App<'a> {
 pub fn parse(matches: &ArgMatches) -> Result<()> {
     let input = matches.value_of("input").unwrap();
     let output = matches.value_of("output").unwrap();
-    let library = matches.value_of("library");
 
-    let module = crate::open_directory(std::path::Path::new(input))?;
-
-    let library_name = match library {
-        Some(_) => {
-            return Err(anyhow!("Cannot specify library name yet"));
-        }
-        None => {
-            if module.library_size() != 1 {
-                //return Err(anyhow!("Library must be specified"));
-            }
-
-            module.library_name().unwrap()
-        }
-    };
-
-    let _ = fs::remove_dir_all(Path::new(output).join(&library_name));
+    let mut module = crate::open_directory(std::path::Path::new(input))?;
+    module.update_ids_analyzer()?;
+    let package_name = module.package_name()?;
+    let _ = fs::remove_dir_all(Path::new(output).join(&package_name));
 
     Ok(())
 }

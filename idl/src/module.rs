@@ -1,6 +1,8 @@
+use crate::mod_package;
+
 use super::ids;
-use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
+use std::{collections::HashSet, sync::Arc};
+use std::{borrow::BorrowMut, collections::HashMap};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -11,20 +13,16 @@ pub enum ModuleError {
     DuplicateDocument,
     #[error("Could not remove document")]
     RemoveDocument,
-    #[error("Duplicate idlspec file")]
-    DuplicateSpec,
-    #[error("Invalid idlspec name")]
-    MissingSpec,
-    #[error("Missing idlspec file")]
-    InvalidSpecName,
-}
-
-#[derive(Debug)]
-struct IdlDocument {
-    text: Option<String>,
-    parser: Arc<Result<super::parser::Parser, (super::parser::Parser, super::parser::ParserError)>>,
-    analyzer: Arc<Result<super::analyzer::Analyzer, super::analyzer::AnalyzerError>>,
-    last_analyzer: Arc<Result<super::analyzer::Analyzer, super::analyzer::AnalyzerError>>,
+    #[error("Invalid package name")]
+    PackageInvalid,
+    #[error("Package not defined")]
+    PackageMissing,
+    #[error("Invalid document name")]
+    Document,
+    #[error("Could not find package name")]
+    PackageName,
+    #[error("Invalid package name")]
+    InvalidPackageName,
 }
 
 #[derive(Debug)]
@@ -35,11 +33,19 @@ struct IdsDocument {
     last_analyzer: Arc<Result<ids::analyzer::Analyzer, ids::analyzer::AnalyzerError>>,
 }
 
+#[derive(Debug)]
+struct IdlDocument {
+    text: Option<String>,
+    parser: Arc<Result<super::parser::Parser, (super::parser::Parser, super::parser::ParserError)>>,
+    analyzer: Arc<Result<super::analyzer::Analyzer, super::analyzer::AnalyzerError>>,
+    last_analyzer: Arc<Result<super::analyzer::Analyzer, super::analyzer::AnalyzerError>>,
+}
+
 #[derive(Debug, Default)]
 pub struct Module {
-    idl_documents: RwLock<HashMap<String, IdlDocument>>,
-    ids_document: RwLock<Option<(String, IdsDocument)>>,
-    modules: RwLock<Vec<Module>>,
+    idl_documents: HashMap<String, IdlDocument>,
+    ids_document: Option<(String, IdsDocument)>,
+    modules: Vec<Module>,
 }
 
 impl Module {
@@ -48,10 +54,10 @@ impl Module {
     }
 
     // Returns each document with an analyzer error
-    pub fn get_idl_analyze_errors(&self) -> HashMap<String, super::analyzer::AnalyzerError> {
-        let documents = self.idl_documents.read().unwrap();
+    // TODO Ignore closed error
+    pub fn idl_analyze_errors(&self) -> HashMap<String, super::analyzer::AnalyzerError> {
         let mut result = HashMap::new();
-        for (name, doc) in documents.iter() {
+        for (name, doc) in self.idl_documents.iter() {
             if let Ok(_) = &*doc.parser {
                 if let Err(err) = &*doc.analyzer {
                     result.insert(name.to_owned(), err.clone());
@@ -62,10 +68,9 @@ impl Module {
     }
 
     // Returns each document parser error
-    pub fn get_idl_parser_errors(&self) -> HashMap<String, super::parser::ParserError> {
-        let documents = self.idl_documents.read().unwrap();
+    pub fn idl_parser_errors(&self) -> HashMap<String, super::parser::ParserError> {
         let mut result = HashMap::new();
-        for (name, doc) in documents.iter() {
+        for (name, doc) in self.idl_documents.iter() {
             if let Err(err) = &*doc.parser {
                 result.insert(name.to_owned(), err.1.clone());
             }
@@ -73,41 +78,51 @@ impl Module {
         result
     }
 
-    pub fn get_idl_document_text(&self, name: &str) -> Option<String> {
-        let documents = self.idl_documents.read().unwrap();
-        let doc = documents.get(name)?;
+    pub fn idl_document_text(&self, name: &str) -> Option<String> {
+        let doc = self.idl_documents.get(name)?;
         Some(doc.text.as_ref()?.to_string())
     }
 
-    pub fn add_idl_document(&self, name: &str) -> Result<(), ModuleError> {
-        let mut documents = self.idl_documents.write().unwrap();
+    // pub fn add_idl_document(&mut self, name: &str) -> Result<(), ModuleError> {
+    //     if self.idl_documents.contains_key(name) {
+    //         return Err(ModuleError::DuplicateDocument);
+    //     }
 
-        if documents.contains_key(name) {
-            return Err(ModuleError::DuplicateDocument);
-        }
+    //     self.idl_documents.insert(
+    //         name.to_owned(),
+    //         IdlDocument {
+    //             text: None,
+    //             parser: Arc::new(super::parser::Parser::closed()),
+    //             analyzer: Arc::new(super::analyzer::Analyzer::closed()),
+    //             last_analyzer: Arc::new(super::analyzer::Analyzer::closed()),
+    //         },
+    //     );
 
-        documents.insert(
-            name.to_owned(),
-            IdlDocument {
-                text: None,
-                parser: Arc::new(super::parser::Parser::closed()),
-                analyzer: Arc::new(super::analyzer::Analyzer::closed()),
-                last_analyzer: Arc::new(super::analyzer::Analyzer::closed()),
-            },
-        );
-
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     // Adds a document but also updates it with the source text
-    pub fn add_idl_document_and_update(&self, name: &str, text: &str) -> Result<(), ModuleError> {
-        let mut documents = self.idl_documents.write().unwrap();
+    // pub fn add_idl_document_and_update(
+    //     &mut self,
+    //     name: &str,
+    //     text: &str,
+    // ) -> Result<(), ModuleError> {
+    //     if self.idl_documents.contains_key(name) {
+    //         return Err(ModuleError::DuplicateDocument);
+    //     }
 
-        if documents.contains_key(name) {
-            return Err(ModuleError::DuplicateDocument);
+    //     Ok(())
+    // }
+
+    pub fn remove_idl_document(&mut self, name: &str) -> Result<(), ModuleError> {
+        match self.idl_documents.remove(name) {
+            Some(_) => Ok(()),
+            None => Err(ModuleError::RemoveDocument),
         }
+    }
 
-        documents.insert(
+    pub fn replace_idl_document(&mut self, name: &str, text: &str) {
+        self.idl_documents.insert(
             name.to_owned(),
             IdlDocument {
                 text: Some(text.to_owned()),
@@ -116,400 +131,236 @@ impl Module {
                 last_analyzer: Arc::new(super::analyzer::Analyzer::closed()),
             },
         );
-
-        Ok(())
     }
 
-    pub fn remove_idl_document(&self, name: &str) -> Result<(), ModuleError> {
-        let mut documents = self.idl_documents.write().unwrap();
-        match documents.remove(name) {
-            Some(_) => Ok(()),
-            None => Err(ModuleError::RemoveDocument),
-        }
-    }
-
-    pub fn update_idl_parser(&self, name: &str, text: &str) {
-        let mut documents = self.idl_documents.write().unwrap();
-
-        if let Some(mut doc) = documents.get_mut(name) {
-            doc.text = Some(text.to_owned());
-            doc.parser = Arc::new(super::parser::Parser::parse(text));
-            if doc.analyzer.is_ok() {
-                // Saves the last analyzer.
-                doc.last_analyzer = doc.analyzer.clone();
-            }
-            doc.analyzer = Arc::new(super::analyzer::Analyzer::closed());
-        }
-    }
-
-    pub fn update_idl_analyzer(&self, name: &str) {
-        let mut documents = self.idl_documents.write().unwrap();
-
-        if let Some(mut doc) = documents.get_mut(name) {
-            if let Ok(parser) = doc.parser.clone().as_ref() {
-                doc.analyzer = Arc::new(super::analyzer::Analyzer::resolve(parser, Some(self)))
-            }
-        }
-    }
-
-    // Updates the entire module. The spec is required for this.
-    pub fn update_module(&self) -> Result<(), ModuleError> {
-        let mut idl_documents = self.idl_documents.write().unwrap();
-
-        // TODO match the ids document
-        let mut ids_documents = self.ids_documents.write().unwrap();
-
-        for (name, doc) in idl_documents.iter_mut() {
-            if let Some(mut ids_doc) = ids_documents.get_mut(name) {
-                if let Ok(parser) = &*ids_doc.parser {
-                    ids_doc.analyzer =
-                        Arc::new(ids::analyzer::Analyzer::resolve(parser, Some(self)))
-                }
-            }
-
-            if let Ok(parser) = &*doc.parser {
-                doc.analyzer = Arc::new(super::analyzer::Analyzer::resolve(parser, Some(self)))
-            }
-        }
-
-        Ok(())
-    }
-
-    pub fn get_idl_parser(
+    pub fn idl_parser(
         &self,
         name: &str,
-    ) -> Option<Arc<Result<super::parser::Parser, (super::parser::Parser, super::parser::ParserError)>>>
-    {
-        let documents = self.idl_documents.read().unwrap();
-        documents.get(name).map(|doc| doc.parser.clone())
+    ) -> Option<
+        Arc<Result<super::parser::Parser, (super::parser::Parser, super::parser::ParserError)>>,
+    > {
+        self.idl_documents.get(name).map(|doc| doc.parser.clone())
     }
 
-    pub fn get_idl_analyzer(
+    pub fn idl_analyzer(
         &self,
         name: &str,
     ) -> Option<Arc<Result<super::analyzer::Analyzer, super::analyzer::AnalyzerError>>> {
-        let documents = self.idl_documents.read().unwrap();
-        documents.get(name).map(|doc| doc.analyzer.clone())
+        self.idl_documents.get(name).map(|doc| doc.analyzer.clone())
     }
 
-    pub fn get_all_struct_refs(&self) -> Vec<String> {
-        let documents = self.idl_documents.read().unwrap();
-        let mut names = vec![];
-
-        for doc in documents.values() {
-            match &*doc.analyzer {
-                Ok(analyzer) => {
-                    for node in &analyzer.nodes {
-                        match node {
-                            super::idl_nodes::IdlNode::TypeStruct(value) => {
-                                names.push(value.ident.to_owned());
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Err(_) => {
-                    if let Ok(analyzer) = &*doc.last_analyzer {
-                        for node in &analyzer.nodes {
-                            match node {
-                                super::idl_nodes::IdlNode::TypeStruct(value) => {
-                                    names.push(value.ident.to_owned());
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        names
-    }
-
-    pub fn get_all_type_refs(&self) -> Vec<String> {
-        let documents = self.idl_documents.read().unwrap();
-        let mut names = vec![];
-
-        for doc in documents.values() {
-            match &*doc.analyzer {
-                Ok(analyzer) => {
-                    for node in &analyzer.nodes {
-                        match node {
-                            super::idl_nodes::IdlNode::TypeList(value) => {
-                                names.push(value.ident.to_owned());
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Err(_) => {
-                    if let Ok(analyzer) = &*doc.last_analyzer {
-                        for node in &analyzer.nodes {
-                            match node {
-                                super::idl_nodes::IdlNode::TypeList(value) => {
-                                    names.push(value.ident.to_owned());
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        names
-    }
-
-    pub fn get_all_enum_refs(&self) -> Vec<String> {
-        let documents = self.idl_documents.read().unwrap();
-        let mut names = vec![];
-
-        for doc in documents.values() {
-            match &*doc.analyzer {
-                Ok(analyzer) => {
-                    for node in &analyzer.nodes {
-                        match node {
-                            super::idl_nodes::IdlNode::TypeEnum(value) => {
-                                names.push(value.ident.to_owned());
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Err(_) => {
-                    if let Ok(analyzer) = &*doc.last_analyzer {
-                        for node in &analyzer.nodes {
-                            match node {
-                                super::idl_nodes::IdlNode::TypeEnum(value) => {
-                                    names.push(value.ident.to_owned());
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        names
-    }
-
-    pub fn get_all_const_refs(&self) -> Vec<String> {
-        let documents = self.idl_documents.read().unwrap();
-        let mut names = vec![];
-
-        for doc in documents.values() {
-            match &*doc.analyzer {
-                Ok(analyzer) => {
-                    for node in &analyzer.nodes {
-                        match node {
-                            super::idl_nodes::IdlNode::TypeConst(value) => {
-                                names.push(value.ident.to_owned());
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Err(_) => {
-                    if let Ok(analyzer) = &*doc.last_analyzer {
-                        for node in &analyzer.nodes {
-                            match node {
-                                super::idl_nodes::IdlNode::TypeConst(value) => {
-                                    names.push(value.ident.to_owned());
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        names
-    }
-
-    pub fn get_all_interface_refs(&self) -> Vec<String> {
-        let documents = self.idl_documents.read().unwrap();
-        let mut names = vec![];
-
-        for doc in documents.values() {
-            match &*doc.analyzer {
-                Ok(analyzer) => {
-                    for node in &analyzer.nodes {
-                        match node {
-                            super::idl_nodes::IdlNode::TypeInterface(value) => {
-                                names.push(value.ident.to_owned());
-                            }
-                            _ => {}
-                        }
-                    }
-                }
-                Err(_) => {
-                    if let Ok(analyzer) = &*doc.last_analyzer {
-                        for node in &analyzer.nodes {
-                            match node {
-                                super::idl_nodes::IdlNode::TypeInterface(value) => {
-                                    names.push(value.ident.to_owned());
-                                }
-                                _ => {}
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        names
-    }
-
-    pub fn get_all_native_refs() -> Vec<String> {
-        vec![
-            super::parser::NativeTypes::Int.to_string(),
-            super::parser::NativeTypes::Float.to_string(),
-            super::parser::NativeTypes::String.to_string(),
-            super::parser::NativeTypes::Bytes.to_string(),
-            super::parser::NativeTypes::Bool.to_string(),
-            super::parser::NativeTypes::None.to_string(),
-        ]
-    }
-
-    pub fn get_document_names(&self) -> Vec<String> {
-        self.ids_documents
-            .read()
-            .unwrap()
+    pub fn all_document_names(&self) -> Vec<String> {
+        let mut result = HashSet::<String>::from(self.idl_documents
             .keys()
             .map(|v| v.to_owned())
-            .collect()
+            .collect());
+        if let Some(doc) = &self.ids_document {
+            result.insert(doc.0.to_owned());
+        }
+        result.into_iter().collect()
     }
 
-    pub fn get_ids_analyze_errors(&self) -> HashMap<String, ids::analyzer::AnalyzerError> {
-        let documents = self.ids_documents.read().unwrap();
-        let mut result = HashMap::new();
-        for (name, doc) in documents.iter() {
-            if let Ok(_) = &*doc.parser {
-                if let Err(err) = &*doc.analyzer {
-                    result.insert(name.to_owned(), err.clone());
+    // Updates the entire module. The ids document is required for this.
+    pub fn update(&mut self) -> Result<(), ModuleError> {
+        let parse_package_name = self.package_name()?;
+
+        match &mut self.ids_document {
+            Some(ids_doc) => match &*ids_doc.1.parser {
+                Ok(parser) => {
+                    if ids_doc.1.analyzer.is_ok() {
+                        // TODO
+                        ids_doc.1.last_analyzer = ids_doc.1.analyzer.clone()
+                    }
+
+                    let ids_analyzer = ids::analyzer::Analyzer::resolve(parser);
+
+                    if let Ok(analyzer) = &ids_analyzer {
+                        if analyzer.get_package().name() != parse_package_name {
+                            return Err(ModuleError::InvalidPackageName);
+                        }
+
+                        let package = analyzer.get_package();
+                        let package_name = package.name();
+                        let lib_names = package.lib_names().unwrap_or_else(|| vec![]);
+
+                        for (_, doc) in self.idl_documents.iter_mut() {
+                            if let Ok(parser) = &*doc.parser {
+                                if let Some(library_name) = parser.library_name() {
+                                    if library_name == package_name
+                                        || lib_names.contains(&library_name)
+                                    {
+                                        if doc.analyzer.is_ok() {
+                                            doc.last_analyzer = doc.analyzer.clone();
+                                        }
+
+                                        doc.analyzer = Arc::new(
+                                            super::analyzer::Analyzer::resolve(parser, None),
+                                        );
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    ids_doc.1.analyzer = Arc::new(ids_analyzer);
+
+                    Ok(())
+                }
+                Err(_) => Ok(()),
+            },
+            None => Err(ModuleError::PackageMissing),
+        }
+    }
+
+    pub fn ids_analyze_errors(
+        &self,
+    ) -> Result<Option<(String, ids::analyzer::AnalyzerError)>, ModuleError> {
+        match &self.ids_document {
+            Some(doc) => match &*doc.1.parser {
+                Ok(_) => match &*doc.1.analyzer {
+                    Err(err) => Ok(Some((doc.0.to_owned(), err.clone()))),
+                    _ => Ok(None),
+                },
+                Err(_) => Ok(None),
+            },
+            None => Err(ModuleError::PackageMissing),
+        }
+    }
+
+    pub fn ids_parser_errors(
+        &self,
+    ) -> Result<Option<(String, ids::parser::ParserError)>, ModuleError> {
+        match &self.ids_document {
+            Some(doc) => match &*doc.1.parser {
+                Err(err) => Ok(Some((doc.0.to_owned(), err.1.clone()))),
+                _ => Ok(None),
+            },
+            None => Err(ModuleError::PackageMissing),
+        }
+    }
+
+    pub fn ids_document_text(&self, name: &str) -> Result<Option<String>, ModuleError> {
+        match &self.ids_document {
+            Some(doc) => {
+                if doc.0 != name {
+                    return Err(ModuleError::RemoveDocument); // TODO
+                }
+
+                if let Some(txt) = doc.1.text.as_ref() {
+                    return Ok(Some(txt.to_owned()));
                 }
             }
+            None => return Err(ModuleError::PackageMissing),
         }
-        result
+
+        Ok(None)
     }
 
-    pub fn get_ids_parser_errors(&self) -> HashMap<String, ids::parser::ParserError> {
-        let documents = self.ids_documents.read().unwrap();
-        let mut result = HashMap::new();
-        for (name, doc) in documents.iter() {
-            if let Err(err) = &*doc.parser {
-                result.insert(name.to_owned(), err.1.clone());
+    pub fn ids_document_name(&self) -> Result<Option<String>, ModuleError> {
+        match &self.ids_document {
+            Some(doc) => Ok(Some(doc.0.to_owned())),
+            None => Err(ModuleError::PackageMissing),
+        }
+    }
+
+    // pub fn replace_ids_document(&mut self, name: &str) -> Result<(), ModuleError> {
+    //     self.ids_document.replace((
+    //         name.to_owned(),
+    //         IdsDocument {
+    //             text: None,
+    //             parser: Arc::new(ids::parser::Parser::closed()),
+    //             analyzer: Arc::new(ids::analyzer::Analyzer::closed()),
+    //             last_analyzer: Arc::new(ids::analyzer::Analyzer::closed()),
+    //         },
+    //     ));
+
+    //     Ok(())
+    // }
+
+    // Returns the previous name, if it had one.
+    pub fn replace_ids_document(&mut self, name: &str, text: &str) -> Option<String> {
+        self.ids_document
+            .replace((
+                name.to_owned(),
+                IdsDocument {
+                    text: Some(text.to_owned()),
+                    parser: Arc::new(ids::parser::Parser::parse(text)),
+                    analyzer: Arc::new(ids::analyzer::Analyzer::closed()),
+                    last_analyzer: Arc::new(ids::analyzer::Analyzer::closed()),
+                },
+            ))
+            .map(|v| v.0)
+    }
+
+    pub fn has_ids_document(&self) -> bool {
+        self.ids_document.is_some()
+    }
+
+    pub fn remove_ids_document(&mut self, name: &str) -> Result<(), ModuleError> {
+        match self.ids_document.take() {
+            Some(value) => {
+                if value.0 != name {
+                    return Err(ModuleError::Document);
+                }
+                Ok(())
             }
-        }
-        result
-    }
-
-    pub fn get_ids_document_text(&self, name: &str) -> Option<String> {
-        let documents = self.ids_documents.read().unwrap();
-        let doc = documents.get(name)?;
-        Some(doc.text.as_ref()?.to_string())
-    }
-
-    pub fn add_ids_document(&self, name: &str) -> Result<(), ModuleError> {
-        let mut documents = self.ids_documents.write().unwrap();
-
-        if documents.contains_key(name) {
-            return Err(ModuleError::DuplicateDocument);
-        }
-
-        documents.insert(
-            name.to_owned(),
-            IdsDocument {
-                text: None,
-                parser: Arc::new(ids::parser::Parser::closed()),
-                analyzer: Arc::new(ids::analyzer::Analyzer::closed()),
-                last_analyzer: Arc::new(ids::analyzer::Analyzer::closed()),
-            },
-        );
-
-        Ok(())
-    }
-
-    pub fn add_ids_document_and_update(&self, name: &str, text: &str) -> Result<(), ModuleError> {
-        let mut documents = self.ids_documents.write().unwrap();
-
-        if documents.contains_key(name) {
-            return Err(ModuleError::DuplicateDocument);
-        }
-
-        documents.insert(
-            name.to_owned(),
-            IdsDocument {
-                text: Some(text.to_owned()),
-                parser: Arc::new(ids::parser::Parser::parse(text)),
-                analyzer: Arc::new(ids::analyzer::Analyzer::closed()),
-                last_analyzer: Arc::new(ids::analyzer::Analyzer::closed()),
-            },
-        );
-
-        Ok(())
-    }
-
-    pub fn remove_ids_document(&self, name: &str) -> Result<(), ModuleError> {
-        let mut documents = self.ids_documents.write().unwrap();
-        match documents.remove(name) {
-            Some(_) => Ok(()),
             None => Err(ModuleError::RemoveDocument),
         }
     }
 
-    pub fn update_ids_parser(&self, name: &str, text: &str) {
-        let mut documents = self.ids_documents.write().unwrap();
-
-        if let Some(mut doc) = documents.get_mut(name) {
-            doc.text = Some(text.to_owned());
-            doc.parser = Arc::new(ids::parser::Parser::parse(text));
-            if doc.analyzer.is_ok() {
-                // Saves the last analyzer.
-                doc.last_analyzer = doc.analyzer.clone();
+    pub fn update_ids_analyzer(&mut self) -> Result<(), ModuleError> {
+        match &mut self.ids_document {
+            Some(document) => {
+                let doc = &mut document.1;
+                match &*doc.parser {
+                    Ok(parser) => {
+                        doc.analyzer = Arc::new(ids::analyzer::Analyzer::resolve(parser));
+                        Ok(())
+                    }
+                    Err(_) => Ok(()),
+                }
             }
-            doc.analyzer = Arc::new(ids::analyzer::Analyzer::closed());
+            None => Err(ModuleError::PackageMissing),
         }
     }
 
-    pub fn update_ids_analyzer(&self, name: &str) {
-        let mut documents = self.ids_documents.write().unwrap();
-
-        if let Some(mut doc) = documents.get_mut(name) {
-            if let Ok(parser) = &*doc.parser {
-                doc.analyzer = Arc::new(ids::analyzer::Analyzer::resolve(parser, Some(self)))
-            }
-        }
-    }
-
-    pub fn get_ids_parser(
+    pub fn ids_parser(
         &self,
-        name: &str,
-    ) -> Option<Arc<Result<ids::parser::Parser, (ids::parser::Parser, ids::parser::ParserError)>>>
+    ) -> Result<
+        Arc<Result<ids::parser::Parser, (ids::parser::Parser, ids::parser::ParserError)>>,
+        ModuleError,
+    > {
+        match &self.ids_document {
+            Some(document) => Ok(document.1.parser.clone()),
+            None => Err(ModuleError::PackageMissing),
+        }
+    }
+
+    pub fn ids_analyzer(
+        &self,
+    ) -> Result<Arc<Result<ids::analyzer::Analyzer, ids::analyzer::AnalyzerError>>, ModuleError>
     {
-        let documents = self.ids_documents.read().unwrap();
-        documents.get(name).map(|doc| doc.parser.clone())
+        match &self.ids_document {
+            Some(document) => Ok(document.1.analyzer.clone()),
+            None => Err(ModuleError::PackageMissing),
+        }
     }
 
-    pub fn get_ids_analyzer(
-        &self,
-        name: &str,
-    ) -> Option<Arc<Result<ids::analyzer::Analyzer, ids::analyzer::AnalyzerError>>> {
-        let documents = self.ids_documents.read().unwrap();
-        documents.get(name).map(|doc| doc.analyzer.clone())
-    }
+    // Tries to get the package name, even if it's not everything correct.
+    pub fn package_name(&self) -> Result<String, ModuleError> {
+        match &self.ids_document {
+            Some(document) => {
+                let parse = match &*document.1.parser {
+                    Ok(parse) => parse,
+                    Err((parse, _)) => parse,
+                };
 
-    pub fn library_size(&self) -> usize {
-        let documents = self.ids_documents.read().unwrap();
-        documents.len()
-    }
-
-    // The current target library
-    pub fn library_name(&self) -> Option<String> {
-        let document = self.ids_document.read().unwrap();
-        // TODO proper option conversion
-        Some(document.unwrap().1..to_owned())
+                match parse.package_name() {
+                    Some(value) => Ok(value),
+                    None => Err(ModuleError::PackageName),
+                }
+            }
+            None => Err(ModuleError::PackageMissing),
+        }
     }
 }

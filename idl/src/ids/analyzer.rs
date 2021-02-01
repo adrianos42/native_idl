@@ -1,6 +1,5 @@
 use super::ids_nodes::*;
 use super::parser;
-use crate::module;
 use crate::range::Range;
 use crate::reserved::{
     field_name_is_valid, is_reserved_type, is_reserved_word, type_name_is_valid, NameError,
@@ -81,7 +80,7 @@ pub enum AnalyzerError {
     Closed,
     #[error("Package redefinition")]
     PackageDefinition,
-    #[error("Missing library definition")]
+    #[error("Missing package definition")]
     MissingPackageDefinition,
     #[error("Duplicate name `{0}`")]
     DuplicateName(#[from] DuplicateNameError),
@@ -115,7 +114,7 @@ pub struct Analyzer {
 
 #[derive(Debug, Default)]
 pub(super) struct AnalyzerItems {
-    library: Option<String>,
+    package: Option<String>,
     layers: Vec<String>,
     clients: Vec<String>,
     servers: Vec<String>,
@@ -189,17 +188,14 @@ impl Analyzer {
         Self { nodes }
     }
 
-    pub fn resolve(
-        parsers: &parser::Parser,
-        module: Option<&crate::module::Module>,
-    ) -> Result<Self, AnalyzerError> {
+    pub fn resolve(parsers: &parser::Parser) -> Result<Self, AnalyzerError> {
         let mut items = AnalyzerItems::default();
-        let mut nodes = vec![];
+        let mut analyzer = Analyzer::default();
 
         for p_value in parsers.nodes.iter() {
             match p_value {
                 parser::ParserNode::Package(value) => {
-                    if items.library.is_some() {
+                    if items.package.is_some() {
                         return Err(AnalyzerError::PackageDefinition);
                     }
 
@@ -214,7 +210,7 @@ impl Analyzer {
                     is_reserved_word(name.ident.to_lowercase().as_str(), value.range)?;
                     Self::has_duplicate_fields(&value.nodes)?;
                     Self::has_valid_name_fields(&value.nodes)?;
-                    items.library = Some(name.ident.to_owned());
+                    items.package = Some(name.ident.to_owned());
                 }
                 parser::ParserNode::Layer(value) => {
                     let name = match &value.ident {
@@ -264,28 +260,34 @@ impl Analyzer {
         for p_value in parsers.nodes.iter() {
             match p_value {
                 parser::ParserNode::Package(value) => {
-                    nodes.push(package::get_node(&value, &items)?)
+                    analyzer.nodes.push(package::get_node(&value, &items)?)
                 }
-                parser::ParserNode::Layer(value) => nodes.push(layer::get_node(&value, &items)?),
-                parser::ParserNode::Server(value) => nodes.push(server::get_node(&value, &items)?),
-                parser::ParserNode::Client(value) => nodes.push(client::get_node(&value, &items)?),
+                parser::ParserNode::Layer(value) => {
+                    analyzer.nodes.push(layer::get_node(&value, &items)?)
+                }
+                parser::ParserNode::Server(value) => {
+                    analyzer.nodes.push(server::get_node(&value, &items)?)
+                }
+                parser::ParserNode::Client(value) => {
+                    analyzer.nodes.push(client::get_node(&value, &items)?)
+                }
             }
         }
 
-        Ok(Self::from_nodes(nodes))
+        Ok(analyzer)
     }
 
-    pub fn library_name(&self) -> Option<String> {
-        for node in &self.nodes {
-            if let IdsNode::Package(name) = node {
-                return Some(name.ident.clone());
-            }
-        }
-
-        None
+    pub fn get_package(&self) -> &package::Package {
+        self.nodes
+            .iter()
+            .find_map(|node| match node {
+                IdsNode::Package(value) => Some(value),
+                _ => None,
+            })
+            .unwrap()
     }
 
-    pub fn find_client(&self, name: &str) -> Option<&Box<client::Client>> {
+    pub fn find_client(&self, name: &str) -> Option<&client::Client> {
         for node in &self.nodes {
             match node {
                 IdsNode::Client(value) => {
@@ -315,7 +317,7 @@ impl Analyzer {
         false
     }
 
-    pub fn find_server(&self, name: &str) -> Option<&Box<server::Server>> {
+    pub fn find_server(&self, name: &str) -> Option<&server::Server> {
         for node in &self.nodes {
             match node {
                 IdsNode::Server(value) => {

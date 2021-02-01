@@ -191,6 +191,7 @@ impl RustImplMod {
     pub fn generate(_analyzer: &Analyzer) -> Result<Self, ()> {
         let module = quote! {
             pub mod idl_impl; // rust interface type
+            pub use idl_internal;
         };
 
         Ok(RustImplMod { module })

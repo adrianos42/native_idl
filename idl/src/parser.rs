@@ -1296,6 +1296,9 @@ impl Parser {
     }
 
     pub fn parse(text: &str) -> Result<Self, (Self, ParserError)> {
+        if text.is_empty() {
+            return Self::closed();
+        }
         let lines: Vec<&str> = text.lines().collect();
 
         let mut context = Self::default();

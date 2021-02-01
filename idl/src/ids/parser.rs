@@ -223,7 +223,24 @@ impl Parser {
         Err((Self::default(), ParserError::Closed))
     }
 
+    pub fn package_name(&self) -> Option<String> {
+        for node in &self.nodes {
+            match node {
+                ParserNode::Package(name) => match &name.ident {
+                    ItemIdent::Identifier(value) => return Some(value.ident.to_owned()),
+                    _ => {}
+                },
+                _ => {}
+            }
+        }
+        None
+    }
+
     pub fn parse(text: &str) -> Result<Self, (Self, ParserError)> {
+        if text.is_empty() {
+            return Self::closed();
+        }
+
         let lines: Vec<&str> = text.lines().collect();
 
         let mut context = Self::default();

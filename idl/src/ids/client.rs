@@ -41,7 +41,7 @@ impl Client {
                             .iter()
                             .filter_map(|value| match value {
                                 ItemType::ServerTypeName(name) => {
-                                    Some(analyzer.find_server(name).unwrap().as_ref())
+                                    Some(analyzer.find_server(name).unwrap())
                                 }
                                 _ => None,
                             })

@@ -1,6 +1,5 @@
 use super::idl_nodes;
 use super::parser;
-use crate::module;
 use crate::range::Range;
 use crate::reserved::{
     field_name_is_valid, is_reserved_type, is_reserved_word, type_name_is_valid, NameError,
@@ -124,7 +123,7 @@ impl Analyzer {
         Self { nodes }
     }
 
-    pub fn get_library_name(&self) -> String {
+    pub fn library_name(&self) -> String {
         for node in &self.nodes {
             match node {
                 idl_nodes::IdlNode::LibraryName(name) => return name.to_owned(),
@@ -343,7 +342,7 @@ impl Analyzer {
 
     pub fn resolve(
         parsers: &parser::Parser,
-        module: Option<&crate::module::Module>,
+        package: Option<&crate::mod_package::Package>, // TODO
     ) -> Result<Self, AnalyzerError> {
         let mut items = AnalyzerItems::default();
         let mut analyzer = Self::default();

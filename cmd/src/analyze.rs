@@ -12,13 +12,8 @@ enum GenArgs {
 
 pub fn create_command<'a>() -> App<'a> {
     App::new("analyze").about("Analyze files").args(&[
-        Arg::new("library")
-            .about("Target library name")
-            .short('l')
-            .long("library")
-            .takes_value(true),
         Arg::new("input")
-            .about("Library path")
+            .about("Package path")
             .default_value("idl/")
             .short('i')
             .long("input")
@@ -28,12 +23,11 @@ pub fn create_command<'a>() -> App<'a> {
 
 pub fn parse(matches: &ArgMatches) -> Result<()> {
     let input = matches.value_of("input").unwrap();
-    let library = matches.value_of("library");
-    
+
     println!("Analyzing files...");
 
-    let module = crate::open_directory(std::path::Path::new(input))?;
-    module.update_module()?;
+    let mut module = crate::open_directory(std::path::Path::new(input))?;
+    module.update()?;
 
     if !diagnostics::diagnostic(&module)? {
         println!("ok");

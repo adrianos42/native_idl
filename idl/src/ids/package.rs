@@ -1,9 +1,59 @@
 use super::analyzer;
 use super::ids_nodes::*;
 use super::parser;
+use serde::{Deserialize, Serialize};
 
 static DEFAULT_VERSION: &str = "1.0";
 static DEFAULT_IDL_VERSION: &str = "0.1";
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct Package {
+    pub ident: String,
+    pub nodes: Vec<PackageNode>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub enum PackageNode {
+    PackageField(Box<PackageField>),
+    Comment(Vec<String>),
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+pub struct PackageField {
+    pub ident: String,
+    pub value: Box<ItemType>,
+}
+
+impl Package {
+    pub fn name(&self) -> String {
+        self.ident.to_owned()
+    }
+    
+    pub fn lib_names(&self) -> Option<Vec<String>> {
+        let field = self.get_field("libs")?.as_values()?;
+        let mut result = vec![];
+
+        for value in field {
+            result.push(value.as_identifier()?)
+        }
+
+        Some(result)
+    }
+
+    pub fn get_field(&self, name: &str) -> Option<&ItemType> {
+        for node in &self.nodes {
+            match node {
+                PackageNode::PackageField(field) => {
+                    if field.ident == name {
+                        return Some(&field.value);
+                    }
+                }
+                _ => {}
+            }
+        }
+        None
+    }
+}
 
 pub(super) fn get_node(
     item: &parser::Item,
@@ -12,7 +62,7 @@ pub(super) fn get_node(
     let mut nodes = vec![];
     let mut has_version = false;
     let mut has_idl_version = false;
-    let mut has_author = false;
+    let mut has_authors = false;
     let mut has_client = false;
     let mut has_server = false;
 
@@ -51,9 +101,9 @@ pub(super) fn get_node(
                         }
                     },
                     "version" => {
-                        if !value.is_string() {
+                        if !value.is_float() {
                             return Err(analyzer::ReferenceError(
-                                analyzer::ReferenceErrorKind::NotString,
+                                analyzer::ReferenceErrorKind::NotFloat,
                                 field.range,
                                 field.ident.to_owned(),
                             )
@@ -63,9 +113,9 @@ pub(super) fn get_node(
                         has_version = true;
                     }
                     "idl_version" => {
-                        if !value.is_string() {
+                        if !value.is_float() {
                             return Err(analyzer::ReferenceError(
-                                analyzer::ReferenceErrorKind::NotString,
+                                analyzer::ReferenceErrorKind::NotFloat,
                                 field.range,
                                 field.ident.to_owned(),
                             )
@@ -74,57 +124,31 @@ pub(super) fn get_node(
 
                         has_idl_version = true;
                     }
-                    "author" => {
-                        if !value.is_string() {
-                            return Err(analyzer::ReferenceError(
-                                analyzer::ReferenceErrorKind::NotString,
-                                field.range,
-                                field.ident.to_owned(),
-                            )
-                            .into());
-                        }
-
-                        has_author = true;
-                    }
-                    "client" => {
-                        if !value.is_client()
-                            || value.is_values()
-                                && match &value {
-                                    ItemType::Values(values) => {
-                                        values.iter().any(|v| !v.is_client())
+                    "authors" => {
+                        match &value {
+                            ItemType::Values(values) => {
+                                for value in values {
+                                    if !value.is_string() {
+                                        return Err(analyzer::ReferenceError(
+                                            analyzer::ReferenceErrorKind::NotString,
+                                            field.range,
+                                            field.ident.to_owned(),
+                                        )
+                                        .into());
                                     }
-                                    _ => false,
                                 }
-                        {
-                            return Err(analyzer::ReferenceError(
-                                analyzer::ReferenceErrorKind::NotClientTypeName,
-                                field.range,
-                                field.ident.to_owned(),
-                            )
-                            .into());
+                            }
+                            _ => {
+                                return Err(analyzer::ReferenceError(
+                                    analyzer::ReferenceErrorKind::NotValues,
+                                    field.range,
+                                    field.ident.to_owned(),
+                                )
+                                .into());
+                            }
                         }
 
-                        has_client = true;
-                    }
-                    "server" => {
-                        if !value.is_server()
-                            || value.is_values()
-                                && match &value {
-                                    ItemType::Values(values) => {
-                                        values.iter().any(|v| !v.is_server())
-                                    }
-                                    _ => false,
-                                }
-                        {
-                            return Err(analyzer::ReferenceError(
-                                analyzer::ReferenceErrorKind::NotServerTypeName,
-                                field.range,
-                                field.ident.to_owned(),
-                            )
-                            .into());
-                        }
-
-                        has_server = true;
+                        has_authors = true;
                     }
                     _ => {
                         return Err(analyzer::ReferenceError(
@@ -155,25 +179,11 @@ pub(super) fn get_node(
         ));
     }
 
-    if !has_author {
+    if !has_authors {
         nodes.push(create_field_node(
             "author",
-            ItemType::NatString("".to_owned()),
+            ItemType::Values(vec![])
         ))
-    }
-
-    if !has_client {
-        nodes.push(create_field_node(
-            "client",
-            ItemType::ClientTypeName("Default".to_owned()),
-        ));
-    }
-
-    if !has_server {
-        nodes.push(create_field_node(
-            "server",
-            ItemType::ServerTypeName("Default".to_owned()),
-        ));
     }
 
     let ident = match &item.ident {

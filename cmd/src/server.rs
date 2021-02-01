@@ -21,11 +21,6 @@ pub fn create_command<'a>() -> App<'a> {
                 .default_value(".")
                 .long("output")
                 .takes_value(true),
-            Arg::new("library")
-                .about("Target library name")
-                .short('l')
-                .long("library")
-                .takes_value(true),
             Arg::new("input")
                 .about("Idl path")
                 .default_value("idl/")
@@ -44,32 +39,20 @@ pub fn create_command<'a>() -> App<'a> {
 pub fn parse(matches: &ArgMatches) -> Result<()> {
     let input = matches.value_of("input").unwrap();
     let output = matches.value_of("output").unwrap();
-    let library = matches.value_of("library");
     let server = matches.value_of("server").unwrap();
 
     //let mut layers = vec![];
 
-    let module = crate::open_directory(std::path::Path::new(input))?;
-    module.update_module()?;
+    let mut module = crate::open_directory(std::path::Path::new(input))?;
+    module.update()?;
 
     if diagnostics::diagnostic(&module)? {
         return Ok(());
     }
 
-    let library_name = match library {
-        Some(_) => {
-            return Err(anyhow!("Cannot specify library name yet"));
-        }
-        None => {
-            if module.library_size() != 1 {
-                //return Err(anyhow!("Library must be specified"));
-            }
+    let package_name = module.package_name()?;
 
-            module.library_name().unwrap()
-        }
-    };
-
-    let analyzer_r = &*module.get_idl_analyzer(&library_name).ok_or(anyhow!(""))?;
+    let analyzer_r = &*module.idl_analyzer(&package_name).ok_or(anyhow!(""))?;
     let analyzer = analyzer_r.as_ref().map_err(|_| anyhow!(""))?;
 
     let request = LanguageRequest {
@@ -86,7 +69,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
     match response.gen_response {
         ResponseType::Generated(value) => {
-            let src = Path::new(output).join("rust").join(&library_name);
+            let src = Path::new(output).join("rust").join(&package_name);
             fs::create_dir_all(&src)?; // The language folder is never cleaned.
 
             for item in value {

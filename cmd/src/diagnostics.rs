@@ -10,17 +10,35 @@ use std::ops::Range;
 pub fn diagnostic(module: &module::Module) -> anyhow::Result<bool> {
     let files = files::Files::from(module);
 
-    let idl_parser_errors = module.get_idl_parser_errors();
-    let idl_analyze_errors = module.get_idl_analyze_errors();
-    let ids_parser_errors = module.get_ids_parser_errors();
-    let ids_analyze_errors = module.get_ids_analyze_errors();
+    let idl_parser_errors = module.idl_parser_errors();
+    let idl_analyze_errors = module.idl_analyze_errors();
+    let ids_parser_errors = module.ids_parser_errors()?;
+    let ids_analyze_errors = module.ids_analyze_errors()?;
     let mut messages = vec![];
+
+    if let Some((name, err)) = ids_parser_errors {
+        if let Some(id) = files.get_id(&name) {
+            let range = err
+                .get_range()
+                .get_byte_range(&module.idl_document_text(&name).unwrap())
+                .unwrap_or_default();
+
+            messages.push(Message::IdsParser { id, err, range });
+        }
+    }
+
+    if let Some((name, err)) = ids_analyze_errors {
+        if let Some(id) = files.get_id(&name) {
+            let range = 0..1;
+            messages.push(Message::IdsAnalyzer { id, err, range });
+        }
+    }
 
     for (name, err) in idl_parser_errors {
         if let Some(id) = files.get_id(&name) {
             let range = err
                 .get_range()
-                .get_byte_range(&module.get_idl_document_text(&name).unwrap())
+                .get_byte_range(&module.idl_document_text(&name).unwrap())
                 .unwrap_or_default();
 
             messages.push(Message::IdlParser { id, err, range });
@@ -31,24 +49,6 @@ pub fn diagnostic(module: &module::Module) -> anyhow::Result<bool> {
         if let Some(id) = files.get_id(&name) {
             let range = 0..1;
             messages.push(Message::IdlAnalyzer { id, err, range });
-        }
-    }
-
-    for (name, err) in ids_parser_errors {
-        if let Some(id) = files.get_id(&name) {
-            let range = err
-                .get_range()
-                .get_byte_range(&module.get_idl_document_text(&name).unwrap())
-                .unwrap_or_default();
-
-            messages.push(Message::IdsParser { id, err, range });
-        }
-    }
-
-    for (name, err) in ids_analyze_errors {
-        if let Some(id) = files.get_id(&name) {
-            let range = 0..1;
-            messages.push(Message::IdsAnalyzer { id, err, range });
         }
     }
 
@@ -97,12 +97,23 @@ mod files {
     }
 
     impl From<&idl::module::Module> for Files {
-        fn from(value: &idl::module::Module) -> Self {
+        fn from(module: &idl::module::Module) -> Self {
             let mut result = Self::new();
 
-            for name in value.get_document_names() {
-                if let Some(source) = value.get_idl_document_text(&name) {
-                    result.add(name, source);
+            for name in module.all_document_names() {
+                match module.idl_document_text(&name) {
+                    Some(source) => {
+                        let _ = result.add(name, source);
+                    }
+                    None => match module.ids_document_text(&name) {
+                        Ok(value) => match value {
+                            Some(source) => {
+                                let _ = result.add(name, source);
+                            }
+                            None => {}
+                        },
+                        Err(_) => {}
+                    },
                 }
             }
 
@@ -131,7 +142,7 @@ mod files {
             let line_starts = files::line_starts(&source).collect();
 
             if self.names.insert(name.to_owned(), file_id).is_some() {
-                panic!("same name")
+                panic!("Same name")
             }
 
             self.files.push(File {

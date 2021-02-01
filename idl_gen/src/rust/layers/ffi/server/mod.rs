@@ -49,7 +49,7 @@ impl FFIServer {
 
         let mut deps = vec![];
 
-        let lib_ident =  format_ident!("{}", analyzer.get_library_name());
+        let lib_ident =  format_ident!("{}", analyzer.library_name());
 
         let has_field_returns_stream = analyzer.any_interface_field_returns_stream(None);
         let has_interface_field_sends_stream = analyzer.any_interface_field_sends_stream(None);
@@ -212,10 +212,10 @@ impl FFIServer {
                             let arg_ident = quote! { #arg_ident };
                             let result_arg = if let TypeName::TypeStream(_) = &arg.ty {
                                 stream_arg = Some(&arg.ty);
-                                let con = conv_ffi_to_value(&arg.ty, &arg_ident, true, analyzer);
+                                let con = arg.ty.conv_ffi_to_value(&arg_ident, true, analyzer);
                                 conv_stream_to_val(&con, false, &field)
                             } else {
-                                conv_ffi_to_value(&arg.ty, &arg_ident, true, analyzer)
+                                arg.ty.conv_ffi_to_value(&arg_ident, true, analyzer)
                             };
                             args_conv_ffi.push(quote! { let #arg_value_ident = #result_arg; });
                         }
@@ -232,7 +232,7 @@ impl FFIServer {
                             let arg_ty_ident = ret_ty.get_ffi_ty_ref(true, analyzer);
                             args_value.push(quote! { #stream_value_ident });
                             args_ffi.push(quote! { #stream_ident: #arg_ty_ident });
-                            let con = conv_ffi_to_value(&ret_ty, &stream_ident, true, analyzer);
+                            let con = ret_ty.conv_ffi_to_value(&stream_ident, true, analyzer);
                             let result_stream = conv_stream_to_val(&con, true, &field);
                             args_conv_ffi
                                 .push(quote! { let #stream_value_ident = #result_stream; });
@@ -247,7 +247,7 @@ impl FFIServer {
                             let result_val_ident = quote! { _result_val };
 
                             let result_conv =
-                                conv_value_to_ffi(&ret_ty, &result_val_ident, true, analyzer);
+                                ret_ty.conv_value_to_ffi(&result_val_ident, true, analyzer);
 
                             let r_ty = get_rust_ty_ref(ret_ty, true);
 
@@ -307,7 +307,7 @@ impl FFIServer {
                             #stream_ident: *const AbiStream,
                             #stream_result_ident: *mut *mut AbiStream,
                         };
-                        let con = conv_ffi_to_value(&ret_ty, &stream_ident, true, analyzer);
+                        let con = ret_ty.conv_ffi_to_value(&stream_ident, true, analyzer);
                         let conv = conv_stream_body_to_val(&stream_value_ident, &field.ident);
 
                         let body_stream = quote! {
@@ -348,7 +348,7 @@ impl FFIServer {
                         };
 
                         fields.push(create_fn(func_ffi_ident, args_ident, body_ident));
-                    } else if is_boxed_ffi(ret_ty, analyzer) {
+                    } else if ret_ty.is_boxed_ffi(analyzer) {
                         // FIXME change release
                         let func_ffi_ident = format_ident!("dispose_{}", field_name);
 
@@ -377,7 +377,7 @@ impl FFIServer {
                             #stream_ident: *const AbiStream,
                             #stream_result_ident: *mut *mut AbiStream,
                         };
-                        let con = conv_ffi_to_value(stream_arg_ty, &stream_ident, true, analyzer);
+                        let con = stream_arg_ty.conv_ffi_to_value(&stream_ident, true, analyzer);
                         let conv = conv_stream_body_to_val(&stream_value_ident, &field.ident);
 
                         let body_stream = quote! {
@@ -526,7 +526,7 @@ impl FFIServer {
 
             for ret_ty in stream_ret_types.values() {
                 let r_ty = get_rust_ty_ref(ret_ty, true);
-                let cont_val = conv_value_to_ffi_boxed(&ret_ty, &quote! { value }, true, analyzer);
+                let cont_val = ret_ty.conv_value_to_ffi_boxed(&quote! { value }, true, analyzer);
 
                 fields.push(quote! {
                     impl StreamSenderIntoAbiStream<#r_ty> for StreamSender<#r_ty> {
@@ -567,7 +567,7 @@ impl FFIServer {
             for send_ty in stream_send_types.values() {
                 let s_ty = get_rust_ty_ref(send_ty, true);
                 let cont_val =
-                    conv_ffi_ptr_to_value(&send_ty, &quote! { self.data }, true, analyzer);
+                    send_ty.conv_ffi_ptr_to_value(&quote! { self.data }, true, analyzer);
 
                 fields.push(quote! {
                     impl AbiStreamIntoStreamSender<#s_ty> for AbiStream {
@@ -622,7 +622,7 @@ impl FFIServerTypes {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, FFIServerError> {
         let mut context = FFIServerTypes::new();
 
-        let lib_ident =  format_ident!("{}", analyzer.get_library_name());
+        let lib_ident =  format_ident!("{}", analyzer.library_name());
 
         context.module.push(quote! {
             use idl_internal::ffi::ffi_types::*;
@@ -663,8 +663,8 @@ impl FFIServerTypes {
                     let field_value = quote! { value.#field_name };
                     fields.push(quote! { pub #field_name: #field_ty_name, });
 
-                    let con_ty = conv_value_to_ffi(&field.ty, &field_value, false, analyzer);
-                    let con_value_ty = conv_ffi_to_value(&field.ty, &field_value, false, analyzer);
+                    let con_ty = field.ty.conv_value_to_ffi(&field_value, false, analyzer);
+                    let con_value_ty = field.ty.conv_ffi_to_value(&field_value, false, analyzer);
                     fields_conv.push(quote! { #field_name: #con_ty });
                     fields_value_conv.push(quote! { #field_name: #con_value_ty });
                 }
@@ -725,7 +725,7 @@ impl FFIServerTypes {
                         field_name = quote! { *#field_name }
                     }
 
-                    let ty_ident = conv_value_to_ffi_boxed(&field.ty, &field_name, false, analyzer);
+                    let ty_ident = field.ty.conv_value_to_ffi_boxed(&field_name, false, analyzer);
 
                     m_tys.push(quote! {
                         #list_ty_name::#f_ident(_value_field) => {
@@ -734,7 +734,7 @@ impl FFIServerTypes {
                     });
 
                     let mut ty_ident =
-                        conv_ffi_ptr_to_value(&field.ty, &(quote! { value.data }), false, analyzer);
+                        field.ty.conv_ffi_ptr_to_value(&(quote! { value.data }), false, analyzer);
 
                     if is_boxed {
                         ty_ident = quote! { Box::new(#ty_ident) }
@@ -870,7 +870,7 @@ impl FFIServerImpl {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, FFIServerError> {
         let mut context = FFIServerImpl::new();
 
-        let lib_ident = format_ident!("{}", analyzer.get_library_name());
+        let lib_ident = format_ident!("{}", analyzer.library_name());
 
         context.module.push(quote! {
             use idl_internal::*;
@@ -942,7 +942,7 @@ impl FFIServerImpl {
         self.module.push(quote! { #( #stream_im )* });
 
         let interface_ident = format_ident!("{}", &ident);
-            let lib_ident = format_ident!("{}", analyzer.get_library_name());
+            let lib_ident = format_ident!("{}", analyzer.library_name());
 
         if Analyzer::interface_has_non_static_field(ty_interface) {
             let interface_instance_ident = format_ident!("{}Instance", &ident);
@@ -1116,7 +1116,7 @@ mod server_cargo {
             analyzer: &ids::analyzer::Analyzer,
             server_name: &str,
         ) -> Result<Self, FFIServerError> {
-            let lib_name = analyzer.library_name().unwrap();
+            let package_name = analyzer.get_package().name();
             let target_server = analyzer
                 .find_server(server_name)
                 .ok_or(FFIServerError::Undefined)?;
@@ -1127,8 +1127,8 @@ mod server_cargo {
 
             let path = target_server
                 .get_field("path")
-                .and_then(|v| v.as_string())
-                .or_else(|| target_server.get_field("git").and_then(|v| v.as_string()))
+                .and_then(|v| v.as_string_value())
+                .or_else(|| target_server.get_field("git").and_then(|v| v.as_string_value()))
                 .ok_or(FFIServerError::Undefined)?;
 
             let mut git = HashMap::<String, String>::new();
@@ -1140,7 +1140,7 @@ mod server_cargo {
 
             let mut lib_path = HashMap::<String, String>::new();
             lib_path.insert("path".to_owned(), path);
-            dependencies.insert(lib_name.to_owned(), lib_path);
+            dependencies.insert(package_name.to_owned(), lib_path);
 
             let fields = CargoFields {
                 package: CargoPackage {
@@ -1151,7 +1151,7 @@ mod server_cargo {
                 },
                 lib: Some(CargoLib {
                     crate_type: Some(vec!["staticlib".to_owned(), "cdylib".to_owned()]),
-                    name: lib_name.to_owned(),
+                    name: package_name.to_owned(),
                 }),
                 dependencies: Some(dependencies),
             };

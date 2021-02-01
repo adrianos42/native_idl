@@ -19,11 +19,6 @@ pub fn create_command<'a>() -> App<'a> {
             .default_value(".")
             .long("output")
             .takes_value(true),
-        Arg::new("library")
-            .about("Target library name")
-            .short('l')
-            .long("library")
-            .takes_value(true),
         Arg::new("input")
             .about("Idl path")
             .default_value("idl/")
@@ -59,45 +54,33 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
     let output = matches.value_of("output").unwrap();
     let client = matches.value_of("client").unwrap();
 
-    let library = matches.value_of("library");
     let server = matches.value_of("server");
 
     let no_building = matches.is_present("no_build");
 
     //let mut layers = vec![];
 
-    let module = crate::open_directory(std::path::Path::new(input))?;
-    module.update_module()?;
+    let mut module = crate::open_directory(std::path::Path::new(input))?;
+    module.update()?;
 
     if diagnostics::diagnostic(&module)? {
         return Ok(());
     }
 
-    let library_name = match library {
-        Some(_) => {
-            return Err(anyhow!("Cannot specify library name yet"));
-        }
-        None => {
-            if module.library_size() != 1 {
-                //return Err(anyhow!("Library must be specified"));
-            }
-
-            module.library_name().unwrap()
-        }
-    };
+    let analyzer_i = &*module.ids_analyzer()?;
+    let analyzer_ids = analyzer_i.as_ref().map_err(|err| anyhow!("{}", err))?;
+    let package_name = analyzer_ids.get_package().name();
 
     if matches.is_present("clean") {
-        let src = Path::new(output).join(&library_name);
+        let src = Path::new(output).join(&package_name);
         let _ = fs::remove_dir_all(&src);
-        let build = Path::new(output).join("build").join(&library_name);
+        let build = Path::new(output).join("build").join(&package_name);
         let _ = fs::remove_dir_all(&build);
         return Ok(());
     }
 
-    let analyzer_r = &*module.get_idl_analyzer(&library_name).ok_or(anyhow!(""))?;
+    let analyzer_r = &*module.idl_analyzer(&package_name).ok_or(anyhow!("Not found"))?;
     let analyzer_idl = analyzer_r.as_ref().map_err(|err| anyhow!("{}", err))?;
-    let analyzer_i = &*module.get_ids_analyzer(&library_name).ok_or(anyhow!(""))?;
-    let analyzer_ids = analyzer_i.as_ref().map_err(|err| anyhow!("{}", err))?;
 
     if !analyzer_ids.has_client(client) {
         return Err(anyhow!("Client `{}` not defined", client));
@@ -120,7 +103,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
     match response.gen_response {
         ResponseType::Generated(value) => {
-            let src = Path::new(output).join(&library_name);
+            let src = Path::new(output).join(&package_name);
             let _ = fs::remove_dir_all(&src);
             fs::create_dir_all(&src)?;
 
@@ -163,7 +146,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
                 match response.gen_response {
                     ResponseType::Generated(value) => {
                         let src = Path::new(output)
-                            .join(&library_name)
+                            .join(&package_name)
                             .join("build")
                             .join("idl");
                         let _ = fs::remove_dir_all(&src); // Always remove the contents of `build` folder.

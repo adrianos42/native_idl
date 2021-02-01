@@ -20,7 +20,7 @@ struct Document {
 }
 
 pub(crate) fn open_directory(path: &path::Path) -> Result<idl::module::Module> {
-    let module = idl::module::Module::new();
+    let mut module = idl::module::Module::new();
 
     if !path.is_dir() {
         return Err(anyhow!("Path is not a directory"));
@@ -33,10 +33,12 @@ pub(crate) fn open_directory(path: &path::Path) -> Result<idl::module::Module> {
             if let Some(doc) = add_file(&item) {
                 match doc.file_type.as_str() {
                     "idl" => {
-                        module.add_idl_document_and_update(&doc.file_name, &doc.text)?;
+                        module.replace_idl_document(&doc.file_name, &doc.text);
                     }
                     "ids" => {
-                        module.add_ids_document_and_update(&doc.file_name, &doc.text)?;
+                        if !module.has_ids_document() {
+                            let _ = module.replace_ids_document(&doc.file_name, &doc.text);
+                        }
                     }
                     _ => panic!(),
                 }
@@ -48,7 +50,7 @@ pub(crate) fn open_directory(path: &path::Path) -> Result<idl::module::Module> {
 }
 
 fn add_file(path: &path::Path) -> Option<Document> {
-    let file_name = path.file_stem()?.to_str()?.to_owned();
+    let file_name = path.file_name()?.to_str()?.to_owned();
     let file_type = path.extension()?.to_str()?.to_owned();
 
     match file_type.as_str() {

@@ -112,28 +112,35 @@ impl ItemType {
         }
     }
 
-    pub fn as_string(&self) -> Option<String> {
+    pub fn as_identifier(&self) -> Option<String> {
+        match self {
+            ItemType::Identifier(value) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn as_string_value(&self) -> Option<String> {
         match self {
             ItemType::NatString(value) => Some(value.clone()),
             _ => None,
         }
     }
 
-    pub fn as_int(&self) -> Option<i64> {
+    pub fn as_int_value(&self) -> Option<i64> {
         match self {
             ItemType::NatInt(value) => Some(*value),
             _ => None,
         }
     }
 
-    pub fn as_float(&self) -> Option<f64> {
+    pub fn as_float_value(&self) -> Option<f64> {
         match self {
             ItemType::NatFloat(value) => Some(*value),
             _ => None,
         }
     }
 
-    pub fn as_bool(&self) -> Option<bool> {
+    pub fn as_bool_value(&self) -> Option<bool> {
         match self {
             ItemType::NatBool(value) => Some(*value),
             _ => None,
@@ -171,26 +178,8 @@ impl ItemType {
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum IdsNode {
-    Package(Box<Package>),
+    Package(Box<super::package::Package>),
     Layer(Box<super::layer::Layer>),
     Server(Box<super::server::Server>),
     Client(Box<super::client::Client>),
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct Package {
-    pub ident: String,
-    pub nodes: Vec<PackageNode>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub enum PackageNode {
-    PackageField(Box<PackageField>),
-    Comment(Vec<String>),
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-pub struct PackageField {
-    pub ident: String,
-    pub value: Box<ItemType>,
 }

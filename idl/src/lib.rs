@@ -6,6 +6,7 @@ mod reserved;
 
 pub mod formatting;
 pub mod module;
+pub mod mod_package;
 pub mod ids;
 pub mod range;
 

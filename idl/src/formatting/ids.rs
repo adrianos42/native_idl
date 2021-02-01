@@ -4,7 +4,7 @@ use crate::scanner::Keywords;
 
 // TODO Split lines with more than 80 characters.
 
-// The only stuff that this formatter reorders are the the library name and imports,
+// The only stuff that this formatter reorders are the the package name and imports,
 // since they must appear first. Anything else, only the comments, spaces and indentantion are fixed.
 pub fn format_document(parser: &Parser) -> Option<String> {
     let mut body = String::new();

@@ -1,6 +1,26 @@
-mod analyzer {
-    static IDL_FIRST: &str = r#"
-library idl_nodes
+static IDS_FIRST: &str = r#"
+package idl_nodes {
+    version: 1.0,
+    idl_version: 0.1,
+    libs: [programmer],
+}
+
+server Main {
+    layers: [FFI],
+}
+
+client Maine {
+    description: "Client generator.",
+    layers: [FFI],
+}
+
+layer FFI {
+    description: "This is supposed to be the translation layer.",
+}
+"#;
+
+static IDL_FIRST: &str = r#"
+library programmer
 
 enum Types {
     NatInt,
@@ -47,19 +67,18 @@ interface GetName {
 }
 "#;
 
-    use idl::analyzer;
-    use idl::parser;
+use ansi_term::Color;
+use anyhow::{format_err, Result};
+use idl::module::Module;
 
-    #[test]
-    fn try_this() {
-        match parser::Parser::parse(IDL_FIRST) {
-            Ok(parser) => match analyzer::Analyzer::resolve(&parser, None) {
-                Ok(value) => {}
-                Err(err) => println!("Error: {}", err),
-            },
-            Err(err) => {
-                panic!("{:?} at {:?}", err.1, err.1.get_range());
-            }
-        }
-    }
+#[test]
+fn try_this() -> Result<()> {
+    let mut module = Module::new();
+
+    module.replace_ids_document("idl_nodes.ids", IDS_FIRST);
+    module.replace_idl_document("idl_nodes.idl", IDL_FIRST);
+
+    module.update()?;
+
+    Ok(())
 }

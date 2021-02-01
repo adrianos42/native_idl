@@ -1,8 +1,8 @@
 mod analyzer {
     static IDS_FIRST: &str = r#"
 package idl_nodes {
-    version: "1.0",
-    idl_version: "0.1",
+    version: 1.0,
+    idl_version: 0.1,
     libs: [programmer],
 }
 
@@ -28,7 +28,7 @@ layer FFI {
     #[test]
     fn try_this() -> Result<()> {
         match parser::Parser::parse(IDS_FIRST) {
-            Ok(parser) => match analyzer::Analyzer::resolve(&parser, None) {
+            Ok(parser) => match analyzer::Analyzer::resolve(&parser) {
                 Ok(_) => return Ok(()),
                 Err(err) => println!("Error: {}", Color::Red.paint(format!("{}", err))),
             },
