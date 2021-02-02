@@ -31,7 +31,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
     if !diagnostics::diagnostic(&module)? {
         println!("ok");
-    } 
+    }
     
     Ok(())
 }

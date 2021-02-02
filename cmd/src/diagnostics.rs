@@ -5,68 +5,132 @@ use codespan_reporting::{
     term::termcolor::{ColorChoice, StandardStream},
 };
 use idl::{self, module};
-use std::ops::Range;
+use std::{convert::TryFrom, ops::Range};
 
 pub fn diagnostic(module: &module::Module) -> anyhow::Result<bool> {
-    let files = files::Files::from(module);
-
-    let idl_parser_errors = module.idl_parser_errors();
-    let idl_analyze_errors = module.idl_analyze_errors();
-    let ids_parser_errors = module.ids_parser_errors()?;
-    let ids_analyze_errors = module.ids_analyze_errors()?;
+    let files = files::Files::try_from(module).unwrap();
+    let mut has_errors = false;
     let mut messages = vec![];
 
-    if let Some((name, err)) = ids_parser_errors {
-        if let Some(id) = files.get_id(&name) {
-            let range = err
-                .get_range()
-                .get_byte_range(&module.idl_document_text(&name).unwrap())
-                .unwrap_or_default();
+    let add_warnings = || {};
 
-            messages.push(Message::IdsParser { id, err, range });
+    match module.idl_documents_are_all_valid() {
+        Ok(_) => {
+            // Warnings
+            if let Some(names) = module.idl_documents_names_not_in_package()? {
+                for name in names {
+                    if let Some(idl_parser) = module.idl_parser(&name) {
+                        match &*idl_parser {
+                            Ok(parser) => {
+                                if let Some(library_name) = parser.library_name() {
+                                    if let Some(id) = files.get_id(&name) {
+                                        messages.push(Message::PackageWarning {
+                                            message: format!(
+                                                "Library `{}` not defined in package",
+                                                library_name
+                                            ),
+                                            id,
+                                        });
+                                    }
+                                }
+                            }
+                            Err(_) => {}
+                        }
+                    }
+                }
+            }
+        }
+        Err(err) => {
+            messages.push(Message::Package { err });
+
+            let idl_parser_errors = module.idl_parser_errors();
+            let idl_analyze_errors = module.idl_analyze_errors();
+
+            let ids_parser_errors = module.ids_parser_errors()?;
+            let ids_analyze_errors = module.ids_analyze_errors()?;
+
+            if let Some((name, err)) = ids_parser_errors {
+                if let Some(id) = files.get_id(&name) {
+                    let range = err
+                        .get_range()
+                        .get_byte_range(&module.idl_document_text(&name).unwrap())
+                        .unwrap_or_default();
+
+                    messages.push(Message::IdsParser { id, err, range });
+                }
+            }
+
+            if let Some((name, err)) = ids_analyze_errors {
+                if let Some(id) = files.get_id(&name) {
+                    let range = 0..1;
+                    messages.push(Message::IdsAnalyzer { id, err, range });
+                }
+            }
+
+            for (name, err) in idl_parser_errors {
+                if let Some(id) = files.get_id(&name) {
+                    let range = err
+                        .get_range()
+                        .get_byte_range(&module.idl_document_text(&name).unwrap())
+                        .unwrap_or_default();
+
+                    messages.push(Message::IdlParser { id, err, range });
+                }
+            }
+
+            for (name, err) in idl_analyze_errors {
+                if let Some(id) = files.get_id(&name) {
+                    let range = 0..1;
+                    messages.push(Message::IdlAnalyzer { id, err, range });
+                }
+            }
+
+            has_errors = !messages.is_empty();
+
+            if !has_errors {
+                // Warnings
+                if let Some(names) = module.idl_documents_names_not_in_package()? {
+                    for name in names {
+                        if let Some(idl_parser) = module.idl_parser(&name) {
+                            match &*idl_parser {
+                                Ok(parser) => {
+                                    if let Some(library_name) = parser.library_name() {
+                                        if let Some(id) = files.get_id(&name) {
+                                            messages.push(Message::PackageWarning {
+                                                message: format!(
+                                                    "Library `{}` not defined in package",
+                                                    library_name
+                                                ),
+                                                id,
+                                            });
+                                        }
+                                    }
+                                }
+                                Err(_) => {}
+                            }
+                        }
+                    }
+                }
+            }
         }
     }
 
-    if let Some((name, err)) = ids_analyze_errors {
-        if let Some(id) = files.get_id(&name) {
-            let range = 0..1;
-            messages.push(Message::IdsAnalyzer { id, err, range });
+    if !messages.is_empty() {
+        let writer = StandardStream::stderr(ColorChoice::Always);
+        let config = term::Config::default();
+        for message in messages {
+            let writer = &mut writer.lock();
+            term::emit(writer, &config, &files, &message.to_diagnostic())?;
         }
     }
 
-    for (name, err) in idl_parser_errors {
-        if let Some(id) = files.get_id(&name) {
-            let range = err
-                .get_range()
-                .get_byte_range(&module.idl_document_text(&name).unwrap())
-                .unwrap_or_default();
-
-            messages.push(Message::IdlParser { id, err, range });
-        }
-    }
-
-    for (name, err) in idl_analyze_errors {
-        if let Some(id) = files.get_id(&name) {
-            let range = 0..1;
-            messages.push(Message::IdlAnalyzer { id, err, range });
-        }
-    }
-
-    let has_error = !messages.is_empty();
-
-    let writer = StandardStream::stderr(ColorChoice::Always);
-    let config = term::Config::default();
-    for message in messages {
-        let writer = &mut writer.lock();
-        term::emit(writer, &config, &files, &message.to_diagnostic())?;
-    }
-
-    Ok(has_error)
+    Ok(has_errors)
 }
 
 mod files {
     use codespan_reporting::files;
-    use std::{collections::HashMap, ops::Range};
+    use idl::module::ModuleError;
+    use std::{collections::HashMap, convert::TryFrom, ops::Range};
 
     #[derive(Debug, Clone)]
     struct File {
@@ -96,11 +160,13 @@ mod files {
         names: HashMap<String, FileId>,
     }
 
-    impl From<&idl::module::Module> for Files {
-        fn from(module: &idl::module::Module) -> Self {
+    impl TryFrom<&idl::module::Module> for Files {
+        type Error = anyhow::Result<()>;
+
+        fn try_from(module: &idl::module::Module) -> Result<Self, Self::Error> {
             let mut result = Self::new();
 
-            for name in module.all_document_names() {
+            for name in module.all_document_names().unwrap() {
                 match module.idl_document_text(&name) {
                     Some(source) => {
                         let _ = result.add(name, source);
@@ -117,7 +183,7 @@ mod files {
                 }
             }
 
-            result
+            Ok(result)
         }
     }
 
@@ -217,6 +283,13 @@ pub enum Message {
         range: Range<usize>,
         err: idl::ids::parser::ParserError,
     },
+    Package {
+        err: module::PackageModuleError,
+    },
+    PackageWarning {
+        id: files::FileId,
+        message: String,
+    },
 }
 
 impl Message {
@@ -260,6 +333,10 @@ impl Message {
                         Label::primary(*id, range.clone()).with_message(message)
                     ])
             }
+            Message::Package { err } => Diagnostic::error().with_message(err.to_string()),
+            Message::PackageWarning { message, id } => Diagnostic::warning()
+                .with_labels(vec![Label::primary(*id, Range { start: 0, end: 0 })])
+                .with_message(message),
         }
     }
 }

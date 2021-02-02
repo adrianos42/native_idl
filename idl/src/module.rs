@@ -1,9 +1,24 @@
 use crate::mod_package;
 
 use super::ids;
-use std::{collections::HashSet, sync::Arc};
+use std::iter::FromIterator;
 use std::{borrow::BorrowMut, collections::HashMap};
+use std::{collections::HashSet, sync::Arc};
 use thiserror::Error;
+
+#[derive(Error, Debug)]
+pub enum PackageModuleError {
+    #[error("Multiple library definition")]
+    Definition,
+    #[error("Missing libraries '{0}`")]
+    MissingLibraries(String),
+    #[error("Update")]
+    Update,
+    #[error("Invalid document name")]
+    Document,
+    #[error("Package not defined")]
+    PackageMissing,
+}
 
 #[derive(Error, Debug)]
 pub enum ModuleError {
@@ -83,37 +98,6 @@ impl Module {
         Some(doc.text.as_ref()?.to_string())
     }
 
-    // pub fn add_idl_document(&mut self, name: &str) -> Result<(), ModuleError> {
-    //     if self.idl_documents.contains_key(name) {
-    //         return Err(ModuleError::DuplicateDocument);
-    //     }
-
-    //     self.idl_documents.insert(
-    //         name.to_owned(),
-    //         IdlDocument {
-    //             text: None,
-    //             parser: Arc::new(super::parser::Parser::closed()),
-    //             analyzer: Arc::new(super::analyzer::Analyzer::closed()),
-    //             last_analyzer: Arc::new(super::analyzer::Analyzer::closed()),
-    //         },
-    //     );
-
-    //     Ok(())
-    // }
-
-    // Adds a document but also updates it with the source text
-    // pub fn add_idl_document_and_update(
-    //     &mut self,
-    //     name: &str,
-    //     text: &str,
-    // ) -> Result<(), ModuleError> {
-    //     if self.idl_documents.contains_key(name) {
-    //         return Err(ModuleError::DuplicateDocument);
-    //     }
-
-    //     Ok(())
-    // }
-
     pub fn remove_idl_document(&mut self, name: &str) -> Result<(), ModuleError> {
         match self.idl_documents.remove(name) {
             Some(_) => Ok(()),
@@ -149,15 +133,271 @@ impl Module {
         self.idl_documents.get(name).map(|doc| doc.analyzer.clone())
     }
 
-    pub fn all_document_names(&self) -> Vec<String> {
-        let mut result = HashSet::<String>::from(self.idl_documents
-            .keys()
-            .map(|v| v.to_owned())
-            .collect());
-        if let Some(doc) = &self.ids_document {
-            result.insert(doc.0.to_owned());
+    pub fn idl_all_parsers(
+        &self,
+        names: &[&str],
+    ) -> Option<
+        Vec<
+            Arc<Result<super::parser::Parser, (super::parser::Parser, super::parser::ParserError)>>,
+        >,
+    > {
+        let mut result = vec![];
+        for name in names {
+            let doc = self.idl_documents.get(*name)?.parser.clone();
+            result.push(doc);
         }
-        result.into_iter().collect()
+        Some(result)
+    }
+
+    pub fn idl_all_analyzers(
+        &self,
+        names: &[&str],
+    ) -> Option<Vec<Arc<Result<super::analyzer::Analyzer, super::analyzer::AnalyzerError>>>> {
+        let mut result = vec![];
+        for name in names {
+            let doc = self.idl_documents.get(*name)?.analyzer.clone();
+            result.push(doc);
+        }
+        Some(result)
+    }
+
+    // Returns the value of files that are defined
+    // All documents must have valid parser
+    pub fn idl_valid_names(&self) -> Result<Vec<String>, PackageModuleError> {
+        let result = vec![];
+
+        match &self.ids_document {
+            Some(ids_doc) => match &*ids_doc.1.analyzer {
+                Ok(ids_analyzer) => {
+                    let package = ids_analyzer.get_package();
+                    let package_name = package.name();
+
+                    let lib_names = package.lib_names().unwrap_or_else(|| vec![]);
+
+                    for (_, doc) in self.idl_documents.iter() {
+                        let idl_parser = match &*doc.parser {
+                            // TODO
+                            Ok(value) => value,
+                            Err(_) => return Err(PackageModuleError::Update),
+                        };
+                        let library_name = idl_parser.library_name().ok_or(PackageModuleError::Update)?;
+                        if library_name == package_name || lib_names.contains(&library_name) {}
+                    }
+
+                    Ok(result)
+                }
+                Err(_) => Err(PackageModuleError::Update),
+            },
+            None => Err(PackageModuleError::PackageMissing),
+        }
+    }
+
+    // Returns the idl document names, only if all documents have a valid syntax.
+    // This means that the entire package is correct.
+    // - All library defined in ids are valid.
+    // - There's only one definition of the same library.
+    // - There's at most one library with the same name as the package.
+    pub fn idl_documents_all_valid_names(&self) -> Result<Vec<String>, PackageModuleError> {
+        match &self.ids_document {
+            Some(ids_doc) => match &*ids_doc.1.analyzer {
+                Ok(ids_analyzer) => {
+                    let package = ids_analyzer.get_package();
+                    let package_name = package.name();
+
+                    let mut analayzer_lib_names = vec![];
+
+                    for (name, doc) in self.idl_documents.iter() {
+                        match &*doc.parser {
+                            Ok(idl_parser) => {
+                                let p_library_name =
+                                    idl_parser.library_name().ok_or(PackageModuleError::Document)?;
+                                match &*doc.analyzer {
+                                    Ok(idl_analyzer) => {
+                                        let library_name = idl_analyzer.library_name();
+                                        if library_name != p_library_name {
+                                            return Err(PackageModuleError::Document);
+                                        }
+                                        if library_name != package_name {
+                                            analayzer_lib_names
+                                                .push((name.to_owned(), library_name));
+                                        }
+                                    }
+                                    Err(_) => {
+                                        if p_library_name == package_name {
+                                            return Err(PackageModuleError::Update);
+                                        }
+                                    }
+                                }
+                            }
+                            Err(_) => return Err(PackageModuleError::Update),
+                        }
+                    }
+
+                    // Check all the library names, but also the package name when it's the
+                    // as in a library definition.
+                    let mut checked_names = HashSet::new();
+                    let lib_names = HashSet::from_iter(
+                        package.lib_names().unwrap_or_else(|| vec![]).into_iter(),
+                    );
+                    let mut result_names = vec![];
+
+                    let mut result_name_pakage_name = None; // When the library name is the same as the package name.
+
+                    for (name, library_name) in analayzer_lib_names {
+                        if lib_names.contains(&library_name) {
+                            if checked_names.contains(&library_name) {
+                                return Err(PackageModuleError::Definition.into());
+                            }
+
+                            checked_names.insert(library_name);
+                            result_names.push(name);
+                        } else if library_name == package_name {
+                            if result_name_pakage_name.is_some() {
+                                return Err(
+                                    PackageModuleError::MissingLibraries(library_name).into()
+                                );
+                            }
+                            result_name_pakage_name = Some(name);
+                        }
+                    }
+
+                    if !checked_names.is_superset(&lib_names) {
+                        let diff =
+                            lib_names
+                                .difference(&checked_names)
+                                .fold("".to_owned(), |p, v| {
+                                    if !p.is_empty() {
+                                        format!("{}, {}", p, v.to_owned())
+                                    } else {
+                                        format!("{}", v.to_owned())
+                                    }
+                                });
+                        return Err(PackageModuleError::MissingLibraries(diff).into());
+                    }
+
+                    if let Some(name) = result_name_pakage_name {
+                        result_names.push(name);
+                    }
+
+                    Ok(result_names)
+                }
+                Err(_) => Err(PackageModuleError::Update),
+            },
+            None => Err(PackageModuleError::PackageMissing),
+        }
+    }
+
+    pub fn idl_documents_are_all_valid(&self) -> Result<(), PackageModuleError> {
+        match &self.ids_document {
+            Some(ids_doc) => match &*ids_doc.1.analyzer {
+                Ok(ids_analyzer) => {
+                    let package = ids_analyzer.get_package();
+                    let package_name = package.name();
+
+                    let mut checked_names = HashSet::new();
+                    let lib_names = HashSet::from_iter(
+                        package.lib_names().unwrap_or_else(|| vec![]).into_iter(),
+                    );
+
+                    for (_, doc) in self.idl_documents.iter() {
+                        match &*doc.parser {
+                            Ok(idl_parser) => {
+                                let p_library_name =
+                                    idl_parser.library_name().ok_or(PackageModuleError::Document)?;
+                                match &*doc.analyzer {
+                                    Ok(idl_analyzer) => {
+                                        let library_name = idl_analyzer.library_name();
+                                        if library_name != p_library_name {
+                                            return Err(PackageModuleError::Document);
+                                        }
+                                        if library_name != package_name {
+                                            checked_names.insert(library_name);
+                                        }
+                                    }
+                                    Err(_) => {
+                                        if p_library_name == package_name {
+                                            return Err(PackageModuleError::Update);
+                                        }
+                                    }
+                                }
+                            }
+                            Err(_) => return Err(PackageModuleError::Update),
+                        }
+                    }
+
+                    if !checked_names.is_superset(&lib_names) {
+                        let diff =
+                            lib_names
+                                .difference(&checked_names)
+                                .fold("".to_owned(), |p, v| {
+                                    if !p.is_empty() {
+                                        format!("{}, {}", p, v.to_owned())
+                                    } else {
+                                        format!("{}", v.to_owned())
+                                    }
+                                });
+                        return Err(
+                            PackageModuleError::MissingLibraries(format!("{}", diff)).into()
+                        );
+                    }
+
+                    Ok(())
+                }
+                Err(_) => Err(PackageModuleError::Update),
+            },
+            None => Err(PackageModuleError::PackageMissing),
+        }
+    }
+
+    // Returns the names not defined as libraries in package.
+    // This considers not only the files with valid syntax, but any file with a library name.
+    pub fn idl_documents_names_not_in_package(&self) -> Result<Option<Vec<String>>, ModuleError> {
+        match &self.ids_document {
+            Some(ids_doc) => match &*ids_doc.1.analyzer {
+                Ok(ids_analyzer) => {
+                    let package = ids_analyzer.get_package();
+                    let package_name = package.name();
+                    let lib_names = package.lib_names().unwrap_or_else(|| vec![]);
+                    let mut analayzer_lib_names = vec![];
+                    let mut result_names = vec![];
+
+                    for (name, doc) in self.idl_documents.iter() {
+                        match &*doc.parser {
+                            Ok(idl_parser) => {
+                                let library_name =
+                                    idl_parser.library_name().ok_or(ModuleError::Document)?;
+
+                                if library_name != package_name {
+                                    analayzer_lib_names.push((name.to_owned(), library_name))
+                                }
+                            }
+                            Err(_) => {},
+                        }
+                    }
+
+                    for (name, library_name) in analayzer_lib_names {
+                        if !lib_names.contains(&library_name) {
+                            result_names.push(name)
+                        }
+                    }
+
+                    Ok(Some(result_names))
+                }
+                Err(_) => Ok(None),
+            },
+            None => Err(ModuleError::PackageMissing),
+        }
+    }
+
+    pub fn all_document_names(&self) -> Result<Vec<String>, ModuleError> {
+        let mut result: Vec<String> = self.idl_documents.keys().map(|v| v.to_owned()).collect();
+        if let Some(doc) = &self.ids_document {
+            if result.contains(&doc.0) {
+                return Err(ModuleError::DuplicateDocument);
+            }
+            result.push(doc.0.to_owned());
+        }
+        Ok(result)
     }
 
     // Updates the entire module. The ids document is required for this.
@@ -175,12 +415,13 @@ impl Module {
                     let ids_analyzer = ids::analyzer::Analyzer::resolve(parser);
 
                     if let Ok(analyzer) = &ids_analyzer {
-                        if analyzer.get_package().name() != parse_package_name {
+                        let package = analyzer.get_package();
+                        let package_name = package.name();
+
+                        if package_name != parse_package_name {
                             return Err(ModuleError::InvalidPackageName);
                         }
 
-                        let package = analyzer.get_package();
-                        let package_name = package.name();
                         let lib_names = package.lib_names().unwrap_or_else(|| vec![]);
 
                         for (_, doc) in self.idl_documents.iter_mut() {
