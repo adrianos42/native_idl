@@ -12,8 +12,10 @@ pub enum PackageModuleError {
     Definition,
     #[error("Missing libraries '{0}`")]
     MissingLibraries(String),
-    #[error("Update")]
-    Update,
+    #[error("Update Analyzer")]
+    UpdateAnalyzer,
+    #[error("Update Parser")]
+    UpdateParser,
     #[error("Invalid document name")]
     Document,
     #[error("Package not defined")]
@@ -164,7 +166,7 @@ impl Module {
     // Returns the value of files that are defined
     // All documents must have valid parser
     pub fn idl_valid_names(&self) -> Result<Vec<String>, PackageModuleError> {
-        let result = vec![];
+        let mut result = vec![];
 
         match &self.ids_document {
             Some(ids_doc) => match &*ids_doc.1.analyzer {
@@ -178,15 +180,17 @@ impl Module {
                         let idl_parser = match &*doc.parser {
                             // TODO
                             Ok(value) => value,
-                            Err(_) => return Err(PackageModuleError::Update),
+                            Err(_) => return Err(PackageModuleError::UpdateParser),
                         };
-                        let library_name = idl_parser.library_name().ok_or(PackageModuleError::Update)?;
-                        if library_name == package_name || lib_names.contains(&library_name) {}
+                        let library_name = idl_parser.library_name().ok_or(PackageModuleError::UpdateAnalyzer)?;
+                        if library_name == package_name || lib_names.contains(&library_name) {
+                            result.push(library_name.clone());
+                        }
                     }
 
                     Ok(result)
                 }
-                Err(_) => Err(PackageModuleError::Update),
+                Err(_) => Err(PackageModuleError::UpdateAnalyzer),
             },
             None => Err(PackageModuleError::PackageMissing),
         }
@@ -198,6 +202,8 @@ impl Module {
     // - There's only one definition of the same library.
     // - There's at most one library with the same name as the package.
     pub fn idl_documents_all_valid_names(&self) -> Result<Vec<String>, PackageModuleError> {
+        let mut result_names = vec![];
+
         match &self.ids_document {
             Some(ids_doc) => match &*ids_doc.1.analyzer {
                 Ok(ids_analyzer) => {
@@ -220,16 +226,18 @@ impl Module {
                                         if library_name != package_name {
                                             analayzer_lib_names
                                                 .push((name.to_owned(), library_name));
+                                        } else {
+                                            result_names.push(name.to_owned());
                                         }
                                     }
                                     Err(_) => {
                                         if p_library_name == package_name {
-                                            return Err(PackageModuleError::Update);
+                                            return Err(PackageModuleError::UpdateAnalyzer);
                                         }
                                     }
                                 }
                             }
-                            Err(_) => return Err(PackageModuleError::Update),
+                            Err(_) => return Err(PackageModuleError::UpdateAnalyzer),
                         }
                     }
 
@@ -239,7 +247,6 @@ impl Module {
                     let lib_names = HashSet::from_iter(
                         package.lib_names().unwrap_or_else(|| vec![]).into_iter(),
                     );
-                    let mut result_names = vec![];
 
                     let mut result_name_pakage_name = None; // When the library name is the same as the package name.
 
@@ -281,7 +288,7 @@ impl Module {
 
                     Ok(result_names)
                 }
-                Err(_) => Err(PackageModuleError::Update),
+                Err(_) => Err(PackageModuleError::UpdateAnalyzer),
             },
             None => Err(PackageModuleError::PackageMissing),
         }
@@ -316,12 +323,12 @@ impl Module {
                                     }
                                     Err(_) => {
                                         if p_library_name == package_name {
-                                            return Err(PackageModuleError::Update);
+                                            return Err(PackageModuleError::UpdateAnalyzer);
                                         }
                                     }
                                 }
                             }
-                            Err(_) => return Err(PackageModuleError::Update),
+                            Err(_) => return Err(PackageModuleError::UpdateAnalyzer),
                         }
                     }
 
@@ -343,7 +350,7 @@ impl Module {
 
                     Ok(())
                 }
-                Err(_) => Err(PackageModuleError::Update),
+                Err(_) => Err(PackageModuleError::UpdateAnalyzer),
             },
             None => Err(PackageModuleError::PackageMissing),
         }

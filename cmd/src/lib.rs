@@ -1,16 +1,17 @@
-mod diagnostics;
-pub mod formatter;
-pub mod client;
-pub mod server;
 pub mod analyze;
 pub mod clean;
+pub mod client;
+mod diagnostics;
+pub mod formatter;
 pub mod message;
+pub mod server;
 
 use anyhow::{anyhow, Result};
 use idl_gen::lang::StorageItem;
 use std::fs;
-use std::{io::Write, path::Path};
 use std::path;
+use std::sync::Arc;
+use std::{io::Write, path::Path};
 
 #[derive(Debug)]
 struct Document {
@@ -23,7 +24,10 @@ pub(crate) fn open_directory(path: &path::Path) -> Result<idl::module::Module> {
     let mut module = idl::module::Module::new();
 
     if !path.is_dir() {
-        return Err(anyhow!("Path is not a directory"));
+        return Err(anyhow::format_err!(
+            "Path nof found `{}`",
+            path.to_str().unwrap()
+        ));
     }
 
     for entry in fs::read_dir(path)? {
@@ -40,13 +44,17 @@ pub(crate) fn open_directory(path: &path::Path) -> Result<idl::module::Module> {
                             let _ = module.replace_ids_document(&doc.file_name, &doc.text);
                         }
                     }
-                    _ => panic!(),
+                    _ => panic!("Invalid file ext"),
                 }
             }
         }
     }
 
-    Ok(module)
+    if module.has_ids_document() {
+        Ok(module)
+    } else {
+        Err(anyhow!("Missing package"))
+    }
 }
 
 fn add_file(path: &path::Path) -> Option<Document> {
@@ -67,4 +75,16 @@ fn add_file(path: &path::Path) -> Option<Document> {
     }
 
     None
+}
+
+pub(crate) fn get_all_idl_nodes(
+    analyzers: &[Arc<Result<idl::analyzer::Analyzer, idl::analyzer::AnalyzerError>>],
+) -> Vec<Vec<idl::idl_nodes::IdlNode>> {
+    analyzers
+        .iter()
+        .map(|v| match &**v {
+            Ok(value) => value.nodes.clone(),
+            Err(_) => panic!("Could not collect all module"),
+        })
+        .collect()
 }

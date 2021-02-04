@@ -87,6 +87,7 @@ pub fn diagnostic(module: &module::Module) -> anyhow::Result<bool> {
 
             has_errors = !messages.is_empty();
 
+            // Unlike rustc, only show warnings if there are no errors.
             if !has_errors {
                 // Warnings
                 if let Some(names) = module.idl_documents_names_not_in_package()? {
@@ -200,8 +201,6 @@ mod files {
         }
 
         fn add(&mut self, name: impl Into<String>, source: impl Into<String>) -> Option<FileId> {
-            use std::convert::TryFrom;
-
             let file_id = FileId(usize::try_from(self.files.len()).ok()?);
             let name = name.into();
             let source = source.into();
@@ -334,9 +333,7 @@ impl Message {
                     ])
             }
             Message::Package { err } => Diagnostic::error().with_message(err.to_string()),
-            Message::PackageWarning { message, id } => Diagnostic::warning()
-                .with_labels(vec![Label::primary(*id, Range { start: 0, end: 0 })])
-                .with_message(message),
+            Message::PackageWarning { message, id } => Diagnostic::warning().with_message(message),
         }
     }
 }

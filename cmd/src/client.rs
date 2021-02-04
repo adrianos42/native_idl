@@ -1,9 +1,9 @@
 use super::diagnostics;
-use crate::{message, server};
+use crate::{get_all_idl_nodes, message};
 use anyhow::{anyhow, Result};
 use clap::{App, Arg, ArgMatches};
-use message::Message;
 use idl_gen::lang::*;
+use message::Message;
 use std::fs;
 use std::path::Path;
 
@@ -79,8 +79,11 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
         return Ok(());
     }
 
-    let analyzer_r = &*module.idl_analyzer(&package_name).ok_or(anyhow!("Not found"))?;
-    let analyzer_idl = analyzer_r.as_ref().map_err(|err| anyhow!("{}", err))?;
+    let names = module.idl_documents_all_valid_names()?;
+    let ref_names: Vec<&str> = names.iter().map(|v| v.as_str()).collect(); // TODO Better way to do this?
+    let analyzers = module
+        .idl_all_analyzers(&ref_names)
+        .ok_or(anyhow::format_err!(""))?;
 
     if !analyzer_ids.has_client(client) {
         return Err(anyhow!("Client `{}` not defined", client));
@@ -90,34 +93,34 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
     let target_lang = target_client.language().unwrap();
 
     let request = LanguageRequest {
-        idl_nodes: analyzer_idl.nodes.clone(),
+        libraries: get_all_idl_nodes(&analyzers),
         ids_nodes: analyzer_ids.nodes.clone(),
         request_type: RequestType::Client(client.to_owned()),
     };
 
-    Message::info(&format!("Sending language `{}` request", target_lang))?;
-    let gen = idl_gen::for_language(&target_lang)?;
-    let response = gen.send_request(request)?;
-    
-    Message::normal("Response message", response.response_messages)?;
+    // Message::info(format!("Sending language `{}` request", target_lang))?;
+    // let gen = idl_gen::for_language(&target_lang)?;
+    // let response = gen.send_request(request)?;
 
-    match response.gen_response {
-        ResponseType::Generated(value) => {
-            let src = Path::new(output).join(&package_name);
-            let _ = fs::remove_dir_all(&src);
-            fs::create_dir_all(&src)?;
+    // Message::normal("Response message", response.response_messages)?;
 
-            for item in value {
-                item.write_items(&src, true)?;
-            }
+    // match response.gen_response {
+    //     ResponseType::Generated(value) => {
+    //         let src = Path::new(output).join(&package_name);
+    //         let _ = fs::remove_dir_all(&src);
+    //         fs::create_dir_all(&src)?;
 
-            Message::info(&format!("Generated files at {:#?}", src))?;
-        }
-        ResponseType::Undefined(err) => {
-            Message::error("Request error", err.as_str())?;
-            return Err(anyhow!(""));
-        }
-    }
+    //         for item in value {
+    //             item.write_items(&src, true)?;
+    //         }
+
+    //         Message::info(format!("Generated files at {:#?}", src))?;
+    //     }
+    //     ResponseType::Undefined(err) => {
+    //         Message::error("Request error", err)?;
+    //         return Err(anyhow!(""));
+    //     }
+    // }
 
     match target_client.servers(&analyzer_ids) {
         Some(servers) => {
@@ -130,7 +133,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
             let target_lang = target_server.language().unwrap();
 
             let server_request = LanguageRequest {
-                idl_nodes: analyzer_idl.nodes.clone(),
+                libraries: get_all_idl_nodes(&analyzers),
                 ids_nodes: analyzer_ids.nodes.clone(),
                 request_type: RequestType::Server(ServerType {
                     args: ServerArg::Build,
@@ -139,7 +142,10 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
             };
 
             if !no_building {
-                Message::info(&format!("Sending language `{}` request for building", target_lang))?;
+                Message::info(format!(
+                    "Sending language `{}` request for building",
+                    target_lang
+                ))?;
                 let gen = idl_gen::for_language(&target_lang)?;
                 let response = gen.send_request(server_request)?;
 
@@ -156,10 +162,10 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
                             item.write_items(&src, true)?;
                         }
 
-                        Message::info(&format!("Generated build files at {:#?}", src))?;
+                        Message::info(format!("Generated build files at {:#?}", src))?;
                     }
                     ResponseType::Undefined(err) => {
-                        Message::error("Request error", err.as_str())?;
+                        Message::error("Request error", err)?;
                         return Err(anyhow!(""));
                     }
                 }
@@ -170,3 +176,4 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
     Ok(())
 }
+

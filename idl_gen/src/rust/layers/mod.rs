@@ -5,7 +5,7 @@ mod ffi;
 pub trait LayerBuilder {
     fn build(
         &self,
-        analyzer: &idl::analyzer::Analyzer,
+        analyzers: &[idl::analyzer::Analyzer],
         ids_analyzer: &idl::ids::analyzer::Analyzer,
     ) -> anyhow::Result<Vec<StorageItem>>;
 }

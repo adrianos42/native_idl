@@ -1,11 +1,11 @@
 use regex::{Captures, Regex};
 use std::process::{Command, Stdio};
 use std::io::Write;
+use proc_macro2::TokenStream;
 
 pub(super) trait StringPros {
     fn to_pascal_case(&self) -> String;
     fn to_snake_case(&self) -> String;
-    fn rust_fmt(&self) -> String;
     fn to_snake_case_upper(&self) -> String;
 }
 
@@ -58,8 +58,15 @@ impl StringPros for str {
             }
         }).to_string()
     }
+}
 
-    fn rust_fmt(&self) -> String {
+
+pub(super) trait StringRustFmt {
+    fn rust_fmt(self) -> String;
+}
+
+impl StringRustFmt for String {
+    fn rust_fmt(self) -> String {
         let mut cmd = Command::new("rustfmt");
 
         cmd.stdin(Stdio::piped()).stdout(Stdio::piped());
@@ -68,11 +75,9 @@ impl StringPros for str {
         let mut child_stdin = child.stdin.take().unwrap();
         let mut child_stdout = child.stdout.take().unwrap();
 
-        let source = self.to_owned();
-
         let stdin_handle = std::thread::spawn(move || {
-            let _ = child_stdin.write_all(source.as_bytes());
-            source
+            let _ = child_stdin.write_all(self.as_bytes());
+            self
         });
 
         let mut output = vec![];

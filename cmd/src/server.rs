@@ -1,6 +1,6 @@
 use std::{fs, path::Path};
 
-use crate::message::Message;
+use crate::{get_all_idl_nodes, message::Message};
 
 use super::diagnostics;
 use anyhow::{anyhow, Result};
@@ -51,13 +51,18 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
     }
 
     let package_name = module.package_name()?;
+    let analyzer_i = &*module.ids_analyzer()?;
+    let analyzer_ids = analyzer_i.as_ref().map_err(|err| anyhow!("{}", err))?;
 
-    let analyzer_r = &*module.idl_analyzer(&package_name).ok_or(anyhow!(""))?;
-    let analyzer = analyzer_r.as_ref().map_err(|_| anyhow!(""))?;
+    let names = module.idl_documents_all_valid_names()?;
+    let ref_names: Vec<&str> = names.iter().map(|v| v.as_str()).collect();
+    let analyzers = module
+        .idl_all_analyzers(&ref_names)
+        .ok_or(anyhow::format_err!(""))?;
 
     let request = LanguageRequest {
-        idl_nodes: analyzer.nodes.clone(),
-        ids_nodes: vec![],
+        libraries: get_all_idl_nodes(&analyzers),
+        ids_nodes: analyzer_ids.nodes.clone(),
         request_type: RequestType::Server(ServerType {
             server_name: server.to_owned(),
             args: ServerArg::Generate,
@@ -76,7 +81,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
                 item.write_items(&src, false)?;
             }
 
-            Message::info(&format!("Generated files at {:#?}", src))?;
+            Message::info(format!("Generated files at {:#?}", src))?;
         }
         ResponseType::Undefined(err) => return Err(anyhow!("Response error `{}`", err)),
     }

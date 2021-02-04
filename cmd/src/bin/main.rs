@@ -1,7 +1,7 @@
 use clap::{App, Arg};
-use cmd::{formatter, client, server, analyze, clean};
+use cmd::{formatter, client, server, analyze, clean, message};
 
-fn main() {
+fn main() -> anyhow::Result<()> {
     let mut app = App::new("native_idl")
         .version("0.1")
         .author("Adriano Souza <adriano.souza113@gmail.com>")
@@ -22,6 +22,8 @@ fn main() {
         Some(("analyze", value)) => analyze::parse(value),
         _ => Err(anyhow::anyhow!("{}", app.generate_usage())),
     } {
-        println!("{}", err);
+        message::Message::error("", err.to_string())?;
     }
+
+    Ok(())
 }

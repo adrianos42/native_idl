@@ -1,9 +1,9 @@
-use crate::{lang::StorageItem, rust::string_pros::StringPros};
+use crate::{lang::StorageItem, rust::string_pros::StringRustFmt};
 use idl::analyzer::Analyzer;
 use idl::idl_nodes::*;
 use idl::ids;
 use proc_macro2::{self, TokenStream};
-use quote::format_ident;
+use quote::{ToTokens, TokenStreamExt, format_ident};
 use std::fmt;
 
 use super::LayerBuilder;
@@ -15,9 +15,15 @@ pub struct FFIMod {
     module: TokenStream,
 }
 
+impl ToTokens for FFIMod {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append_all(self.module.to_token_stream());
+    }
+}
+
 impl fmt::Display for FFIMod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.module.to_string().as_str().rust_fmt())
+        write!(f, "{}", self.module.to_string().rust_fmt())
     }
 }
 

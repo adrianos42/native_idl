@@ -1,29 +1,72 @@
-use idl::ids;
+use crate::rust::string_pros::StringRustFmt;
 use crate::{lang::StorageItem, rust::layers::LayerBuilder};
-use std::{collections::HashMap, io::{self, Write}};
+use cargo::core::compiler::{CompileKind, CompileMode, CompileTarget};
+use cargo::core::Workspace;
+use cargo::{
+    ops::CompileOptions,
+    util::{interning::InternedString, paths::read_bytes},
+    Config,
+};
+use idl::ids;
+use quote::{ToTokens, TokenStreamExt};
+use std::{
+    collections::HashMap,
+    io::{self, Write},
+};
 use std::{fs::File, path::PathBuf, str::FromStr};
 use tempfile::tempdir;
-use cargo::{Config, ops::CompileOptions, util::{interning::InternedString, paths::read_bytes}};
-use cargo::core::compiler::{CompileKind, CompileMode, CompileTarget};
-use cargo::core::{Workspace};
 
 pub fn ffi_server_files(
-    analyzer: &idl::analyzer::Analyzer,
+    analyzers: &[idl::analyzer::Analyzer],
     ids_analyzer: &ids::analyzer::Analyzer,
     server_name: &str,
 ) -> StorageItem {
-    let ffi_server_impl = super::FFIServerImpl::generate(&analyzer).unwrap();
-    let ffi_server_types = super::FFIServerTypes::generate(&analyzer).unwrap();
-    let ffi_server = super::FFIServer::generate(&analyzer).unwrap();
-    let ffi_lib = super::FFIMod::generate(&analyzer).unwrap();
     let ffi_cargo =
         super::server_cargo::FFIServerCargo::generate(&ids_analyzer, server_name).unwrap();
 
-    StorageItem::Folder {
-        items: vec![
-            StorageItem::Folder {
-                name: "src".to_owned(),
+    let package = ids_analyzer.get_package();
+    let package_name = package.name();
+
+    let mut libs = quote! {};
+    let mut lib_items = vec![];
+
+    for analyzer in analyzers {
+        let ffi_server_impl = super::FFIServerImpl::generate(&analyzer).unwrap();
+        let ffi_server_types = super::FFIServerTypes::generate(&analyzer).unwrap();
+        let ffi_server = super::FFIServer::generate(&analyzer).unwrap();
+
+        let ffi_lib = super::FFIMod::generate(&analyzer).unwrap();
+
+        let library_name = analyzer.library_name();
+
+        if package_name == library_name {
+            libs.append_all(ffi_lib.to_token_stream());
+
+            lib_items.push(StorageItem::Source {
+                name: "ffi.rs".to_owned(),
+                txt: ffi_server.to_string(),
+            });
+
+            lib_items.push(StorageItem::Source {
+                name: "ffi_impl.rs".to_owned(),
+                txt: ffi_server_impl.to_string(),
+            });
+
+            lib_items.push(StorageItem::Source {
+                name: "ffi_types.rs".to_owned(),
+                txt: ffi_server_types.to_string(),
+            });
+        } else {
+            let lib_name = format_ident!("ffi_{}", library_name);
+            libs.append_all(quote! { pub mod #lib_name; });
+
+            lib_items.push(StorageItem::Folder {
+                name: format!("ffi_{}", library_name),
                 items: vec![
+                    StorageItem::Source {
+                        name: "mod.rs".to_owned(),
+                        txt: ffi_lib.to_string(),
+                    },
                     StorageItem::Source {
                         name: "ffi.rs".to_owned(),
                         txt: ffi_server.to_string(),
@@ -36,11 +79,21 @@ pub fn ffi_server_files(
                         name: "ffi_types.rs".to_owned(),
                         txt: ffi_server_types.to_string(),
                     },
-                    StorageItem::Source {
-                        name: "lib.rs".to_owned(),
-                        txt: ffi_lib.to_string(),
-                    },
                 ],
+            })
+        }
+    }
+
+    lib_items.push(StorageItem::Source {
+        name: "lib.rs".to_owned(),
+        txt: libs.to_string().rust_fmt(),
+    });
+
+    StorageItem::Folder {
+        items: vec![
+            StorageItem::Folder {
+                name: "src".to_owned(),
+                items: lib_items,
             },
             StorageItem::Source {
                 name: "Cargo.toml".to_owned(),
@@ -64,13 +117,13 @@ impl FFILayer {
 impl LayerBuilder for FFILayer {
     fn build(
         &self,
-        analyzer: &idl::analyzer::Analyzer,
+        analyzers: &[idl::analyzer::Analyzer],
         ids_analyzer: &ids::analyzer::Analyzer,
     ) -> anyhow::Result<Vec<StorageItem>> {
         let dir = tempdir()?;
         let path = dir.path();
 
-        let item = ffi_server_files(analyzer, ids_analyzer, &self.server_name);
+        let item = ffi_server_files(analyzers, ids_analyzer, &self.server_name);
         item.write_items(path, true)?;
 
         let package_path = path.join("idl_ffi/Cargo.toml");
@@ -80,7 +133,7 @@ impl LayerBuilder for FFILayer {
 
         let mut compile_options = CompileOptions::new(&config, CompileMode::Build)?;
         compile_options.build_config.requested_profile = InternedString::new("release");
-        
+
         let comp = cargo::ops::compile(&ws, &compile_options)?;
 
         let mut files = vec![];

@@ -1,6 +1,6 @@
+use anyhow::{anyhow, Result};
 use clap::{App, Arg, ArgMatches};
 use idl::module::Module;
-use anyhow::{Result, anyhow};
 use std::{
     fs,
     io::Write,

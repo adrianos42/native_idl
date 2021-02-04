@@ -3,7 +3,7 @@ use idl::idl_nodes::*;
 
 use super::con_idl::get_rust_ty_ref;
 
-use super::string_pros::StringPros;
+use super::string_pros::{StringPros, StringRustFmt};
 use proc_macro2::{self, Literal, Punct, Spacing, TokenStream};
 use quote::{TokenStreamExt, ToTokens};
 use quote::format_ident;
@@ -36,13 +36,14 @@ impl fmt::Display for RustTypes {
             result_code += &value.to_string();
         });
 
-        write!(f, "{}", result_code.as_str().rust_fmt())
+        write!(f, "{}", result_code.rust_fmt())
     }
 }
 
 impl RustTypes {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, RustTypeError> {
         let mut context = RustTypes::new();
+        
         let nodes: &[IdlNode] = &analyzer.nodes;
 
         for node in nodes {

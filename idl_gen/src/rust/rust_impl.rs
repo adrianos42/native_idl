@@ -1,12 +1,10 @@
+use super::string_pros::StringRustFmt;
+use super::{con_idl::get_rust_ty_ref, rust_types::RustTypes};
+use crate::lang::StorageItem;
 use idl::analyzer::Analyzer;
 use idl::idl_nodes::*;
 use idl::ids;
-use crate::lang::StorageItem;
-
-use super::{con_idl::get_rust_ty_ref, rust_types::RustTypes};
-
-use super::string_pros::StringPros;
-use proc_macro2::{self, TokenStream};
+use proc_macro2::{self, Ident, Span, TokenStream};
 use quote::format_ident;
 use quote::{ToTokens, TokenStreamExt};
 use std::fmt;
@@ -35,7 +33,7 @@ impl fmt::Display for RustImpl {
             result_code += &value.to_string();
         });
 
-        write!(f, "{}", result_code.as_str().rust_fmt())
+        write!(f, "{}", result_code.rust_fmt())
     }
 }
 
@@ -177,7 +175,7 @@ pub struct RustImplMod {
 
 impl fmt::Display for RustImplMod {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.module.to_string().as_str().rust_fmt())
+        write!(f, "{}", self.module.to_string().rust_fmt())
     }
 }
 
@@ -188,7 +186,7 @@ impl ToTokens for RustImplMod {
 }
 
 impl RustImplMod {
-    pub fn generate(_analyzer: &Analyzer) -> Result<Self, ()> {
+    pub fn generate() -> Result<Self, ()> {
         let module = quote! {
             pub mod idl_impl; // rust interface type
             pub use idl_internal;
@@ -245,33 +243,72 @@ mod impl_cargo {
         }
 
         fn new() -> Self {
-            Self {
-                cargo_toml: None,
-            }
+            Self { cargo_toml: None }
         }
     }
 }
 
-pub fn rust_impl_files(analyzer: &idl::analyzer::Analyzer, ids_analyzer: &ids::analyzer::Analyzer) -> StorageItem {
-    let rus_ty = RustTypes::generate(&analyzer).unwrap();
-    let impl_mod = RustImpl::generate(&analyzer).unwrap();
-    let impl_lib = RustImplMod::generate(&analyzer).unwrap();
+pub fn rust_impl_files(
+    analyzers: &[idl::analyzer::Analyzer],
+    ids_analyzer: &ids::analyzer::Analyzer,
+) -> StorageItem {
+    let impl_lib = RustImplMod::generate().unwrap();
+
+    let mut lib_body = quote! { #impl_lib };
+    let mut libs = quote! {};
+    let mut lib_items = vec![];
+
+    let package = ids_analyzer.get_package();
+    let package_name = package.name();
+
+    for analyzer in analyzers {
+        let library_name = analyzer.library_name();
+        let rus_t = RustTypes::generate(analyzer).unwrap();
+        let impl_mod = RustImpl::generate(&analyzer).unwrap();
+
+        if package_name == library_name {
+            lib_body.append_all(rus_t.to_token_stream());
+            lib_items.push(StorageItem::Source {
+                name: "idl_impl.rs".to_owned(),
+                txt: impl_mod.to_string(),
+            });
+        } else {
+            let lib_name = format_ident!("{}", library_name);
+            libs.append_all(quote! { pub mod #lib_name; });
+
+            lib_items.push(StorageItem::Folder {
+                name: library_name.to_owned(),
+                items: vec![
+                    StorageItem::Source {
+                        name: "mod.rs".to_owned(),
+                        txt: rus_t.to_string().rust_fmt(),
+                    },
+                    StorageItem::Source {
+                        name: "idl_impl.rs".to_owned(),
+                        txt: impl_mod.to_string(),
+                    },
+                ],
+            })
+        }
+    }
+
     let impl_cargo = impl_cargo::RustImplCargo::generate(&ids_analyzer).unwrap();
+
+    lib_items.push(StorageItem::Source {
+        name: "lib.rs".to_owned(),
+        txt: quote! {
+           #libs
+           #lib_body
+        }
+        .to_string()
+        .rust_fmt(),
+    });
 
     StorageItem::Folder {
         items: vec![
             StorageItem::Folder {
                 name: "src".to_owned(),
-                items: vec![
-                    StorageItem::Source {
-                        name: "idl_impl.rs".to_owned(),
-                        txt: impl_mod.to_string(),
-                    },
-                    StorageItem::Source {
-                        name: "lib.rs".to_owned(),
-                        txt: format!("{} {}", impl_lib.to_string(), rus_ty.to_string()),
-                    },
-                ],
+                items: lib_items,
             },
             StorageItem::Source {
                 name: "Cargo.toml".to_owned(),

@@ -33,21 +33,27 @@ impl crate::IdlGen for RustGen {
     ) -> Result<LanguageResponse, crate::IdlGenError> {
         match request.request_type {
             RequestType::Server(name) => {
-                let analyzer = idl::analyzer::Analyzer::from_nodes(request.idl_nodes);
-                let ids_analyzer = idl::ids::analyzer::Analyzer::from_nodes(request.ids_nodes);
                 let mut root_items = vec![];
+
+                let analyzers: Vec<idl::analyzer::Analyzer> = request
+                    .libraries
+                    .into_iter()
+                    .map(|nodes| idl::analyzer::Analyzer::from_nodes(nodes))
+                    .collect();
+
+                let ids_analyzer = idl::ids::analyzer::Analyzer::from_nodes(request.ids_nodes);
 
                 match name.args {
                     ServerArg::Build => {
                         let layer = Layer::layer_builder(name.server_name.to_owned());
                         root_items.append(
                             &mut layer
-                                .build(&analyzer, &ids_analyzer)
+                                .build(&analyzers, &ids_analyzer)
                                 .map_err(|err| RustGenError::Undefined(err.to_string()))?,
                         );
                     }
                     ServerArg::Generate => {
-                        root_items.push(rust_impl_files(&analyzer, &ids_analyzer));
+                        root_items.push(rust_impl_files(&analyzers, &ids_analyzer));
                         //root_items.push(ffi_server_files(&analyzer));
                     }
                 }
@@ -56,7 +62,7 @@ impl crate::IdlGen for RustGen {
                     response_messages: vec![],
                 })
             }
-            _ => panic!(),
+            _ => panic!("Invalid type"),
         }
     }
 }

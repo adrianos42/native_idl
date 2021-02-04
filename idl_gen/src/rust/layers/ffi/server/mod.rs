@@ -3,7 +3,7 @@ use idl::idl_nodes::*;
 
 use crate::{rust::con_idl::{get_rust_ty_name, get_rust_ty_ref}};
 
-use crate::rust::string_pros::StringPros;
+use crate::rust::string_pros::{StringPros, StringRustFmt};
 use proc_macro2::{self, Literal, TokenStream};
 use quote::{TokenStreamExt, ToTokens};
 use quote::format_ident;
@@ -39,7 +39,7 @@ impl fmt::Display for FFIServer {
             result_code += &value.to_string();
         });
 
-        write!(f, "{}", result_code.as_str().rust_fmt())
+        write!(f, "{}", result_code.rust_fmt())
     }
 }
 
@@ -614,7 +614,7 @@ impl fmt::Display for FFIServerTypes {
             result_code += &value.to_string();
         });
 
-        write!(f, "{}", result_code.as_str().rust_fmt())
+        write!(f, "{}", result_code.rust_fmt())
     }
 }
 
@@ -862,7 +862,7 @@ impl fmt::Display for FFIServerImpl {
             result_code += &value.to_string();
         });
 
-        write!(f, "{}", result_code.as_str().rust_fmt())
+        write!(f, "{}", result_code.rust_fmt())
     }
 }
 
