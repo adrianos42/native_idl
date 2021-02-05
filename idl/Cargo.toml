@@ -3,6 +3,13 @@ name = "idl"
 version = "0.1.0"
 authors = ["Adriano Souza"]
 edition = "2018"
+description = "Library used only by code being generated in idl."
+license-file = "LICENSE"
+keywords = ["development-tools::ffi"]
+readme = "README.md"
+homepage = "https://adrianos42.github.io/native_idl/"
+documentation = ""
+repository = "https://github.com/adrianos42/native_idl"
 
 [dependencies]
 regex = "1.0"

@@ -16,6 +16,5 @@ thiserror = "1.0"
 serde_json = "1.0"
 toml = "0.5"
 tempfile = "3"
-#cargo = { git = "https://github.com/rust-lang/cargo" }
 #cargo = { path = "../../cargo" } # TODO
 cargo = "0.50.1"
