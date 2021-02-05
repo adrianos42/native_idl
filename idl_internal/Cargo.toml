@@ -12,8 +12,6 @@ documentation = ""
 repository = "https://github.com/adrianos42/native_idl"
 
 [dependencies]
-regex = "1.3.9"
-lazy_static = "1.4.0"
 proc-macro2 = { version = "1", default-features = false }
 anyhow = "1.0"
 thiserror = "1.0"

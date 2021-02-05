@@ -151,7 +151,7 @@ impl AbiBytes {
 
 impl AbiBytes {
     pub fn free(&mut self) {
-        unsafe {}
+     //   unsafe {}
     }
 }
 
