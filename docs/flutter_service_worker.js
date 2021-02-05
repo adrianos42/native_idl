@@ -22,8 +22,8 @@ const RESOURCES = {
 "assets/FontManifest.json": "58782c28f62f64c88ffb4f259a9381bb",
 "manifest.json": "ae9655eab081f587e641b9806817474b",
 "version.json": "341c101d4b678f29adc2e2fa68fd71f3",
-"index.html": "6a5f0472ba19b7d675e1745f3c110ca4",
-"/": "6a5f0472ba19b7d675e1745f3c110ca4",
+"index.html": "79ab82fc56fea11d4fbd370a6c31d7fc",
+"/": "79ab82fc56fea11d4fbd370a6c31d7fc",
 "icons/Icon-512.png": "96e752610906ba2a93c65f8abe1645f1",
 "icons/Icon-192.png": "ac9a721a12bbc803b44f645561ecb1e1"
 };
