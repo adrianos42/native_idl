@@ -5,10 +5,10 @@ authors = ["Adriano Souza"]
 edition = "2018"
 description = "Library used only by code being generated in idl."
 license-file = "LICENSE"
-keywords = ["development-tools::ffi"]
+keywords = ["development-tools"]
 readme = "README.md"
 homepage = "https://adrianos42.github.io/native_idl/"
-documentation = ""
+documentation = "https://adrianos42.github.io/native_idl/"
 repository = "https://github.com/adrianos42/native_idl"
 
 [dependencies]
