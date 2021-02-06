@@ -10,11 +10,21 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-  cupertino_icons: ^1.0.1
-  desktop: 0.1.1-2.12.0-0
+  desktop:
+    path: ../../desktop
+  url_launcher: 6.0.0-nullsafety.6
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   integration_test:
     sdk: flutter
+
+flutter:
+  assets:
+    - assets/GitHub-Mark-120px-plus.png
+    - assets/GitHub-Mark-Light-120px-plus.png
+  fonts:
+    - family: mode
+      fonts:
+        - asset: fonts/mode.ttf
