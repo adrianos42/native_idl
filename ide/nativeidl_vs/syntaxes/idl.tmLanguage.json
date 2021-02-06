@@ -1,0 +1,77 @@
+{
+	"$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+	"name": "IdlNative",
+	"patterns": [
+		{
+			"include": "#keywords"
+		},
+		{
+			"include": "#strings"
+		},
+		{
+			"include": "#comments"
+		}
+	],
+	"repository": {
+		"keywords": {
+			"patterns": [
+				{
+					"match": "\\b(enum|struct|interface|import|library|stream|async|sync|type|const|static)\\b",
+					"name": "keyword.control.idl"
+				},
+				{
+					"match": "(?<!\\$)\\b(0x[0-9A-F]*)|([0-9]+\\.?[0-9]*)\\b(?!\\$)",
+					"name": "constant.numeric.idl"
+				},
+				{
+					"match": "(?<!\\$)\\b(?:bool|int|float|string|bytes|none)\\b(?!\\$)",
+					"name": "storage.type.primitive.idl"
+				},
+				{
+					"match": "(?<!\\$)\\b(?:arrayi8|arrayu8|arrayi16|arrayu16|arrayi32|arrayu32|arrayf16|arrayf32)\\b(?!\\$)",
+					"name": "storage.type.primitive.idl"
+				},
+				{
+					"match": "(?<!\\$)\\b(?:streami8|streamu8|streami16|streamu16|streami32|streamu32|streamf16|streamf32)\\b(?!\\$)",
+					"name": "storage.type.primitive.idl"
+				},
+				{
+					"match": "(?<=^\\s{4})[A-Z](?:[a-z0-9][A-Z]?)+",
+					"name": "constant.numeric.idl"
+				},
+				{
+					"match": "[A-Z](?:[a-z0-9][A-Z]?)+(?=:)",
+					"name": "constant.numeric.idl"
+				},
+				{
+					"match": "(?<!\\$)\\b([A-Z](?:[a-z0-9][A-Z]?)*)\\b(?!\\$)",
+					"name": "entity.name.class.idl"
+				},
+				{
+					"match": "(?<!\\$)\\b((?:[a-z]+[0-9]*)+(?:_[a-z0-9]+)*)\\b(?!\\$)",
+					"name": "entity.name.function.idl"
+				}
+			]
+		},
+		"comments": {
+			"patterns": [
+				{
+					"name": "comment.line.idl",
+					"match": "(--).*$\n?"
+				}
+			]
+		},
+		"strings": {
+			"name": "string.quoted.double.idl",
+			"begin": "\"",
+			"end": "\"",
+			"patterns": [
+				{
+					"name": "constant.character.escape.idl",
+					"match": "\\\\."
+				}
+			]
+		}
+	},
+	"scopeName": "source.idl"
+}

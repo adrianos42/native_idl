@@ -1,0 +1,87 @@
+{
+    "name": "native_idl",
+    "displayName": "NativeIdl",
+    "description": "Native idl",
+    "author": "Adriano Souza",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.47.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "activationEvents": [
+        "onLanguage:idl",
+        "onLanguage:ids"
+	],
+	"main": "./client/out/extension",
+    "contributes": {
+        "languages": [
+            {
+                "id": "idl",
+                "aliases": [
+                    "NativeIdl",
+                    "idl"
+                ],
+                "extensions": [
+                    ".idl"
+                ],
+                "configuration": "./language-configuration.json"
+            },
+            {
+                "id": "ids",
+                "aliases": [
+                    "NativeIdl",
+                    "ids"
+                ],
+                "extensions": [
+                    ".ids"
+                ],
+                "configuration": "./language-configuration.json"
+            }
+        ],
+        "configuration": {
+			"type": "object",
+			"title": "Example configuration",
+			"properties": {
+				"languageServerExample.maxNumberOfProblems": {
+					"scope": "resource",
+					"type": "number",
+					"default": 100,
+					"description": "Controls the maximum number of problems produced by the server."
+				},
+				"languageServerExample.trace.server": {
+					"scope": "window",
+					"type": "string",
+					"enum": [
+						"off",
+						"messages",
+						"verbose"
+					],
+					"default": "off",
+					"description": "Traces the communication between VS Code and the language server."
+				}
+			}
+		},
+        "grammars": [
+            {
+                "language": "idl",
+                "scopeName": "source.idl",
+                "path": "./syntaxes/idl.tmLanguage.json"
+            },
+            {
+                "language": "ids",
+                "scopeName": "source.ids",
+                "path": "./syntaxes/ids.tmLanguage.json"
+            }
+        ],
+        "configurationDefaults": {
+            "[idl, ids]": {
+                "editor.tabSize": 4,
+                "editor.rulers": [100],
+                "editor.insertSpaces": true,
+                "editor.detectIndentation": false
+            }
+        }
+    }
+}
