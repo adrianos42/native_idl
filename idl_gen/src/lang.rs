@@ -29,8 +29,13 @@ pub enum RequestType {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub struct LibraryItem {
+    pub nodes: Vec<idl_nodes::IdlNode>,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub struct LanguageRequest {
-    pub libraries: Vec<Vec<idl_nodes::IdlNode>>,
+    pub libraries: Vec<LibraryItem>,
     pub ids_nodes: Vec<ids_nodes::IdsNode>,
     pub request_type: RequestType,
 }

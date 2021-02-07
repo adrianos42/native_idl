@@ -91,7 +91,6 @@ pub(crate) fn get_rust_ty_name(ty: &TypeName) -> String {
             // Not really a tuple :/
             let mut fields_t = String::new();
             for ty in &value.fields {
-                let ident = format_ident!("{}", &ty.ident);
                 let ty_ident = get_rust_ty_name(&ty.ty);
                 fields_t.push_str(&ty_ident);
             }

@@ -6,6 +6,12 @@ part of 'ids_types_json.dart';
 // JsonSerializableGenerator
 // **************************************************************************
 
+Identifier _$IdentifierFromJson(Map<String, dynamic> json) {
+  return Identifier(
+    value: json['Identifier'] as String,
+  );
+}
+
 Values _$ValuesFromJson(Map<String, dynamic> json) {
   return Values(
     values: (json['Values'] as List<dynamic>)
@@ -56,17 +62,17 @@ ServerTypeName _$ServerTypeNameFromJson(Map<String, dynamic> json) {
   );
 }
 
-Library _$LibraryFromJson(Map<String, dynamic> json) {
-  return Library(
+Package _$PackageFromJson(Map<String, dynamic> json) {
+  return Package(
     ident: json['ident'] as String,
     nodes: (json['nodes'] as List<dynamic>)
-        .map((e) => LibraryNode.fromJson(e as Map<String, dynamic>))
+        .map((e) => PackageNode.fromJson(e as Map<String, dynamic>))
         .toList(),
   );
 }
 
-LibraryField _$LibraryFieldFromJson(Map<String, dynamic> json) {
-  return LibraryField(
+PackageField _$PackageFieldFromJson(Map<String, dynamic> json) {
+  return PackageField(
     ident: json['ident'] as String,
     value: ItemType.fromJson(json['value'] as Map<String, dynamic>),
   );
@@ -127,9 +133,9 @@ Comment _$CommentFromJson(Map<String, dynamic> json) {
   );
 }
 
-LibraryComment _$LibraryCommentFromJson(Map<String, dynamic> json) {
-  return LibraryComment(
-    interfaceComment: (json['LibraryComment'] as List<dynamic>)
+PackageComment _$PackageCommentFromJson(Map<String, dynamic> json) {
+  return PackageComment(
+    interfaceComment: (json['PackageComment'] as List<dynamic>)
         .map((e) => e as String)
         .toList(),
   );

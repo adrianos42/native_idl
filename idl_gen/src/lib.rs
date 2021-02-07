@@ -7,7 +7,7 @@ extern crate quote;
 mod binary_json;
 pub mod lang;
 pub mod rust;
-pub(crate) mod cargo_md;
+pub(crate) mod cargo_m;
 
 use thiserror::Error;
 

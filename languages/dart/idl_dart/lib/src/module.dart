@@ -7,36 +7,6 @@ import 'json/ids_types_json.dart' as ids_types;
 import 'dart_client.dart';
 
 class Module {
-  idl_types.TypeConst findTypeConst(idl_types.ConstTypeName name) =>
-      _request.idlNodes
-          .map((f) => f.node)
-          .whereType<idl_types.TypeConst>()
-          .firstWhere((node) => node.ident == name.constTypeName);
-
-  idl_types.TypeStruct findTypeStruct(idl_types.StructTypeName name) =>
-      _request.idlNodes
-          .map((f) => f.node)
-          .whereType<idl_types.TypeStruct>()
-          .firstWhere((node) => node.ident == name.structTypeName);
-
-  idl_types.TypeInterface findTypeInterface(idl_types.InterfaceTypeName name) =>
-      _request.idlNodes
-          .map((f) => f.node)
-          .whereType<idl_types.TypeInterface>()
-          .firstWhere((node) => node.ident == name.interfaceTypeName);
-
-  idl_types.TypeEnum findTypeEnum(idl_types.EnumTypeName name) =>
-      _request.idlNodes
-          .map((f) => f.node)
-          .whereType<idl_types.TypeEnum>()
-          .firstWhere((node) => node.ident == name.enumTypeName);
-
-  idl_types.TypeList findTypeList(idl_types.ListTypeName name) =>
-      _request.idlNodes
-          .map((f) => f.node)
-          .whereType<idl_types.TypeList>()
-          .firstWhere((node) => node.ident == name.listTypeName);
-
   ids_types.Layer findLayer(ids_types.LayerTypeName name) => _request.idsNodes
       .map((f) => f.node)
       .whereType<ids_types.Layer>()
@@ -53,6 +23,160 @@ class Module {
           .map((f) => f.node)
           .whereType<ids_types.Client>()
           .firstWhere((node) => node.ident == name.clientTypeName);
+
+  String get packageName => package.ident;
+
+  ids_types.Package get package {
+    return _request.idsNodes
+        .map((f) => f.node)
+        .whereType<ids_types.Package>()
+        .first;
+  }
+
+  bool get hasTests => false; // TODO Find way to specify tests
+
+  // Returns a `Package` field with the expected `ItemType`
+  static T getPackageField<T>(ids_types.Package package, String fieldName) =>
+      package.nodes
+          .map((f) => f.node)
+          .whereType<ids_types.PackageField>()
+          .firstWhere((field) => field.ident == fieldName)
+          .value
+          .itemType as T;
+
+  // Returns a `Client` field with the expected `ItemType`
+  static T getClientField<T>(ids_types.Client client, String fieldName) =>
+      client.nodes
+          .map((f) => f.node)
+          .whereType<ids_types.ClientField>()
+          .firstWhere((field) => field.ident == fieldName)
+          .value
+          .itemType as T;
+
+  // Returns a `Server` field with the expected `ItemType`
+  static T getServerField<T>(ids_types.Server server, String fieldName) =>
+      server.nodes
+          .map((f) => f.node)
+          .whereType<ids_types.ServerField>()
+          .firstWhere((field) => field.ident == fieldName)
+          .value
+          .itemType as T;
+
+  // Returns a `Layer` field with the expected `ItemType`
+  static T getLayerField<T>(ids_types.Layer layer, String fieldName) =>
+      layer.nodes
+          .map((f) => f.node)
+          .whereType<ids_types.LayerField>()
+          .firstWhere((field) => field.ident == fieldName)
+          .value
+          .itemType as T;
+
+  Module(LanguageRequest request) : _request = request {
+    final requestType = request.requestType.value;
+
+    if (requestType is Client) {
+      _targetClient = findClient(
+          ids_types.ClientTypeName(clientTypeName: requestType.client));
+
+      // TODO Resolve for which server to use
+      _targetServer = findServer(
+          Module.getClientField<ids_types.Values>(_targetClient!, 'servers')
+              .values
+              .first
+              .itemType as ids_types.ServerTypeName);
+    } else {}
+  }
+
+  final LanguageRequest _request;
+  ids_types.Client? _targetClient;
+  late ids_types.Server _targetServer;
+
+  List<PackageLibrary> get libraries => _request.libraries
+      .map((value) => PackageLibrary(this, value.nodes))
+      .toList();
+
+  ids_types.Client get targetClient => _targetClient!;
+
+  // This is both the target server used by the client, and the target for the
+  // eventual server code generation, when the request is the server type.
+  ids_types.Server get targetServer => _targetServer;
+
+  LanguageRequest get request => _request;
+
+  void addResponseMessage(String value) => _responseMessages.add(value);
+
+  final _responseMessages = <String>[];
+
+  LanguageResponse generateResponse() {
+    final requestType = request.requestType.value;
+    if (requestType is Client) {
+      final listItems = DartClient.generate(this);
+      return LanguageResponse(
+          responseMessages: _responseMessages,
+          genResponse: ResponseType(value: Generated(generated: listItems)));
+    } else if (requestType is Server) {
+      throw ArgumentError('Server file generation is not supported');
+    }
+
+    throw Exception();
+  }
+}
+
+StorageItem createSourceItem(String name, String txt) =>
+    StorageItem(value: SourceItem(source: Source(name: name, txt: txt)));
+
+StorageItem createFolderItem(String name, List<StorageItem> items) =>
+    StorageItem(value: FolderItem(folder: Folder(name: name, items: items)));
+
+StorageItem createFolderItemFromPath(Directory path) {
+  final folderList = path.listSync();
+  final result = <StorageItem>[];
+
+  for (var item in folderList) {
+    if (FileSystemEntity.isDirectorySync(item.path)) {
+      result.add(createFolderItemFromPath(Directory.fromUri(item.uri)));
+    } else if (FileSystemEntity.isFileSync(item.path)) {
+      result.add(createSourceItemFromPath(File.fromUri(item.uri)));
+    }
+  }
+  return createFolderItem(basename(path.path), result);
+}
+
+StorageItem createSourceItemFromPath(File path) {
+  return createSourceItem(basename(path.path), path.readAsStringSync());
+}
+
+class PackageLibrary {
+  idl_types.TypeConst findTypeConst(idl_types.ConstTypeName name) => idlNodes
+      .map((f) => f.node)
+      .whereType<idl_types.TypeConst>()
+      .firstWhere((node) => node.ident == name.constTypeName);
+
+  idl_types.TypeStruct findTypeStruct(idl_types.StructTypeName name) => idlNodes
+      .map((f) => f.node)
+      .whereType<idl_types.TypeStruct>()
+      .firstWhere((node) => node.ident == name.structTypeName);
+
+  idl_types.TypeInterface findTypeInterface(idl_types.InterfaceTypeName name) =>
+      idlNodes
+          .map((f) => f.node)
+          .whereType<idl_types.TypeInterface>()
+          .firstWhere((node) => node.ident == name.interfaceTypeName);
+
+  idl_types.TypeEnum findTypeEnum(idl_types.EnumTypeName name) => idlNodes
+      .map((f) => f.node)
+      .whereType<idl_types.TypeEnum>()
+      .firstWhere((node) => node.ident == name.enumTypeName);
+
+  idl_types.TypeList findTypeList(idl_types.ListTypeName name) => idlNodes
+      .map((f) => f.node)
+      .whereType<idl_types.TypeList>()
+      .firstWhere((node) => node.ident == name.listTypeName);
+
+  bool get hasInterface => idlNodes
+      .map((f) => f.node)
+      .whereType<idl_types.TypeInterface>()
+      .isNotEmpty;
 
   static bool interfaceHasStaticField(idl_types.TypeInterface tyInterface) {
     return tyInterface.fields
@@ -78,7 +202,7 @@ class Module {
         .any((field) => fieldReturnsStream(field));
   }
 
-  static bool interfaceSendsStream(idl_types.TypeInterface tyInterface, // TODO
+  static bool interfaceSendsStream(idl_types.TypeInterface tyInterface,
       {bool? isStatic}) {
     return tyInterface.fields
         .map((m) => m.node)
@@ -143,7 +267,7 @@ class Module {
         'type `${streamTy.typeName}` does not have stream argument');
   }
 
-  String get libraryName => _request.idlNodes
+  String get libraryName => idlNodes
       .singleWhere((n) => n.node is idl_types.LibraryName)
       .node
       .libraryName;
@@ -161,103 +285,8 @@ class Module {
             : ty is idl_types.EnumTypeName;
   }
 
-  bool get hasTests => false; // TODO Find way to specify tests
+  final List<idl_types.IdlNode> idlNodes;
+  final Module module;
 
-  // Returns a `Client` field with the expected `ItemType`
-  static T getClientField<T>(ids_types.Client client, String fieldName) =>
-      client.nodes
-          .map((f) => f.node)
-          .whereType<ids_types.ClientField>()
-          .firstWhere((field) => field.ident == fieldName)
-          .value
-          .itemType as T;
-
-  // Returns a `Server` field with the expected `ItemType`
-  static T getServerField<T>(ids_types.Server server, String fieldName) =>
-      server.nodes
-          .map((f) => f.node)
-          .whereType<ids_types.ServerField>()
-          .firstWhere((field) => field.ident == fieldName)
-          .value
-          .itemType as T;
-
-  // Returns a `Layer` field with the expected `ItemType`
-  static T getLayerField<T>(ids_types.Layer layer, String fieldName) =>
-      layer.nodes
-          .map((f) => f.node)
-          .whereType<ids_types.LayerField>()
-          .firstWhere((field) => field.ident == fieldName)
-          .value
-          .itemType as T;
-
-  Module(LanguageRequest request) : _request = request {
-    final requestType = request.requestType.value;
-
-    if (requestType is Client) {
-      _targetClient = findClient(
-          ids_types.ClientTypeName(clientTypeName: requestType.client));
-
-      // TODO Resolve for which server to use
-      _targetServer = findServer(
-          Module.getClientField<ids_types.Values>(_targetClient!, 'servers')
-              .values
-              .first
-              .itemType as ids_types.ServerTypeName);
-    } else {}
-  }
-
-  final LanguageRequest _request;
-  ids_types.Client? _targetClient;
-  late ids_types.Server _targetServer;
-
-  ids_types.Client get targetClient => _targetClient!;
-
-  // This is both the target server used by the client, and the target for the
-  // eventual server code generation, when the request is the server type.
-  ids_types.Server get targetServer => _targetServer;
-
-  LanguageRequest get request => _request;
-
-  void addResponseMessage(String value) => _responseMessages.add(value);
-
-  final _responseMessages = <String>[];
-
-  LanguageResponse generateResponse() {
-    final requestType = request.requestType.value;
-    if (requestType is Client) {
-      final listItems = DartClient.generate(this);
-      return LanguageResponse(
-          responseMessages: _responseMessages,
-          genResponse: ResponseType(
-              value: Generated(generated: listItems)));
-    } else if (requestType is Server) {
-      throw ArgumentError('Server file generation is not supported');
-    }
-
-    throw Exception();
-  }
-}
-
-StorageItem createSourceItem(String name, String txt) =>
-    StorageItem(value: SourceItem(source: Source(name: name, txt: txt)));
-
-StorageItem createFolderItem(String name, List<StorageItem> items) =>
-    StorageItem(value: FolderItem(folder: Folder(name: name, items: items)));
-
-StorageItem createFolderItemFromPath(Directory path) {
-  final folderList = path.listSync();
-  final result = <StorageItem>[];
-
-  for (var item in folderList) {
-    if (FileSystemEntity.isDirectorySync(item.path)) {
-      result.add(createFolderItemFromPath(Directory.fromUri(item.uri)));
-    } else if (FileSystemEntity.isFileSync(item.path)) {
-      result.add(createSourceItemFromPath(File.fromUri(item.uri)));
-    }
-  }
-  return createFolderItem(basename(path.path), result);
-}
-
-StorageItem createSourceItemFromPath(File path) {
-  return createSourceItem(basename(path.path), path.readAsStringSync());
+  PackageLibrary(this.module, this.idlNodes);
 }

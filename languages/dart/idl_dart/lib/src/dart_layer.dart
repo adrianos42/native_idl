@@ -1,3 +1,5 @@
+import 'package:tuple/tuple.dart';
+
 import 'pubspec/pubspec.dart';
 
 import 'json/idl_json.dart';
@@ -39,7 +41,7 @@ class LayerItem {
   }
 
   List<StorageItem> merge(Module module) {
-    final pubspecResult = mergePubspec(Pubspec(module.libraryName));
+    final pubspecResult = mergePubspec(Pubspec(module.packageName));
 
     final result = List<StorageItem>.empty(growable: true);
 
@@ -60,51 +62,73 @@ class LayerItem {
   }
 }
 
+class LayerItemCreation {
+  final PackageLibrary packageLibrary;
+  final String interfaceConstructors;
+  final String layerTypes;
+  const LayerItemCreation({
+    required this.interfaceConstructors,
+    required this.layerTypes,
+    required this.packageLibrary,
+  });
+}
+
 List<StorageItem> createItemsForLayer(
   Module module,
   String layerName,
-  bool endPoint, {
-  required String interfaceContructors,
-  required String layerTypes,
-}) {
+  bool endPoint,
+  List<LayerItemCreation> items,
+) {
   final result = List<StorageItem>.empty(growable: true);
 
   final layerReferenceName = layerName.toLowerCase();
 
-  if (endPoint) {
-    result.addAll([
-      createFolderItem('lib', [
-        createFolderItem('src', [
-          createSourceItem(
-              'idl_interface_constructor.dart', interfaceContructors),
-        ]),
-      ])
-    ]);
-  } else {
-    throw Exception('fpfp');
-    final dartTypes =
-        DartTypes.generateInterfaceOnlyLayer(module, layerReferenceName);
+  for (var item in items) {
+    if (item.packageLibrary.hasInterface) {
+      // TODO here??
+      final interfaceConstructorsSources =
+          List<StorageItem>.empty(growable: true);
 
-    result.addAll([
-      createFolderItem('lib', [
-        createFolderItem('src', [
+      if (endPoint) {
+        interfaceConstructorsSources.addAll([
+          createSourceItem(
+              'idl_interface_constructor.dart', item.interfaceConstructors),
+          createSourceItem('idl_${layerReferenceName}.dart', item.layerTypes),
+        ]);
+      } else {
+        final dartTypes = DartTypes.generateInterfaceOnlyLayer(
+            item.packageLibrary, layerReferenceName);
+
+        interfaceConstructorsSources.addAll([
           createSourceItem(
               'idl_${layerReferenceName}_types.dart', dartTypes.toString()),
           createSourceItem(
-              'idl_${layerReferenceName}_interface_constructor.dart',
-              interfaceContructors),
-        ]),
-      ]),
-    ]);
-  }
+            'idl_${layerReferenceName}_interface_constructor.dart',
+            item.interfaceConstructors,
+          ),
+          createSourceItem('idl_${layerReferenceName}.dart', item.layerTypes),
+        ]);
+      }
 
-  result.addAll([
-    createFolderItem('lib', [
-      createFolderItem('src', [
-        createSourceItem('idl_${layerReferenceName}.dart', layerTypes),
-      ]),
-    ])
-  ]);
+      if (item.packageLibrary.libraryName == module.packageName) {
+        result.add(createFolderItem('lib', [
+          createFolderItem(
+            'src',
+            interfaceConstructorsSources,
+          )
+        ]));
+      } else {
+        result.add(createFolderItem('lib', [
+          createFolderItem('src', [
+            createFolderItem(
+              item.packageLibrary.libraryName,
+              interfaceConstructorsSources,
+            )
+          ])
+        ]));
+      }
+    }
+  }
 
   return result;
 }

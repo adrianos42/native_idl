@@ -5,8 +5,8 @@ import '../../string_pos.dart';
 import '../../dart_types.dart';
 import '../../json/idl_types_json.dart';
 import '../../json/ids_types_json.dart' as ids_types;
-import '../../module.dart';
 import '../../dart_layer.dart';
+import '../../module.dart';
 
 class _FFIDartTypes {
   Class _addTypeList(TypeList tyList) {
@@ -99,7 +99,7 @@ class _FFIDartTypes {
     for (var i = 0; i < fields.length; i += 1) {
       variantBody += ''' 
         case $i:
-          final \$tValue = \$value.value as ${DartTypes.getDartType(fields[i].ty, _module, kTypesLib)};
+          final \$tValue = \$value.value as ${DartTypes.getDartType(fields[i].ty, _packageLibrary, kTypesLib)};
           \$result.ref.data = ${_typeToffiForFieldBoxed(fields[i].ty, '\$tValue')}.cast<Void>();
           break;''';
     }
@@ -165,7 +165,8 @@ class _FFIDartTypes {
   }
 
   String _ffiToTypeForField(TypeName tyName, String ffiName) {
-    final ty = (DartTypes.resolveTypeWithConst(tyName, _module)).typeName;
+    final ty =
+        (DartTypes.resolveTypeWithConst(tyName, _packageLibrary)).typeName;
 
     if (ty is Types) {
       switch (ty) {
@@ -193,8 +194,8 @@ class _FFIDartTypes {
       return _getMapDataForDart(ty, ffiName);
     } else if (ty is TypePair) {
       final pairTyName = '''
-          Pair<${DartTypes.getDartType(ty.firstTy, _module, kTypesLib)}, 
-            ${DartTypes.getDartType(ty.secondTy, _module, kTypesLib)}>''';
+          Pair<${DartTypes.getDartType(ty.firstTy, _packageLibrary, kTypesLib)}, 
+            ${DartTypes.getDartType(ty.secondTy, _packageLibrary, kTypesLib)}>''';
       final firstffiName =
           '$ffiName.ref.firstData!.cast<${_getffiTypeArray(ty.firstTy)}>()';
       final secondffiName =
@@ -218,8 +219,8 @@ class _FFIDartTypes {
         } ($ffiName)''';
     } else if (ty is TypeResult) {
       final resultTyName = '''
-          Result<${DartTypes.getDartType(ty.okTy, _module, kTypesLib)}, 
-            ${DartTypes.getDartType(ty.errTy, _module, kTypesLib)}>''';
+          Result<${DartTypes.getDartType(ty.okTy, _packageLibrary, kTypesLib)}, 
+            ${DartTypes.getDartType(ty.errTy, _packageLibrary, kTypesLib)}>''';
       final okffiName =
           '\$value.ref.data!.cast<${_getffiTypeArray(ty.okTy)}>()';
       final errffiName =
@@ -241,7 +242,7 @@ class _FFIDartTypes {
   }
 
   String _ffiToTypeForFieldBoxed(TypeName tyName, String ffiName) {
-    if (_module.isTypePrimitive(tyName)) {
+    if (_packageLibrary.isTypePrimitive(tyName)) {
       final name = '$ffiName.value';
       return '${_ffiToTypeForField(tyName, name)}';
     } else {
@@ -250,9 +251,9 @@ class _FFIDartTypes {
   }
 
   String _typeToffiForFieldBoxed(TypeName tyName, String valueName) {
-    if (_module.isTypePrimitive(tyName)) {
+    if (_packageLibrary.isTypePrimitive(tyName)) {
       return ''' 
-        (${DartTypes.getDartType(tyName, _module, kTypesLib)} \$value) {
+        (${DartTypes.getDartType(tyName, _packageLibrary, kTypesLib)} \$value) {
           final \$result = allocate<${_getffiTypeArray(tyName)}>();
           \$result.value = ${_typeToffiForField(tyName, '\$value')};
           return \$result;
@@ -263,7 +264,8 @@ class _FFIDartTypes {
   }
 
   String _typeToffiForField(TypeName tyName, String valueName) {
-    final ty = (DartTypes.resolveTypeWithConst(tyName, _module)).typeName;
+    final ty =
+        (DartTypes.resolveTypeWithConst(tyName, _packageLibrary)).typeName;
 
     if (ty is Types) {
       switch (ty) {
@@ -291,7 +293,7 @@ class _FFIDartTypes {
       return '${_setMapDataForffi(ty, valueName)}';
     } else if (ty is TypePair) {
       return ''' 
-        (Pair<${DartTypes.getDartType(ty.firstTy, _module, kTypesLib)}, ${DartTypes.getDartType(ty.secondTy, _module, kTypesLib)}> \$value) {
+        (Pair<${DartTypes.getDartType(ty.firstTy, _packageLibrary, kTypesLib)}, ${DartTypes.getDartType(ty.secondTy, _packageLibrary, kTypesLib)}> \$value) {
           final \$result = allocate<AbiPair>();
           \$result.ref.firstData = ${_typeToffiForFieldBoxed(ty.firstTy, '\$value.first')}.cast<Void>();
           \$result.ref.secondData = ${_typeToffiForFieldBoxed(ty.secondTy, '\$value.second')}.cast<Void>();
@@ -299,7 +301,7 @@ class _FFIDartTypes {
         }($valueName)''';
     } else if (ty is TypeOption) {
       return ''' 
-        (${DartTypes.getDartType(ty.someTy, _module, kTypesLib)}? \$value) {
+        (${DartTypes.getDartType(ty.someTy, _packageLibrary, kTypesLib)}? \$value) {
           final \$result = allocate<AbiVariant>();
           if (\$value != null) {
             \$result.ref.variant = 0;
@@ -312,7 +314,7 @@ class _FFIDartTypes {
         }($valueName)''';
     } else if (ty is TypeResult) {
       return ''' 
-        (Result<${DartTypes.getDartType(ty.okTy, _module, kTypesLib)}, ${DartTypes.getDartType(ty.errTy, _module, kTypesLib)}> \$value) {
+        (Result<${DartTypes.getDartType(ty.okTy, _packageLibrary, kTypesLib)}, ${DartTypes.getDartType(ty.errTy, _packageLibrary, kTypesLib)}> \$value) {
           final \$result = allocate<AbiVariant>();
           if (\$value.ok != null) {
             \$result.ref.variant = 0;
@@ -332,7 +334,8 @@ class _FFIDartTypes {
 
   String _typeToffiForFieldWithPtr(
       TypeName tyName, String valueName, String ptrName) {
-    final ty = (DartTypes.resolveTypeWithConst(tyName, _module)).typeName;
+    final ty =
+        (DartTypes.resolveTypeWithConst(tyName, _packageLibrary)).typeName;
 
     if (ty is Types) {
       switch (ty) {
@@ -355,7 +358,7 @@ class _FFIDartTypes {
   }
 
   String _typeffiForFieldBoxedDispose(TypeName tyName, String valueName) {
-    if (_module.isTypePrimitive(tyName)) {
+    if (_packageLibrary.isTypePrimitive(tyName)) {
       return 'free($valueName);';
     } else {
       return '${_typeffiForFieldDispose(tyName, '$valueName')}';
@@ -363,7 +366,8 @@ class _FFIDartTypes {
   }
 
   String _typeffiForFieldDispose(TypeName tyName, String valueName) {
-    final ty = (DartTypes.resolveTypeWithConst(tyName, _module)).typeName;
+    final ty =
+        (DartTypes.resolveTypeWithConst(tyName, _packageLibrary)).typeName;
 
     if (ty is Types) {
       switch (ty) {
@@ -415,8 +419,8 @@ class _FFIDartTypes {
 
   String _setMapDataForffi(TypeMap map, String valueName) {
     var body = '''
-      (Map<${DartTypes.getDartType(map.indexTy, _module, kTypesLib)},
-        ${DartTypes.getDartType(map.mapTy, _module, kTypesLib)}> \$value) {
+      (Map<${DartTypes.getDartType(map.indexTy, _packageLibrary, kTypesLib)},
+        ${DartTypes.getDartType(map.mapTy, _packageLibrary, kTypesLib)}> \$value) {
         final \$result = allocate<AbiMap>();
         final \$entries = \$value.entries.toList();
         final \$length = \$entries.length;
@@ -428,7 +432,8 @@ class _FFIDartTypes {
         \$result.ref.key = \$key.cast<Void>();
         \$result.ref.length = \$length;''';
 
-    final mTy = (DartTypes.resolveTypeWithConst(map.mapTy, _module)).typeName;
+    final mTy =
+        (DartTypes.resolveTypeWithConst(map.mapTy, _packageLibrary)).typeName;
 
     if (mTy is Types) {
       switch (mTy) {
@@ -499,7 +504,8 @@ class _FFIDartTypes {
       final \$data = $valueName.ref.data!.cast<${_getffiTypeArray(map.mapTy)}>();
       final \$key = $valueName.ref.key!.cast<${_getffiTypeArray(map.indexTy)}>();''';
 
-    final mTy = (DartTypes.resolveTypeWithConst(map.mapTy, _module)).typeName;
+    final mTy =
+        (DartTypes.resolveTypeWithConst(map.mapTy, _packageLibrary)).typeName;
 
     if (mTy is Types) {
       switch (mTy) {
@@ -546,8 +552,8 @@ class _FFIDartTypes {
         final \$length = \$value.ref.length!;
         final \$data = ${_getMapBodyDataForDart(map.mapTy, '\$value.ref.data!', '\$length')};
         final \$keys = ${_getMapBodyDataForDart(map.indexTy, '\$value.ref.key!', '\$length')};
-        final \$result = <${DartTypes.getDartType(map.indexTy, _module, kTypesLib)}, 
-        ${DartTypes.getDartType(map.mapTy, _module, kTypesLib)}>{};
+        final \$result = <${DartTypes.getDartType(map.indexTy, _packageLibrary, kTypesLib)}, 
+        ${DartTypes.getDartType(map.mapTy, _packageLibrary, kTypesLib)}>{};
         for (var \$i = 0; \$i < \$length; \$i += 1) {
           \$result[\$keys[\$i]] = \$data[\$i];
         }
@@ -561,7 +567,8 @@ class _FFIDartTypes {
       TypeName arrayType, String dataName, String lengthName) {
     var body = '(Pointer<Void> \$data, int \$length) {';
 
-    final aTy = (DartTypes.resolveTypeWithConst(arrayType, _module)).typeName;
+    final aTy =
+        (DartTypes.resolveTypeWithConst(arrayType, _packageLibrary)).typeName;
 
     if (aTy is Types) {
       switch (aTy) {
@@ -629,7 +636,7 @@ class _FFIDartTypes {
 
   String _setArrayDataForffi(TypeName arrayType, String valueName) {
     var body = '''
-      (List<${DartTypes.getDartType(arrayType, _module, kTypesLib)}> \$value) {
+      (List<${DartTypes.getDartType(arrayType, _packageLibrary, kTypesLib)}> \$value) {
         final \$result = allocate<AbiArray>();
         ${_setArrayDataForffiWithPtr(arrayType, '\$value', '\$result')}
         return \$result; 
@@ -640,7 +647,8 @@ class _FFIDartTypes {
 
   String _setArrayDataForffiWithPtr(
       TypeName arrayType, String valueName, String ptrName) {
-    final aTy = (DartTypes.resolveTypeWithConst(arrayType, _module)).typeName;
+    final aTy =
+        (DartTypes.resolveTypeWithConst(arrayType, _packageLibrary)).typeName;
     final body;
 
     if (aTy is Types) {
@@ -704,7 +712,8 @@ class _FFIDartTypes {
 
   String _setArrayDataDisposeForffiWithPtr(
       TypeName arrayType, String valueName) {
-    final aTy = (DartTypes.resolveTypeWithConst(arrayType, _module)).typeName;
+    final aTy =
+        (DartTypes.resolveTypeWithConst(arrayType, _packageLibrary)).typeName;
     var body = '''
       final \$data = $valueName.ref.data!.cast<${_getffiTypeArray(arrayType)}>();''';
 
@@ -746,7 +755,8 @@ class _FFIDartTypes {
         final \$data = \$value.ref.data!;
         final \$length = \$value.ref.length!;''';
 
-    final aTy = (DartTypes.resolveTypeWithConst(arrayType, _module)).typeName;
+    final aTy =
+        (DartTypes.resolveTypeWithConst(arrayType, _packageLibrary)).typeName;
 
     if (aTy is Types) {
       switch (aTy) {
@@ -798,7 +808,7 @@ class _FFIDartTypes {
     } else if (aTy is TypeArray) {
       body += '''
         final \$listSource = \$data.cast<AbiArray>();
-        final \$result = <List<${DartTypes.getDartType(aTy.ty, _module, kTypesLib)}>>[];
+        final \$result = <List<${DartTypes.getDartType(aTy.ty, _packageLibrary, kTypesLib)}>>[];
         for (var \$i = 0; \$i < \$length; \$i += 1) {
           \$result.add(${_getArrayDataForDart(aTy.ty, '\$listSource.elementAt(\$i)')});
         }
@@ -821,7 +831,7 @@ class _FFIDartTypes {
   }
 
   String _getffiTypeArray(TypeName type) {
-    final ty = (DartTypes.resolveTypeWithConst(type, _module)).typeName;
+    final ty = (DartTypes.resolveTypeWithConst(type, _packageLibrary)).typeName;
 
     if (ty is Types) {
       switch (ty) {
@@ -860,7 +870,7 @@ class _FFIDartTypes {
   }
 
   String _getffiTypeForInterface(TypeName type) {
-    final ty = (DartTypes.resolveTypeWithConst(type, _module)).typeName;
+    final ty = (DartTypes.resolveTypeWithConst(type, _packageLibrary)).typeName;
 
     if (ty is Types) {
       switch (ty) {
@@ -897,7 +907,7 @@ class _FFIDartTypes {
   }
 
   String _getDartTypeForffi(TypeName type) {
-    final ty = (DartTypes.resolveTypeWithConst(type, _module)).typeName;
+    final ty = (DartTypes.resolveTypeWithConst(type, _packageLibrary)).typeName;
 
     if (ty is Types) {
       switch (ty) {
@@ -954,7 +964,7 @@ class _FFIDartTypes {
 
       if (node is StructField) {
         final annts = <Expression>[];
-        final ty = (DartTypes.resolveTypeWithConst(node.ty, _module));
+        final ty = (DartTypes.resolveTypeWithConst(node.ty, _packageLibrary));
 
         if (ty.typeName is Types) {
           switch (ty.typeName) {
@@ -1033,7 +1043,7 @@ class _FFIDartTypes {
         .where((field_node) => field_node.node is StructField)
         .map((f) => f.node as StructField)
         .fold('', (p, field) {
-      if (!_module.isTypePrimitive(field.ty)) {
+      if (!_packageLibrary.isTypePrimitive(field.ty)) {
         final name = toCamelCase(field.ident);
         final valueName = '\$value.ref.$name!';
         return p + '${_typeffiForFieldDispose(field.ty, valueName)}';
@@ -1083,7 +1093,7 @@ class _FFIDartTypes {
           finallyBlock += 'free(\$streamDataValue);free($resultName);';
         } else {
           final valueName = toCamelCase(value.ident);
-          if (_module.isTypePrimitive(value.ty)) {
+          if (_packageLibrary.isTypePrimitive(value.ty)) {
             argList += _typeToffiForField(value.ty, valueName);
           } else {
             final resultName = '\$fValue${toPascalCase(value.ident)}';
@@ -1118,7 +1128,7 @@ class _FFIDartTypes {
         setValue +=
             'AbiInternalError.handleError($fieldFunctionName($argList), \'${errorMessage}\');';
 
-        if (!_module.isTypePrimitive(ty)) {
+        if (!_packageLibrary.isTypePrimitive(ty)) {
           final disposeArgList = instanceArg.isEmpty
               ? '\$fValue.value'
               : '$instanceArg,\$fValue.value';
@@ -1179,7 +1189,7 @@ class _FFIDartTypes {
       final \$streamValue = allocate<AbiStream>();
       final \$fValue = allocate<Pointer<AbiStream>>();''';
 
-    final streamTy = Module.fieldStreamReturnTy(field);
+    final streamTy = PackageLibrary.fieldStreamReturnTy(field);
     final streamffiTy = _getffiTypeForInterface(streamTy);
 
     final disposeArgList =
@@ -1239,7 +1249,7 @@ class _FFIDartTypes {
 
     final disposeArgList =
         instanceArg.isEmpty ? '\$fValue.value' : '$instanceArg,\$fValue.value';
-    final streamTy = Module.fieldStreamSendTy(field);
+    final streamTy = PackageLibrary.fieldStreamSendTy(field);
 
     setValue += '''
       switch (\$streamState) {
@@ -1300,7 +1310,8 @@ class _FFIDartTypes {
               '\$data[${index.toString()}][0] as int,\$data[${index.toString()}][1] as int';
           break;
         } else {
-          final dTy = DartTypes.getDartType(value.ty, _module, kTypesLib);
+          final dTy =
+              DartTypes.getDartType(value.ty, _packageLibrary, kTypesLib);
           if (argNames.isNotEmpty) argNames += ',';
           argNames += '$dTy ${toCamelCase(value.ident)}';
           if (argList.isNotEmpty) argList += ',';
@@ -1317,7 +1328,7 @@ class _FFIDartTypes {
       getArgs(tyName);
     }
 
-    if (Module.fieldReturnsStream(field)) {
+    if (PackageLibrary.fieldReturnsStream(field)) {
       if (argNames.isNotEmpty) argNames += ',';
       if (argList.isNotEmpty) argList += ',';
       argNames += '\$wakePort,\$wakeObject';
@@ -1367,7 +1378,7 @@ class _FFIDartTypes {
     String fieldDisposeFunctionName,
   ) {
     final sTy = DartTypes.getDartType(
-        Module.fieldStreamSendTy(field), _module, kTypesLib);
+        PackageLibrary.fieldStreamSendTy(field), _packageLibrary, kTypesLib);
     var argList =
         '(\$data[0] as StreamSenderState).index,\$data[1] as int,\$data[3] as int,\$data[4] as SendPort,\$data[5] as $sTy';
     var argNames =
@@ -1414,21 +1425,22 @@ class _FFIDartTypes {
 
     if (tyName is TypeFunction) {
       getArgs(tyName.args.typeName);
-      rType = DartTypes.getDartType(tyName.returnTy, _module, kTypesLib);
+      rType =
+          DartTypes.getDartType(tyName.returnTy, _packageLibrary, kTypesLib);
     } else if (tyName is TypeTuple) {
       getArgs(tyName);
       rType = 'void';
     } else {
-      rType = DartTypes.getDartType(field.ty, _module, kTypesLib);
+      rType = DartTypes.getDartType(field.ty, _packageLibrary, kTypesLib);
     }
 
-    if (Module.fieldReturnsStream(field)) {
+    if (PackageLibrary.fieldReturnsStream(field)) {
       body += ''' 
         while (_\$streamControllers${toPascalCase(field.ident)}.containsKey(_\$handle${toPascalCase(field.ident)})) {
           _\$handle${toPascalCase(field.ident)} += 1;
         }
         final \$handle = _\$handle${toPascalCase(field.ident)};
-        final \$controller = StreamController<${DartTypes.getDartType(Module.fieldStreamReturnTy(field), _module, kTypesLib)}>(
+        final \$controller = StreamController<${DartTypes.getDartType(PackageLibrary.fieldStreamReturnTy(field), _packageLibrary, kTypesLib)}>(
         onListen: () {
           _\$toIsolate().then((\$value) => \$value.send([
             '$funcName', 
@@ -1479,7 +1491,7 @@ class _FFIDartTypes {
   String _addStreamSendPortListen(InterfaceField field,
       {required bool isStatic}) {
     final dartStreamType = DartTypes.getDartType(
-        Module.fieldStreamSendTy(field), _module, kTypesLib);
+        PackageLibrary.fieldStreamSendTy(field), _packageLibrary, kTypesLib);
 
     final tryDisposeBody = isStatic ? '_\$tryDispose();' : '';
 
@@ -1555,7 +1567,7 @@ class _FFIDartTypes {
 
   String _addStreamPortListen(InterfaceField field, {required bool isStatic}) {
     final dartStreamType = DartTypes.getDartType(
-        Module.fieldStreamReturnTy(field), _module, kTypesLib);
+        PackageLibrary.fieldStreamReturnTy(field), _packageLibrary, kTypesLib);
 
     final tryDisposeBody = isStatic ? '_\$tryDispose();' : '';
 
@@ -1644,7 +1656,7 @@ class _FFIDartTypes {
               '_\$kLib.lookupFunction<$nativeNameFunction, $funcNameFunction>(\'$ffiFunctionName\')')));
 
         final setReturnDispose = (TypeName ty) {
-          if (Module.fieldReturnsStream(node)) {
+          if (PackageLibrary.fieldReturnsStream(node)) {
             fieldDisposeFunctionName = '_\$disposeStream${methodFieldName}';
             final ffiDisposeFunctionName =
                 'dispose_stream_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
@@ -1661,7 +1673,7 @@ class _FFIDartTypes {
               ..assignment = Code(
                   '_\$kLib.lookupFunction<$nativeDisposeNameFunction, $funcDisposeNameFunction>(\'$ffiDisposeFunctionName\')')
               ..type = refer(funcDisposeNameFunction)));
-          } else if (!_module.isTypePrimitive(ty)) {
+          } else if (!_packageLibrary.isTypePrimitive(ty)) {
             fieldDisposeFunctionName = '_\$dispose${methodFieldName}';
             final ffiDisposeFunctionName =
                 'dispose_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
@@ -1689,7 +1701,8 @@ class _FFIDartTypes {
         final getArgs = (TypeTuple tyTuple) => tyTuple.fields
             .map((v) => Parameter((b) => b
               ..name = toCamelCase(v.ident)
-              ..type = refer(DartTypes.getDartType(v.ty, _module, kTypesLib))))
+              ..type = refer(
+                  DartTypes.getDartType(v.ty, _packageLibrary, kTypesLib))))
             .toList();
 
         if (tyName is TypeFunction) {
@@ -1701,9 +1714,10 @@ class _FFIDartTypes {
           setReturnDispose(node.ty);
         }
 
-        returnTy = DartTypes.getDartReturnType(node.ty, _module, kTypesLib);
+        returnTy =
+            DartTypes.getDartReturnType(node.ty, _packageLibrary, kTypesLib);
 
-        if (Module.fieldSendsStream(node)) {
+        if (PackageLibrary.fieldSendsStream(node)) {
           methodFields.add(Field((b) => b
             ..name = '_\$streams${toPascalCase(node.ident)}'
             ..modifier = FieldModifier.final$
@@ -1768,9 +1782,11 @@ class _FFIDartTypes {
         }
 
         // Add stream fields
-        if (Module.fieldReturnsStream(node)) {
+        if (PackageLibrary.fieldReturnsStream(node)) {
           final dartStreamType = DartTypes.getDartType(
-              Module.fieldStreamReturnTy(node), _module, kTypesLib);
+              PackageLibrary.fieldStreamReturnTy(node),
+              _packageLibrary,
+              kTypesLib);
 
           methodFields.add(Field((b) => b
             ..name = '_\$streamControllers${toPascalCase(node.ident)}'
@@ -1875,7 +1891,7 @@ class _FFIDartTypes {
       }''';
 
     var bodyFutureForSet = '';
-    if (Module.interfaceReturnsValue(tyInterface, isStatic: false)) {
+    if (PackageLibrary.interfaceReturnsValue(tyInterface, isStatic: false)) {
       fields.add(Field((b) => b
         ..name = '_\$completers'
         ..type = refer('HashMap<int, Completer>')
@@ -1906,9 +1922,9 @@ class _FFIDartTypes {
         $runIsolateField
         return \$completer.future;''')));
 
-    if (Module.interfaceReturnsStream(tyInterface, isStatic: false) ||
-        Module.interfaceSendsStream(tyInterface, isStatic: false)) {
-      if (Module.interfaceReturnsStream(tyInterface, isStatic: false)) {
+    if (PackageLibrary.interfaceReturnsStream(tyInterface, isStatic: false) ||
+        PackageLibrary.interfaceSendsStream(tyInterface, isStatic: false)) {
+      if (PackageLibrary.interfaceReturnsStream(tyInterface, isStatic: false)) {
         if (bodyFutureStream.isNotEmpty) bodyFutureStream += 'else';
         bodyFutureStream += '''
           if (\$data[0] is StreamReceiverState) {
@@ -1920,7 +1936,7 @@ class _FFIDartTypes {
           }''';
       }
 
-      if (Module.interfaceSendsStream(tyInterface, isStatic: false)) {
+      if (PackageLibrary.interfaceSendsStream(tyInterface, isStatic: false)) {
         if (bodyFutureStream.isNotEmpty) bodyFutureStream += 'else';
         bodyFutureStream += '''
           if (\$data[0] is StreamSenderState) {
@@ -2060,7 +2076,7 @@ class _FFIDartTypes {
               '_\$kLib.lookupFunction<$nativeNameFunction, $funcNameFunction>(\'$ffiFunctionName\')')));
 
         final setReturnDispose = (TypeName ty) {
-          if (Module.fieldReturnsStream(node)) {
+          if (PackageLibrary.fieldReturnsStream(node)) {
             fieldDisposeFunctionName = '_\$disposeStream${methodFieldName}';
             final ffiDisposeFunctionName =
                 'dispose_stream_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
@@ -2077,7 +2093,7 @@ class _FFIDartTypes {
               ..assignment = Code(
                   '_\$kLib.lookupFunction<$nativeDisposeNameFunction, $funcDisposeNameFunction>(\'$ffiDisposeFunctionName\')')
               ..type = refer(funcDisposeNameFunction)));
-          } else if (!_module.isTypePrimitive(ty)) {
+          } else if (!_packageLibrary.isTypePrimitive(ty)) {
             fieldDisposeFunctionName = '_\$dispose${methodFieldName}';
             final ffiDisposeFunctionName =
                 'dispose_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
@@ -2105,7 +2121,8 @@ class _FFIDartTypes {
         final getArgs = (TypeTuple tyTuple) => tyTuple.fields
             .map((v) => Parameter((b) => b
               ..name = toCamelCase(v.ident)
-              ..type = refer(DartTypes.getDartType(v.ty, _module, kTypesLib))))
+              ..type = refer(
+                  DartTypes.getDartType(v.ty, _packageLibrary, kTypesLib))))
             .toList();
 
         if (tyName is TypeFunction) {
@@ -2117,9 +2134,10 @@ class _FFIDartTypes {
           setReturnDispose(node.ty);
         }
 
-        returnTy = DartTypes.getDartReturnType(node.ty, _module, kTypesLib);
+        returnTy =
+            DartTypes.getDartReturnType(node.ty, _packageLibrary, kTypesLib);
 
-        if (Module.fieldSendsStream(node)) {
+        if (PackageLibrary.fieldSendsStream(node)) {
           methodFields.add(Field((b) => b
             ..name = '_\$streams${toPascalCase(node.ident)}'
             ..modifier = FieldModifier.final$
@@ -2186,9 +2204,11 @@ class _FFIDartTypes {
         }
 
         // Add stream fields
-        if (Module.fieldReturnsStream(node)) {
+        if (PackageLibrary.fieldReturnsStream(node)) {
           final dartStreamType = DartTypes.getDartType(
-              Module.fieldStreamReturnTy(node), _module, kTypesLib);
+              PackageLibrary.fieldStreamReturnTy(node),
+              _packageLibrary,
+              kTypesLib);
 
           methodFields.add(Field((b) => b
             ..name = '_\$streamControllers${toPascalCase(node.ident)}'
@@ -2290,7 +2310,7 @@ class _FFIDartTypes {
       }''';
 
     var bodyFutureForSet = '';
-    if (Module.interfaceReturnsValue(tyInterface, isStatic: true)) {
+    if (PackageLibrary.interfaceReturnsValue(tyInterface, isStatic: true)) {
       fields.add(Field((b) => b
         ..name = '_\$completers'
         ..type = refer('HashMap<int, Completer>')
@@ -2330,9 +2350,9 @@ class _FFIDartTypes {
     interfaceImplements
         .add(refer('$kTypesInterfaceLib.${tyInterface.ident}Static'));
 
-    if (Module.interfaceReturnsStream(tyInterface, isStatic: true) ||
-        Module.interfaceSendsStream(tyInterface, isStatic: true)) {
-      if (Module.interfaceReturnsStream(tyInterface, isStatic: true)) {
+    if (PackageLibrary.interfaceReturnsStream(tyInterface, isStatic: true) ||
+        PackageLibrary.interfaceSendsStream(tyInterface, isStatic: true)) {
+      if (PackageLibrary.interfaceReturnsStream(tyInterface, isStatic: true)) {
         if (bodyFutureStream.isNotEmpty) bodyFutureStream += 'else';
         bodyFutureStream += '''
           if (\$data[0] is StreamReceiverState) {
@@ -2344,7 +2364,7 @@ class _FFIDartTypes {
           }''';
       }
 
-      if (Module.interfaceSendsStream(tyInterface, isStatic: true)) {
+      if (PackageLibrary.interfaceSendsStream(tyInterface, isStatic: true)) {
         if (bodyFutureStream.isNotEmpty) bodyFutureStream += 'else';
         bodyFutureStream += '''
           if (\$data[0] is StreamSenderState) {
@@ -2431,22 +2451,22 @@ class _FFIDartTypes {
     ];
   }
 
-  String get _tryServerRelativePath {
-    try {
-      final result = Module.getServerField<ids_types.NatString>(
-              _module.targetServer, 'relative_path')
-          .value;
+  // String get _tryServerRelativePath {
+  //   try {
+  //     final result = Module.getServerField<ids_types.NatString>(
+  //             _module.targetServer, 'relative_path')
+  //         .value;
 
-      // TODO Fix internal ffi path
-      if (!result.endsWith('/')) {
-        return result + '/';
-      }
+  //     // TODO Fix internal ffi path
+  //     if (!result.endsWith('/')) {
+  //       return result + '/';
+  //     }
 
-      return result;
-    } catch (e) {
-      return 'target/';
-    }
-  }
+  //     return result;
+  //   } catch (e) {
+  //     return 'target/';
+  //   }
+  // }
 
   List<Code> _addInterfaceTypedef(TypeInterface tyInterface) {
     final typedefs = <Code>[];
@@ -2457,7 +2477,7 @@ class _FFIDartTypes {
     final streamName = '_\$Stream${tyInterface.ident}';
     final instanceArgName = 'Pointer<_${tyInterface.ident}>';
 
-    if (Module.interfaceHasNonStaticField(tyInterface)) {
+    if (PackageLibrary.interfaceHasNonStaticField(tyInterface)) {
       typedefs.add(Code('''
         typedef _\$InstanceCreate${tyInterface.ident}Native = Int64 Function(Pointer<Pointer<_${tyInterface.ident}>>);
         typedef _\$InstanceCreate${tyInterface.ident}Func = int Function(Pointer<Pointer<_${tyInterface.ident}>>);
@@ -2498,7 +2518,7 @@ class _FFIDartTypes {
           argsFunc += retTyName;
 
           // Add the dispose typedef if the returned type is supposed to be freed.
-          if (!_module.isTypePrimitive(ty)) {
+          if (!_packageLibrary.isTypePrimitive(ty)) {
             var argDispose =
                 instanceFieldArgName.isNotEmpty ? '$instanceFieldArgName,' : '';
             argDispose += _getffiTypeForInterface(ty);
@@ -2522,7 +2542,8 @@ class _FFIDartTypes {
           typedef ${funcName}${methodFieldName}Func = int Function($argsFunc);'''));
 
         // stream typedef
-        if (Module.fieldReturnsStream(node) || Module.fieldSendsStream(node)) {
+        if (PackageLibrary.fieldReturnsStream(node) ||
+            PackageLibrary.fieldSendsStream(node)) {
           var argsNative =
               instanceFieldArgName.isNotEmpty ? '$instanceFieldArgName,' : '';
           argsNative += 'Pointer<AbiStream>,Pointer<Pointer<AbiStream>>';
@@ -2536,7 +2557,8 @@ class _FFIDartTypes {
     return typedefs;
   }
 
-  _FFIDartTypes(Module module) : _module = module {
+  _FFIDartTypes(PackageLibrary packageLibrary)
+      : _packageLibrary = packageLibrary {
     final enums = <Code>[];
     final structs = <Class>[];
     final structExts = <Code>[];
@@ -2544,7 +2566,7 @@ class _FFIDartTypes {
     final interfaces = <Class>[];
     final interfaceTypedefs = <Code>[];
 
-    for (var type_node in module.request.idlNodes) {
+    for (var type_node in packageLibrary.idlNodes) {
       final dynamic node = type_node.node;
 
       if (node is Comment) {
@@ -2559,10 +2581,10 @@ class _FFIDartTypes {
       } else if (node is TypeList) {
         typeLists.add(_addTypeList(node));
       } else if (node is TypeInterface) {
-        if (Module.interfaceHasNonStaticField(node)) {
+        if (PackageLibrary.interfaceHasNonStaticField(node)) {
           interfaces.addAll(_addInterface(node));
         }
-        if (Module.interfaceHasStaticField(node)) {
+        if (PackageLibrary.interfaceHasStaticField(node)) {
           interfaces.addAll(_addInterfaceStatic(node));
         }
         interfaceTypedefs.addAll(_addInterfaceTypedef(node));
@@ -2571,14 +2593,14 @@ class _FFIDartTypes {
 
     final fields = <Field>[];
 
-    if (module.request.idlNodes.any((a) => a.node is TypeInterface)) {
+    if (packageLibrary.idlNodes.any((a) => a.node is TypeInterface)) {
       fields.add(
         Field((b) => b
           ..name = '_\$kLib'
           ..modifier = FieldModifier.final$
           ..type = refer('DynamicLibrary')
           ..assignment = Code(
-            '''openLibrary('${_module.libraryName}', '')''', // TODO See when a relative path for the lib files is necessary.
+            '''openLibrary('${_packageLibrary.libraryName}', '')''', // TODO See when a relative path for the lib files is necessary.
           )),
       );
     }
@@ -2612,7 +2634,7 @@ class _FFIDartTypes {
   }
 
   late Library _library;
-  final Module _module;
+  final PackageLibrary _packageLibrary;
 
   @override
   String toString() {
@@ -2625,7 +2647,7 @@ class _FFIInterfaceConstructors {
   Class _addInterface(TypeInterface tyInterface) {
     final methods = <Method>[];
 
-    if (Module.interfaceHasNonStaticField(tyInterface)) {
+    if (PackageLibrary.interfaceHasNonStaticField(tyInterface)) {
       methods.add(Method((b) => b
         ..name = 'createInstance'
         ..lambda = true
@@ -2634,7 +2656,7 @@ class _FFIInterfaceConstructors {
         ..body = Code('idl_ffi.${tyInterface.ident}()')));
     }
 
-    if (Module.interfaceHasStaticField(tyInterface)) {
+    if (PackageLibrary.interfaceHasStaticField(tyInterface)) {
       methods.add(Method((b) => b
         ..name = 'createInstanceStatic'
         ..lambda = true
@@ -2648,10 +2670,11 @@ class _FFIInterfaceConstructors {
       ..methods.addAll(methods));
   }
 
-  _FFIInterfaceConstructors(Module module) : _module = module {
+  _FFIInterfaceConstructors(PackageLibrary packageLibrary)
+      : _packageLibrary = packageLibrary {
     final _interfaces = <Class>[];
 
-    for (var type_node in module.request.idlNodes) {
+    for (var type_node in packageLibrary.idlNodes) {
       final dynamic node = type_node.node;
 
       if (node is TypeInterface) {
@@ -2674,7 +2697,7 @@ class _FFIInterfaceConstructors {
   }
 
   late Library _library;
-  final Module _module;
+  final PackageLibrary _packageLibrary;
 
   @override
   String toString() {
@@ -2695,19 +2718,23 @@ class FFILayer implements DartIdlLayer {
       throw ArgumentError('FFI layer cannot have sublayers');
     }
 
-    final dartffiTypes = _FFIDartTypes(module);
-    final dartffiInterfaceConstructors = _FFIInterfaceConstructors(module);
-
     final result = createItemsForLayer(
       module,
       _layer.ident,
       endPoint,
-      layerTypes: dartffiTypes.toString(),
-      interfaceContructors: dartffiInterfaceConstructors.toString(),
+      module.libraries.map((packageLibrary) {
+        final dartffiTypes = _FFIDartTypes(packageLibrary);
+        final dartffiInterfaceConstructors =
+            _FFIInterfaceConstructors(packageLibrary);
+        return LayerItemCreation(
+            interfaceConstructors: dartffiInterfaceConstructors.toString(),
+            layerTypes: dartffiTypes.toString(),
+            packageLibrary: packageLibrary);
+      }).toList(),
     );
 
     return LayerItem(
-        storageItems: result, pubspec: Pubspec(module.libraryName));
+        storageItems: result, pubspec: Pubspec(module.packageName));
   }
 
   @override

@@ -1,5 +1,4 @@
 use crate::lang::StorageItem;
-use thiserror::Error;
 mod ffi;
 
 pub trait LayerBuilder {

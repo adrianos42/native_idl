@@ -5,9 +5,9 @@ use crate::reserved::{
     field_name_is_valid, is_reserved_type, is_reserved_word, type_name_is_valid, NameError,
 };
 use crate::scanner;
-use std::{fmt, path::Path};
-use std::sync::Arc;
 use idl_nodes::TypePair;
+use std::sync::Arc;
+use std::{fmt, path::Path};
 use thiserror::Error;
 
 #[derive(Debug, Clone, Copy)]
@@ -207,6 +207,13 @@ impl Analyzer {
         }
 
         None
+    }
+
+    pub fn has_interface(&self) -> bool {
+        self.nodes.iter().any(|node| match node {
+            idl_nodes::IdlNode::TypeInterface(_) => true,
+            _ => false,
+        })
     }
 
     pub fn any_interface_field_returns_stream(&self, is_static: Option<bool>) -> bool {
@@ -803,7 +810,6 @@ impl Analyzer {
         Ok(analyzer)
     }
 
-   
     fn returns_interface(ty_name: &idl_nodes::TypeName) -> bool {
         match ty_name {
             // Result cannot be returned as an error
@@ -1499,7 +1505,7 @@ impl AnalyzerItems {
                 idl_nodes::TypePair {
                     first_ty: self.get_type(pair.first_ty.clone())?,
                     second_ty: self.get_type(pair.second_ty.clone())?,
-                }
+                },
             ))),
             parser::Type::Stream(stream) => Ok(idl_nodes::TypeName::TypeStream(Box::new(
                 idl_nodes::TypeStream {

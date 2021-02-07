@@ -14,7 +14,7 @@ impl Message {
     }
 
     pub fn normal(name: &str, messages: Vec<String>) -> anyhow::Result<()> {
-        if !messages.is_empty() && messages.iter().any(|v| !v.is_empty()) {
+        if !messages.is_empty() {
             if !name.is_empty() {
                 println!("{}: ", Color::White.paint(name));
             }
@@ -25,6 +25,28 @@ impl Message {
 
         Ok(())
     }
+
+    // pub fn normal(name: &str, messages: Vec<String>) -> anyhow::Result<()> {
+    //     if !messages.is_empty() {
+    //         if !name.is_empty() {
+    //             for message in messages {
+    //                 for line in message.lines() {
+    //                     println!(
+    //                         "{} {}",
+    //                         Color::Blue.paint(format!("[{}]", name)),
+    //                         Color::White.paint(line)
+    //                     );
+    //                 }
+    //             }
+    //         } else {
+    //             for message in messages {
+    //                 println!("{}", Color::White.paint(message));
+    //             }
+    //         }
+    //     }
+
+    //     Ok(())
+    // }
 
     pub fn info(message: String) -> anyhow::Result<()> {
         if !message.is_empty() {

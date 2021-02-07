@@ -80,7 +80,8 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
     }
 
     let names = module.idl_documents_all_valid_names()?;
-    let ref_names: Vec<&str> = names.iter().map(|v| v.as_str()).collect(); // TODO Better way to do this?
+    // TODO Better way to do this?
+    let ref_names: Vec<&str> = names.iter().map(|v| v.as_str()).collect(); 
     let analyzers = module
         .idl_all_analyzers(&ref_names)
         .ok_or(anyhow::format_err!(""))?;
@@ -98,29 +99,29 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
         request_type: RequestType::Client(client.to_owned()),
     };
 
-    // Message::info(format!("Sending language `{}` request", target_lang))?;
-    // let gen = idl_gen::for_language(&target_lang)?;
-    // let response = gen.send_request(request)?;
+    Message::info(format!("Sending language `{}` request", target_lang))?;
+    let gen = idl_gen::for_language(&target_lang)?;
+    let response = gen.send_request(request)?;
 
-    // Message::normal("Response message", response.response_messages)?;
+    Message::normal("Response message", response.response_messages)?;
 
-    // match response.gen_response {
-    //     ResponseType::Generated(value) => {
-    //         let src = Path::new(output).join(&package_name);
-    //         let _ = fs::remove_dir_all(&src);
-    //         fs::create_dir_all(&src)?;
+    match response.gen_response {
+        ResponseType::Generated(value) => {
+            let src = Path::new(output).join(&package_name);
+            let _ = fs::remove_dir_all(&src);
+            fs::create_dir_all(&src)?;
 
-    //         for item in value {
-    //             item.write_items(&src, true)?;
-    //         }
+            for item in value {
+                item.write_items(&src, true)?;
+            }
 
-    //         Message::info(format!("Generated files at {:#?}", src))?;
-    //     }
-    //     ResponseType::Undefined(err) => {
-    //         Message::error("Request error", err)?;
-    //         return Err(anyhow!(""));
-    //     }
-    // }
+            Message::info(format!("Generated files at {:#?}", src))?;
+        }
+        ResponseType::Undefined(err) => {
+            Message::error("Request error", err)?;
+            return Err(anyhow!(""));
+        }
+    }
 
     match target_client.servers(&analyzer_ids) {
         Some(servers) => {

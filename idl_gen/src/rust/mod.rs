@@ -38,7 +38,7 @@ impl crate::IdlGen for RustGen {
                 let analyzers: Vec<idl::analyzer::Analyzer> = request
                     .libraries
                     .into_iter()
-                    .map(|nodes| idl::analyzer::Analyzer::from_nodes(nodes))
+                    .map(|library| idl::analyzer::Analyzer::from_nodes(library.nodes))
                     .collect();
 
                 let ids_analyzer = idl::ids::analyzer::Analyzer::from_nodes(request.ids_nodes);

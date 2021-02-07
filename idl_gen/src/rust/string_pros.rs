@@ -1,7 +1,6 @@
 use regex::{Captures, Regex};
 use std::process::{Command, Stdio};
 use std::io::Write;
-use proc_macro2::TokenStream;
 
 pub(super) trait StringPros {
     fn to_pascal_case(&self) -> String;

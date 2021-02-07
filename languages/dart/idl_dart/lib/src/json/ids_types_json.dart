@@ -42,8 +42,22 @@ class ItemType<T> {
       return ItemType(itemType: Values.fromJson(json) as T);
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    if (json.containsKey('Identifier')) {
+      return ItemType(itemType: Identifier.fromJson(json) as T);
+    }
+
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
+}
+
+@JsonSerializable(createToJson: false)
+class Identifier {
+  @JsonKey(name: 'Identifier')
+  final String value;
+
+  const Identifier({required this.value});
+
+  factory Identifier.fromJson(Map<String, dynamic> json) => _$IdentifierFromJson(json);
 }
 
 @JsonSerializable(createToJson: false)
@@ -138,8 +152,8 @@ class IdsNode<T> {
   const IdsNode({required this.node});
 
   factory IdsNode.fromJson(Map<String, dynamic> json) {
-    if (json.containsKey('Library')) {
-      return IdsNode(node: Library.fromJson(json['Library']) as T);
+    if (json.containsKey('Package')) {
+      return IdsNode(node: Package.fromJson(json['Package']) as T);
     }
 
     if (json.containsKey('Layer')) {
@@ -154,60 +168,60 @@ class IdsNode<T> {
       return IdsNode(node: Client.fromJson(json['Client']) as T);
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
 @JsonSerializable(createToJson: false)
-class Library {
+class Package {
   @JsonKey(name: 'ident')
   final String ident;
 
   @JsonKey(name: 'nodes')
-  final List<LibraryNode> nodes;
+  final List<PackageNode> nodes;
 
-  const Library({required this.ident, required this.nodes});
+  const Package({required this.ident, required this.nodes});
 
-  factory Library.fromJson(Map<String, dynamic> json) =>
-      _$LibraryFromJson(json);
+  factory Package.fromJson(Map<String, dynamic> json) =>
+      _$PackageFromJson(json);
 }
 
-class LibraryNode<T> {
+class PackageNode<T> {
   final T node;
 
-  const LibraryNode({required this.node});
+  const PackageNode({required this.node});
 
-  factory LibraryNode.fromJson(Map<String, dynamic> json) {
+  factory PackageNode.fromJson(Map<String, dynamic> json) {
     if (json is Map<String, dynamic>) {
-      if (json.containsKey('LibraryField')) {
-        return LibraryNode(
-            node: LibraryField.fromJson(json['LibraryField']) as T);
+      if (json.containsKey('PackageField')) {
+        return PackageNode(
+            node: PackageField.fromJson(json['PackageField']) as T);
       }
 
       if (json.containsKey('Comment')) {
-        return LibraryNode(node: Comment.fromJson(json) as T);
+        return PackageNode(node: Comment.fromJson(json) as T);
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
 @JsonSerializable(createToJson: false)
-class LibraryField {
+class PackageField {
   @JsonKey(name: 'ident')
   final String ident;
 
   @JsonKey(name: 'value')
   final ItemType value;
 
-  const LibraryField({
+  const PackageField({
     required this.ident,
     required this.value,
   });
 
-  factory LibraryField.fromJson(Map<String, dynamic> json) =>
-      _$LibraryFieldFromJson(json);
+  factory PackageField.fromJson(Map<String, dynamic> json) =>
+      _$PackageFieldFromJson(json);
 }
 
 @JsonSerializable(createToJson: false)
@@ -239,7 +253,7 @@ class LayerNode<T> {
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
@@ -289,7 +303,7 @@ class ServerNode<T> {
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
@@ -339,7 +353,7 @@ class ClientNode<T> {
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
@@ -372,14 +386,14 @@ class Comment {
 }
 
 @JsonSerializable(createToJson: false)
-class LibraryComment {
-  @JsonKey(name: 'LibraryComment')
+class PackageComment {
+  @JsonKey(name: 'PackageComment')
   final List<String> interfaceComment;
 
-  const LibraryComment({required this.interfaceComment});
+  const PackageComment({required this.interfaceComment});
 
-  factory LibraryComment.fromJson(Map<String, dynamic> json) =>
-      _$LibraryCommentFromJson(json);
+  factory PackageComment.fromJson(Map<String, dynamic> json) =>
+      _$PackageCommentFromJson(json);
 }
 
 @JsonSerializable(createToJson: false)

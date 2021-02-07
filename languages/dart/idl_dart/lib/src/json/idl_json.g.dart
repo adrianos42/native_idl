@@ -63,9 +63,15 @@ Client _$ClientFromJson(Map<String, dynamic> json) {
   );
 }
 
+LibraryItem _$LibraryItemFromJson(Map<String, dynamic> json) {
+  return LibraryItem(
+    nodes: _idlNodesFromJson(json['nodes'] as List),
+  );
+}
+
 LanguageRequest _$LanguageRequestFromJson(Map<String, dynamic> json) {
   return LanguageRequest(
-    idlNodes: _idlNodesFromJson(json['idl_nodes'] as List),
+    libraries: _libraryItemFromJson(json['libraries'] as List),
     idsNodes: _idsNodesFromJson(json['ids_nodes'] as List),
     requestType:
         RequestType.fromJson(json['request_type'] as Map<String, dynamic>),

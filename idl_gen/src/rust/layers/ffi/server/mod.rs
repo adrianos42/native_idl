@@ -1,4 +1,4 @@
-use idl::analyzer::Analyzer;
+use idl::{analyzer::Analyzer};
 use idl::idl_nodes::*;
 
 use crate::{rust::con_idl::{get_rust_ty_name, get_rust_ty_ref}};
@@ -17,7 +17,7 @@ pub(crate) mod compile;
 #[derive(Debug)]
 pub enum FFIServerError {
     UnexpectedType,
-    InvalidLiteral,
+//    InvalidLiteral,
     Undefined,
 }
 
@@ -44,12 +44,19 @@ impl fmt::Display for FFIServer {
 }
 
 impl FFIServer {
-    pub fn generate(analyzer: &Analyzer) -> Result<Self, FFIServerError> {
+    pub fn generate(package_name: &str, analyzer: &Analyzer) -> Result<Self, FFIServerError> {
         let mut context = FFIServer::new();
 
         let mut deps = vec![];
 
-        let lib_ident =  format_ident!("{}", analyzer.library_name());
+        let library_name = analyzer.library_name();
+        let library_ident = format_ident!("{}", library_name);
+        let lib_ident = if package_name == analyzer.library_name() { 
+            quote! { #library_ident } 
+        } else {
+            let package_ident = format_ident!("{}", package_name);
+            quote! { #package_ident::#library_ident }
+        };
 
         let has_field_returns_stream = analyzer.any_interface_field_returns_stream(None);
         let has_interface_field_sends_stream = analyzer.any_interface_field_sends_stream(None);
@@ -289,7 +296,8 @@ impl FFIServer {
                     };
 
                     let func_ffi_ident = format_ident!(
-                        "{}_{}",
+                        "{}_{}_{}",
+                        analyzer.library_name(),
                         if field.is_static { "static" } else { "method" },
                         field_name
                     );
@@ -350,7 +358,7 @@ impl FFIServer {
                         fields.push(create_fn(func_ffi_ident, args_ident, body_ident));
                     } else if ret_ty.is_boxed_ffi(analyzer) {
                         // FIXME change release
-                        let func_ffi_ident = format_ident!("dispose_{}", field_name);
+                        let func_ffi_ident = format_ident!("{}_dispose_{}", analyzer.library_name(), field_name);
 
                         let result_ident = quote! { _result };
                         let result_ty_ident = ret_ty.get_ffi_ty_ref(true, analyzer);
@@ -367,7 +375,7 @@ impl FFIServer {
                     }
 
                     if let Some(stream_arg_ty) = stream_arg {
-                        let func_ffi_ident = format_ident!("stream_sender_{}", field_name);
+                        let func_ffi_ident = format_ident!("{}_stream_sender_{}", analyzer.library_name(), field_name);
                         let func_ident = format_ident!("{}_stream_sender", &field.ident);
                         let stream_ident = quote! { _stream };
                         let stream_result_ident = quote! { _stream_result };
@@ -405,7 +413,7 @@ impl FFIServer {
 
                         fields.push(create_fn(func_ffi_ident, args, body_ident));
 
-                        let func_ffi_ident = format_ident!("dispose_stream_sender_{}", field_name);
+                        let func_ffi_ident = format_ident!("{}_dispose_stream_sender_{}", analyzer.library_name(), field_name);
                         let args_ident = quote! {
                             #instance_args
                             #stream_ident: *mut AbiStream,
@@ -443,7 +451,7 @@ impl FFIServer {
             };
 
             let field_name = format!("create_{}", ident.to_snake_case());
-            let func_ffi_ident = format_ident!("{}", &field_name);
+            let func_ffi_ident = format_ident!("{}_{}", analyzer.library_name(), &field_name);
 
             let body_ident = quote! {
                 #ret_conv_ffi
@@ -463,7 +471,7 @@ impl FFIServer {
                 quote! { #result_ident: *mut #result_ty_ident }
             };
 
-            let field_name = format!("dispose_{}", ident.to_snake_case());
+            let field_name = format!("{}_dispose_{}", analyzer.library_name(), ident.to_snake_case());
             let func_ffi_ident = format_ident!("{}", &field_name);
 
             // let ins_ident = quote! { _ins };
@@ -619,10 +627,17 @@ impl fmt::Display for FFIServerTypes {
 }
 
 impl FFIServerTypes {
-    pub fn generate(analyzer: &Analyzer) -> Result<Self, FFIServerError> {
+    pub fn generate(package_name: &str, analyzer: &Analyzer) -> Result<Self, FFIServerError> {
         let mut context = FFIServerTypes::new();
 
-        let lib_ident =  format_ident!("{}", analyzer.library_name());
+        let library_name = analyzer.library_name();
+        let library_ident = format_ident!("{}", library_name);
+        let lib_ident = if package_name == analyzer.library_name() { 
+            quote! { #library_ident } 
+        } else {
+            let package_ident = format_ident!("{}", package_name);
+            quote! { #package_ident::#library_ident }
+        };
 
         context.module.push(quote! {
             use idl_internal::ffi::ffi_types::*;
@@ -867,10 +882,17 @@ impl fmt::Display for FFIServerImpl {
 }
 
 impl FFIServerImpl {
-    pub fn generate(analyzer: &Analyzer) -> Result<Self, FFIServerError> {
+    pub fn generate(package_name: &str, analyzer: &Analyzer) -> Result<Self, FFIServerError> {
         let mut context = FFIServerImpl::new();
 
-        let lib_ident = format_ident!("{}", analyzer.library_name());
+        let library_name = analyzer.library_name();
+        let library_ident = format_ident!("{}", library_name);
+        let lib_ident = if package_name == analyzer.library_name() { 
+            quote! { #library_ident } 
+        } else {
+            let package_ident = format_ident!("{}", package_name);
+            quote! { #package_ident::#library_ident }
+        };
 
         context.module.push(quote! {
             use idl_internal::*;
@@ -1096,7 +1118,7 @@ impl FFIServerImpl {
 
 mod server_cargo {
     use super::FFIServerError;
-    use crate::cargo_md::*;
+    use crate::cargo_m::*;
     use core::fmt;
     use idl::ids;
     use std::collections::HashMap;

@@ -34,7 +34,7 @@ class FlutterLayer implements DartIdlLayer {
 
     final result = List<StorageItem>.empty(growable: true);
 
-    result.addAll([createFolderItem('lib', [])]);
+   // result.addAll([createFolderItem('lib', [])]);
 
     final flutterCreate = _createPluginFiles(module);
     final flutterPubspec = flutterCreate.item2;
@@ -63,7 +63,7 @@ class FlutterLayer implements DartIdlLayer {
       'create',
       '--platforms=$platformList',
       '--template=plugin',
-      module.libraryName,
+      module.packageName,
     ];
 
     final output = Process.runSync(
@@ -121,7 +121,7 @@ class FlutterLayer implements DartIdlLayer {
           var cmakeSource = File.fromUri(item.uri).readAsStringSync();
           cmakeSource += '''
 target_link_directories(\${PLUGIN_NAME} PRIVATE "\${CMAKE_CURRENT_SOURCE_DIR}/../build/idl/")
-target_link_libraries(\${PLUGIN_NAME} PRIVATE ${module.libraryName})''';
+target_link_libraries(\${PLUGIN_NAME} PRIVATE ${module.packageName})''';
           result.add(createSourceItem(cmakeName, cmakeSource));
         } else {
           result.add(createSourceItemFromPath(File.fromUri(item.uri)));

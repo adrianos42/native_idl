@@ -165,14 +165,27 @@ class RequestType<T> {
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}');
   }
 }
 
 @JsonSerializable(createToJson: false)
+class LibraryItem {
+  @JsonKey(name: 'nodes', fromJson: _idlNodesFromJson)
+  final List<idl_types.IdlNode> nodes;
+
+  const LibraryItem({
+    required this.nodes,
+  });
+
+  factory LibraryItem.fromJson(Map<String, dynamic> json) =>
+      _$LibraryItemFromJson(json);
+}
+
+@JsonSerializable(createToJson: false)
 class LanguageRequest {
-  @JsonKey(name: 'idl_nodes', fromJson: _idlNodesFromJson)
-  final List<idl_types.IdlNode> idlNodes;
+  @JsonKey(name: 'libraries', fromJson: _libraryItemFromJson)
+  final List<LibraryItem> libraries;
 
   @JsonKey(name: 'ids_nodes', fromJson: _idsNodesFromJson)
   final List<ids_types.IdsNode> idsNodes;
@@ -181,13 +194,19 @@ class LanguageRequest {
   final RequestType requestType;
 
   const LanguageRequest({
-    required this.idlNodes,
+    required this.libraries,
     required this.idsNodes,
     required this.requestType,
   });
 
   factory LanguageRequest.fromJson(Map<String, dynamic> json) =>
       _$LanguageRequestFromJson(json);
+}
+
+List<LibraryItem> _libraryItemFromJson(List<dynamic> json) {
+  return json
+      .map((value) => LibraryItem.fromJson(value as Map<String, dynamic>))
+      .toList();
 }
 
 List<idl_types.IdlNode> _idlNodesFromJson(List<dynamic> json) {

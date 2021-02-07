@@ -9,7 +9,7 @@ import 'module.dart';
 
 class DartSpec {
   static Pubspec generate(Module module) {
-    final libraryName = module.libraryName;
+    final libraryName = module.packageName;
 
     final environment = '>=2.12.0-0 <3.0.0';
     final description = '$libraryName library.';
@@ -35,13 +35,17 @@ class DartSpec {
 class DartLib {
   DartLib._();
 
-  factory DartLib.generate(Module module) {
+  factory DartLib.generate(Module module, PackageLibrary packageLibrary) {
     final result = DartLib._();
-    final libraryName = module.libraryName;
+    final libraryName = packageLibrary.libraryName;
+
+    final exportName = module.packageName == packageLibrary.libraryName
+        ? '''export 'src/idl_types.dart';'''
+        : '''export 'src/${packageLibrary.libraryName}/idl_types.dart';''';
 
     result._library = Code('''
       library ${libraryName};
-      export 'src/idl_types.dart';
+      $exportName
       export 'package:idl_internal/idl_internal.dart' show Result, Pair;
     ''');
 

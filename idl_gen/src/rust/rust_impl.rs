@@ -4,7 +4,7 @@ use crate::lang::StorageItem;
 use idl::analyzer::Analyzer;
 use idl::idl_nodes::*;
 use idl::ids;
-use proc_macro2::{self, Ident, Span, TokenStream};
+use proc_macro2::{self, TokenStream};
 use quote::format_ident;
 use quote::{ToTokens, TokenStreamExt};
 use std::fmt;
@@ -197,7 +197,7 @@ impl RustImplMod {
 }
 
 mod impl_cargo {
-    use crate::cargo_md::*;
+    use crate::cargo_m::*;
     use core::fmt;
     use idl::ids;
     use serde::Serialize;
@@ -218,7 +218,7 @@ mod impl_cargo {
     }
 
     impl RustImplCargo {
-        pub fn generate(analyzer: &ids::analyzer::Analyzer) -> Result<Self, ()> {
+        pub fn generate(_analyzer: &ids::analyzer::Analyzer) -> Result<Self, ()> {
             let mut context = RustImplCargo::new();
             //let lib_name = analyzer.library_name().unwrap();
 

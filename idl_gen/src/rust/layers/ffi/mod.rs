@@ -1,12 +1,9 @@
-use crate::{lang::StorageItem, rust::string_pros::StringRustFmt};
+use crate::rust::string_pros::StringRustFmt;
 use idl::analyzer::Analyzer;
 use idl::idl_nodes::*;
-use idl::ids;
 use proc_macro2::{self, TokenStream};
 use quote::{ToTokens, TokenStreamExt, format_ident};
 use std::fmt;
-
-use super::LayerBuilder;
 
 pub(crate) mod client;
 pub(crate) mod server;

@@ -31,7 +31,7 @@ class DartTypes {
         fields.add(Field((b) => b
           ..name = dName
           ..modifier = FieldModifier.final$
-          ..type = refer(getDartType(node.ty, _module))));
+          ..type = refer(getDartType(node.ty, _packageLibrary))));
 
         // create comparison body
         if (cmpBody.isNotEmpty) cmpBody += '&&';
@@ -75,7 +75,7 @@ class DartTypes {
         final getArgs = (TypeTuple tyTuple) => tyTuple.fields
             .map((v) => Parameter((b) => b
               ..name = toCamelCase(v.ident)
-              ..type = refer(getDartType(v.ty, _module, nName))))
+              ..type = refer(getDartType(v.ty, _packageLibrary, nName))))
             .toList();
 
         final getArgsName =
@@ -93,7 +93,7 @@ class DartTypes {
           argsTy = getArgs(tyName);
         }
 
-        returnTy = DartTypes.getDartReturnType(node.ty, _module);
+        returnTy = DartTypes.getDartReturnType(node.ty, _packageLibrary);
 
         final method = Method((b) => b
           ..name = toCamelCase(node.ident)
@@ -111,7 +111,7 @@ class DartTypes {
     final typesInterfaceLib = kTypesInterfaceLib;
 
     final fields = <Field>[];
-    if (Module.interfaceHasNonStaticField(tyInterface)) {
+    if (PackageLibrary.interfaceHasNonStaticField(tyInterface)) {
       fields.add(Field((b) => b
         ..name = '_instance'
         ..assignment = Code(
@@ -192,7 +192,7 @@ class DartTypes {
               '${tyList.ident}._(value, ${tyList.ident}.${toCamelCase(node.ident)})')
           ..requiredParameters.add(Parameter((b) => b
             ..name = 'value'
-            ..type = refer(getDartType(node.ty, _module))))));
+            ..type = refer(getDartType(node.ty, _packageLibrary))))));
         enumFields.add(Field((b) => b
           ..static = true
           ..name = toCamelCase(node.ident)
@@ -266,9 +266,9 @@ class DartTypes {
 
   DartTypes._();
 
-  factory DartTypes.generate(Module module) {
+  factory DartTypes.generate(PackageLibrary packageLibrary) {
     final dartTypes = DartTypes._();
-    dartTypes._module = module;
+    dartTypes._packageLibrary = packageLibrary;
 
     final _enums = <Code>[];
     final _structs = <Class>[];
@@ -276,7 +276,7 @@ class DartTypes {
     final _typeLists = <Class>[];
     final _interfaces = <Class>[];
 
-    for (var type_node in module.request.idlNodes) {
+    for (var type_node in packageLibrary.idlNodes) {
       final dynamic node = type_node.node;
 
       if (node is Comment) {
@@ -299,15 +299,23 @@ class DartTypes {
 
     final typesInterfaceLib = kTypesInterfaceLib;
 
+    final directives = List<Directive>.empty(growable: true);
+
+    if (packageLibrary.hasInterface) {
+      directives.addAll([
+        Directive((b) => b
+          ..type = DirectiveType.import
+          ..as = '$typesInterfaceLib'
+          ..url = '$typesInterfaceLib.dart'),
+        Directive((b) => b
+          ..type = DirectiveType.import
+          ..as = '$kInterfaceConstructor'
+          ..url = '$kInterfaceConstructor.dart')
+      ]);
+    }
+
     final library = Library((b) => b
-      ..directives.add(Directive((b) => b
-        ..type = DirectiveType.import
-        ..as = '$typesInterfaceLib'
-        ..url = '$typesInterfaceLib.dart'))
-      ..directives.add(Directive((b) => b
-        ..type = DirectiveType.import
-        ..as = '$kInterfaceConstructor'
-        ..url = '$kInterfaceConstructor.dart'))
+      ..directives.addAll(directives)
       ..directives.add(Directive.import('dart:typed_data'))
       ..directives.add(Directive.import('dart:collection'))
       ..directives.add(Directive((b) => b
@@ -325,16 +333,16 @@ class DartTypes {
   }
 
   factory DartTypes.generateInterfaceOnlyLayer(
-      Module module, String layerReferenceName,
+      PackageLibrary packageLibrary, String layerReferenceName,
       [bool = false]) {
     final dartTypes = DartTypes._();
-    dartTypes._module = module;
+    dartTypes._packageLibrary = packageLibrary;
 
     final _interfaces = <Class>[];
     final interfaceLayerReferenceName =
         'idl_${layerReferenceName}_interface_constructor';
 
-    for (var type_node in module.request.idlNodes) {
+    for (var type_node in packageLibrary.idlNodes) {
       final dynamic node = type_node.node;
 
       if (node is TypeInterface) {
@@ -374,12 +382,13 @@ class DartTypes {
   }
 
   late Library _library;
-  late Module _module;
+  late PackageLibrary _packageLibrary;
 
-  static TypeName resolveTypeWithConst(TypeName tyName, Module module) {
+  static TypeName resolveTypeWithConst(
+      TypeName tyName, PackageLibrary packageLibrary) {
     final ty = tyName.typeName;
     if (ty is ConstTypeName) {
-      final tyConst = module.findTypeConst(ty);
+      final tyConst = packageLibrary.findTypeConst(ty);
 
       switch (tyConst.constType) {
         case ConstTypes.natInt:
@@ -393,21 +402,23 @@ class DartTypes {
     return tyName;
   }
 
-  static String getDartReturnType(TypeName ty, Module module,
+  static String getDartReturnType(TypeName ty, PackageLibrary packageLibrary,
       [String nName = '']) {
     if (ty.typeName is TypeTuple) {
       return 'Future<void>';
     } else if (ty.typeName is TypeFunction) {
-      final rTy = DartTypes.getDartType(ty.typeName.returnTy, module, nName);
+      final rTy =
+          DartTypes.getDartType(ty.typeName.returnTy, packageLibrary, nName);
       return ty.typeName.returnTy.typeName is TypeStream ? rTy : 'Future<$rTy>';
     } else {
-      final rTy = DartTypes.getDartType(ty, module, nName);
+      final rTy = DartTypes.getDartType(ty, packageLibrary, nName);
       return ty.typeName is TypeStream ? rTy : 'Future<$rTy>';
     }
   }
 
-  static String getDartType(TypeName ty, Module module, [String nName = '']) {
-    final typeName = resolveTypeWithConst(ty, module).typeName;
+  static String getDartType(TypeName ty, PackageLibrary packageLibrary,
+      [String nName = '']) {
+    final typeName = resolveTypeWithConst(ty, packageLibrary).typeName;
 
     var wName = '';
 
@@ -431,17 +442,17 @@ class DartTypes {
           return 'String';
       }
     } else if (typeName is TypeArray) {
-      return 'List<${getDartType(typeName.ty, module, nName)}>';
+      return 'List<${getDartType(typeName.ty, packageLibrary, nName)}>';
     } else if (typeName is TypeMap) {
-      return 'Map<${getDartType(typeName.indexTy, module, nName)}, ${getDartType(typeName.mapTy, module, nName)}>';
+      return 'Map<${getDartType(typeName.indexTy, packageLibrary, nName)}, ${getDartType(typeName.mapTy, packageLibrary, nName)}>';
     } else if (typeName is TypePair) {
-      return 'Pair<${getDartType(typeName.firstTy, module, nName)}, ${getDartType(typeName.secondTy, module, nName)}>';
+      return 'Pair<${getDartType(typeName.firstTy, packageLibrary, nName)}, ${getDartType(typeName.secondTy, packageLibrary, nName)}>';
     } else if (typeName is TypeOption) {
-      return '${getDartType(typeName.someTy, module, nName)}?';
+      return '${getDartType(typeName.someTy, packageLibrary, nName)}?';
     } else if (typeName is TypeResult) {
-      return 'Result<${getDartType(typeName.okTy, module, nName)}, ${getDartType(typeName.errTy, module, nName)}>';
+      return 'Result<${getDartType(typeName.okTy, packageLibrary, nName)}, ${getDartType(typeName.errTy, packageLibrary, nName)}>';
     } else if (typeName is TypeStream) {
-      return 'Stream<${getDartType(typeName.sTy, module, nName)}>';
+      return 'Stream<${getDartType(typeName.sTy, packageLibrary, nName)}>';
     } else if (typeName is EnumTypeName) {
       return '$wName${typeName.enumTypeName}';
     } else if (typeName is ListTypeName) {
@@ -478,7 +489,8 @@ class DartTypesInterface {
         final getArgs = (TypeTuple tyTuple) => tyTuple.fields
             .map((v) => Parameter((b) => b
               ..name = toCamelCase(v.ident)
-              ..type = refer(DartTypes.getDartType(v.ty, _module, kTypesLib))))
+              ..type = refer(
+                  DartTypes.getDartType(v.ty, _packageLibrary, kTypesLib))))
             .toList();
 
         if (tyName is TypeFunction) {
@@ -487,7 +499,8 @@ class DartTypesInterface {
           argsTy = getArgs(tyName);
         }
 
-        returnTy = DartTypes.getDartReturnType(node.ty, _module, kTypesLib);
+        returnTy =
+            DartTypes.getDartReturnType(node.ty, _packageLibrary, kTypesLib);
 
         final method = Method((b) => b
           ..name = toCamelCase(node.ident)
@@ -521,13 +534,13 @@ class DartTypesInterface {
 
   DartTypesInterface._();
 
-  factory DartTypesInterface.generate(Module module) {
+  factory DartTypesInterface.generate(PackageLibrary packageLibrary) {
     final dartTypes = DartTypesInterface._();
-    dartTypes._module = module;
+    dartTypes._packageLibrary = packageLibrary;
 
     final _interfaces = <Class>[];
 
-    for (var type_node in module.request.idlNodes) {
+    for (var type_node in packageLibrary.idlNodes) {
       final dynamic node = type_node.node;
 
       if (node is TypeInterface) {
@@ -553,7 +566,7 @@ class DartTypesInterface {
   }
 
   late Library _library;
-  late Module _module;
+  late PackageLibrary _packageLibrary;
 
   @override
   String toString() {
@@ -564,26 +577,40 @@ class DartTypesInterface {
 
 class ClientTypes {
   static LayerItem generate(Module module) {
-    final result = List<StorageItem>.empty(growable: true);
+    final libraryItems = List<StorageItem>.empty(growable: true);
 
-    final dartLibrary = DartLib.generate(module);
     final pubspec = DartSpec.generate(module);
 
-    // TODO do not generate if it's not necessary
-    final dartTypesInterface = DartTypesInterface.generate(module);
-    final dartTypes = DartTypes.generate(module);
+    for (var packageLibrary in module.libraries) {
+      final items = List<StorageItem>.empty(growable: true);
+      final dartTypes = DartTypes.generate(packageLibrary);
+      final dartLibrary = DartLib.generate(module, packageLibrary);
 
-    result.addAll([
-      createFolderItem('lib', [
-        createSourceItem('${module.libraryName}.dart', dartLibrary.toString()),
-        createFolderItem('src', [
-          createSourceItem('$kTypesLib.dart', dartTypes.toString()),
+      items.add(createSourceItem('$kTypesLib.dart', dartTypes.toString()));
+
+      if (packageLibrary.hasInterface) {
+        final dartTypesInterface = DartTypesInterface.generate(packageLibrary);
+        items.add(
           createSourceItem(
               '$kTypesInterfaceLib.dart', dartTypesInterface.toString()),
-        ]),
-      ]),
-    ]);
+        );
+      }
 
-    return LayerItem(pubspec: pubspec, storageItems: result);
+      final List<StorageItem<dynamic>> srcItems;
+
+      if (packageLibrary.libraryName == module.packageName) {
+        srcItems = items;
+      } else {
+        srcItems = [createFolderItem(packageLibrary.libraryName, items)];
+      }
+
+      libraryItems.add(createFolderItem('lib', [
+        createSourceItem(
+            '${packageLibrary.libraryName}.dart', dartLibrary.toString()),
+        createFolderItem('src', srcItems),
+      ]));
+    }
+
+    return LayerItem(pubspec: pubspec, storageItems: libraryItems);
   }
 }

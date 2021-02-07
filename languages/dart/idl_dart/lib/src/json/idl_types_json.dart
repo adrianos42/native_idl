@@ -29,7 +29,7 @@ Types _typesFromJson(String json) {
       return Types.natNone;
   }
 
-  throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+  throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
 }
 
 class IdlNode<T> {
@@ -93,7 +93,7 @@ class IdlNode<T> {
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
@@ -114,7 +114,7 @@ class InterfaceNode<T> {
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
@@ -134,7 +134,7 @@ class StructNode<T> {
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
@@ -155,7 +155,7 @@ class TypeListNode<T> {
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
@@ -175,7 +175,7 @@ class EnumNode<T> {
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
@@ -195,7 +195,7 @@ class ConstNode<T> {
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
@@ -264,7 +264,7 @@ class TypeName<T> {
       }
     }
 
-    throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+    throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
   }
 }
 
@@ -610,7 +610,7 @@ ConstTypes _constTypeFromJson(String json) {
       return ConstTypes.natString;
   }
 
-  throw ArgumentError.value(json, 'json', 'Invalid convertion input data.');
+  throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
 }
 
 @JsonSerializable(createToJson: false)

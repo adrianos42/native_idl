@@ -7,11 +7,10 @@ pub mod message;
 pub mod server;
 
 use anyhow::{anyhow, Result};
-use idl_gen::lang::StorageItem;
+use idl_gen::lang::LibraryItem;
 use std::fs;
 use std::path;
 use std::sync::Arc;
-use std::{io::Write, path::Path};
 
 #[derive(Debug)]
 struct Document {
@@ -79,11 +78,13 @@ fn add_file(path: &path::Path) -> Option<Document> {
 
 pub(crate) fn get_all_idl_nodes(
     analyzers: &[Arc<Result<idl::analyzer::Analyzer, idl::analyzer::AnalyzerError>>],
-) -> Vec<Vec<idl::idl_nodes::IdlNode>> {
+) -> Vec<LibraryItem> {
     analyzers
         .iter()
         .map(|v| match &**v {
-            Ok(value) => value.nodes.clone(),
+            Ok(value) => LibraryItem {
+                nodes: value.nodes.clone(),
+            },
             Err(_) => panic!("Could not collect all module"),
         })
         .collect()
