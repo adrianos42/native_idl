@@ -1,9 +1,11 @@
+import 'dart:js';
 import 'dart:ui';
 import 'package:desktop/desktop.dart';
 import 'package:desktop/document.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'overview.dart';
+import 'tree.dart';
 
 void main() {
   runApp(MyApp());
@@ -50,7 +52,7 @@ class _MyHomePageState extends State<MyHomePage> {
         padding: EdgeInsets.all(16.0),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
-          crossAxisAlignment: CrossAxisAlignment.center,
+          crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.max,
           children: [
             Row(
@@ -82,25 +84,66 @@ class _MyHomePageState extends State<MyHomePage> {
               ],
             ),
             Expanded(
-                child: Tab(
-              items: [
-                TabItem(
-                    title: Text('Overview'),
-                    builder: (context) => Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: OverviewPage(),
-                        )),
-                TabItem(
-                    title: Text('page2'),
-                    builder: (context) => ConstrainedBox(
-                          constraints:
-                              BoxConstraints(maxHeight: 60.0, maxWidth: 60.0),
-                          child: Center(
-                            child: Text('page2'),
-                          ),
-                        )),
-              ],
-            ))
+              child: Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Tree(
+                  title: Text(
+                    'Documentation',
+                    style: Theme.of(context).textTheme.body2,
+                  ),
+                  nodes: [
+                    TreeNode(
+                      'Overview',
+                      builder: (context) => Center(
+                        child: Text('Overview'),
+                      ),
+                    ),
+                    TreeNode('Idl language', children: [
+                      TreeNode(
+                        'Concepts',
+                        builder: (context) => Center(
+                          child: Text('Concepts'),
+                        ),
+                      ),
+                      TreeNode(
+                        'Syntax',
+                        builder: (context) => Center(
+                          child: Text('Syntax'),
+                        ),
+                      ),
+                    ]),
+                    TreeNode('Layers', children: [
+                      TreeNode(
+                        'FFI',
+                        builder: (context) => Center(
+                          child: Text('FFI'),
+                        ),
+                      ),
+                      TreeNode(
+                        'WebSocket',
+                        builder: (context) => Center(
+                          child: Text('WebSocket'),
+                        ),
+                      ),
+                    ]),
+                    TreeNode('Languages', children: [
+                      TreeNode(
+                        'Rust',
+                        builder: (context) => Center(
+                          child: Text('Rust'),
+                        ),
+                      ),
+                      TreeNode(
+                        'Dart',
+                        builder: (context) => Center(
+                          child: Text('Dart'),
+                        ),
+                      ),
+                    ])
+                  ],
+                ),
+              ),
+            ),
           ],
         ),
       ),

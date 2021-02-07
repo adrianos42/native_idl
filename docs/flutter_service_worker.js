@@ -4,9 +4,20 @@ const TEMP = 'flutter-temp-cache';
 const CACHE_NAME = 'flutter-app-cache';
 const RESOURCES = {
   "docs.png": "59fcee39b5c5ec6cc67961eec4142124",
-"main.dart.js": "ae2314af1d691354fcea645dd179e807",
+"main.dart.js": "37b3e3e5257b15a6b9ced5a5bcf1e9c4",
+"assets/fonts/sharp_material_icons.ttf": "7286a89ec4d461263d0cddb86fc16b61",
+"assets/fonts/IBM_Plex_Serif/IBMPlexSerif-SemiBold.ttf": "e287cebe64e1c5e3722534d6d5f84bb3",
+"assets/fonts/IBM_Plex_Serif/IBMPlexSerif-Light.ttf": "fabde431316f09ed8c275e20e817fbef",
+"assets/fonts/IBM_Plex_Serif/IBMPlexSerif-Medium.ttf": "9ca7848f37491852b10287aca8bf390b",
+"assets/fonts/IBM_Plex_Serif/IBMPlexSerif-Bold.ttf": "58e4633f72e3feca1e4fcf9f32d2217c",
+"assets/fonts/IBM_Plex_Serif/IBMPlexSerif-Regular.ttf": "bfc0c1efd48c7e6dcbd2504c849a3a51",
+"assets/fonts/IBM_Plex_Sans/IBMPlexSans-SemiBold.ttf": "1ca9107e7544d3424419585c7c84cb67",
+"assets/fonts/IBM_Plex_Sans/IBMPlexSans-Regular.ttf": "c02b4dc6554c116e4c40f254889d5871",
+"assets/fonts/IBM_Plex_Sans/IBMPlexSans-Medium.ttf": "ee83103a4a777209b0f759a4ff598066",
+"assets/fonts/IBM_Plex_Sans/IBMPlexSans-Bold.ttf": "5159a5d89abe8bf68b09b569dbeccbc0",
+"assets/fonts/IBM_Plex_Sans/IBMPlexSans-Light.ttf": "29047654270fd882ab9e9ec10e28f7c5",
 "assets/fonts/mode.ttf": "7af27e3be7174ff453dd84b58017a7f1",
-"assets/AssetManifest.json": "844c86a50387599b9545d41b3355f927",
+"assets/AssetManifest.json": "f13c080f9515b028885ceb57b305a2ce",
 "assets/NOTICES": "5ada7132ce3d65f0978e42424651a637",
 "assets/packages/desktop/fonts/sharp_material_icons.ttf": "7286a89ec4d461263d0cddb86fc16b61",
 "assets/packages/desktop/fonts/IBM_Plex_Serif/IBMPlexSerif-SemiBold.ttf": "e287cebe64e1c5e3722534d6d5f84bb3",
@@ -21,11 +32,11 @@ const RESOURCES = {
 "assets/packages/desktop/fonts/IBM_Plex_Sans/IBMPlexSans-Light.ttf": "29047654270fd882ab9e9ec10e28f7c5",
 "assets/assets/GitHub-Mark-120px-plus.png": "ef7a02b69836dc8b6a732a54c4200dcb",
 "assets/assets/GitHub-Mark-Light-120px-plus.png": "472739dfb5857b1f659f4c4c6b4568d0",
-"assets/FontManifest.json": "4834de56490358d2dd1f71722a692977",
+"assets/FontManifest.json": "17442f49d5c423ef8ca1963fa087d127",
 "manifest.json": "a2df45e57f692729ee6de635285d3fe1",
 "version.json": "341c101d4b678f29adc2e2fa68fd71f3",
-"index.html": "70cc0ffa6ee7df155a5d094e044106c6",
-"/": "70cc0ffa6ee7df155a5d094e044106c6"
+"index.html": "f686f40b046f4e8d8fa680ccc3d1bd9c",
+"/": "f686f40b046f4e8d8fa680ccc3d1bd9c"
 };
 
 // The application shell files that are downloaded before a service worker can
