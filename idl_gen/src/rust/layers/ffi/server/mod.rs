@@ -66,7 +66,7 @@ impl FFIServer {
         }
 
         context.module.push(quote! {
-            use idl_internal::{ffi::ffi_types::*, #( #deps ),* };
+            use idl_internal::{Uuid, ffi::ffi_types::*, #( #deps ),* };
             use super::ffi_impl;
             use super::ffi_types;
             use #lib_ident::idl_types;
@@ -766,19 +766,32 @@ impl FFIServerTypes {
         }
 
         self.module.push(quote! {
-            pub type #ty_name_ident = AbiVariant;
+            pub struct #ty_name_ident(AbiVariant);
+
+            impl From<#ty_name_ident> for AbiVariant {
+                fn from(value: #ty_name_ident) -> Self {
+                    value.0
+                }
+            }
+
+            impl From<AbiVariant> for #ty_name_ident {
+                fn from(value: AbiVariant) -> Self {
+                    Self(value)
+                }
+            }
 
             impl From<idl_types::#ty_name_ident> for #ty_name_ident {
                 #[allow(unused_braces)]
                 fn from(value: idl_types::#ty_name_ident) -> Self {
                     let (_name, _data) = match value { #( #m_tys )* };
-                    AbiVariant { index: _name, data: _data }
+                    AbiVariant { index: _name, data: _data }.into()
                 }
             }
 
             impl From<#ty_name_ident> for idl_types::#ty_name_ident {
                 #[allow(unused_braces)]
                 fn from(value: #ty_name_ident) -> Self {
+                    let value: AbiVariant = value.into();
                     match value.index {
                         #( #m_tys_value )*
                         _ => panic!()
@@ -836,12 +849,14 @@ impl FFIServerTypes {
             }
 
             impl From<idl_types::#enum_name_ident> for #enum_name_ident {
+                #[allow(unused_braces)]
                 fn from(value: idl_types::#enum_name_ident) -> Self {
                     match value { #( #m_tys )* }.into()
                 }
             }
 
             impl From<#enum_name_ident> for idl_types::#enum_name_ident {
+                #[allow(unused_braces)]
                 fn from(value: #enum_name_ident) -> Self {
                     match value.0 {
                         #( #m_tys_value )*
@@ -1151,7 +1166,7 @@ mod server_cargo {
                 .get_field("path")
                 .and_then(|v| v.as_string_value())
                 .or_else(|| target_server.get_field("git").and_then(|v| v.as_string_value()))
-                .ok_or(FFIServerError::Undefined)?;
+                .unwrap_or_else(|| "rust/".to_owned()); // TODO replace with the right path
 
             let mut git = HashMap::<String, String>::new();
             git.insert(

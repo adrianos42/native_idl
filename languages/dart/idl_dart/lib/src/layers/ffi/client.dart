@@ -174,6 +174,8 @@ class _FFIDartTypes {
           return '$ffiName.asString()';
         case Types.natBytes:
           return '$ffiName.asUint8List()';
+        case Types.natUUID:
+          return '$ffiName.asUuid()';
         case Types.natBool:
           return '$ffiName == 0 ? false : true';
         case Types.natInt:
@@ -273,6 +275,8 @@ class _FFIDartTypes {
           return '$valueName.asAbiString()';
         case Types.natBytes:
           return '$valueName.asAbiBytes()';
+        case Types.natUUID:
+          return '$valueName.asAbiUuid()';
         case Types.natBool:
           return '$valueName ? 1 : 0';
         case Types.natInt:
@@ -343,6 +347,8 @@ class _FFIDartTypes {
           return '$valueName.asAbiStringWithPtr($ptrName)';
         case Types.natBytes:
           return '$valueName.asAbiBytesWithPtr($ptrName)';
+        case Types.natUUID:
+          return '$valueName.asAbiUuidWithPtr($ptrName)';
         default:
           throw ArgumentError();
       }
@@ -373,6 +379,7 @@ class _FFIDartTypes {
       switch (ty) {
         case Types.natString:
         case Types.natBytes:
+        case Types.natUUID:
           return '$valueName.dispose();';
         default:
       }
@@ -450,6 +457,7 @@ class _FFIDartTypes {
           break;
         case Types.natString:
         case Types.natBytes:
+        case Types.natUUID:
           body += '''
             for (var \$i = 0; \$i < \$length; \$i += 1) {
               ${_typeToffiForFieldWithPtr(map.mapTy, '\$values[\$i]', '\$data.elementAt(\$i)')};
@@ -511,6 +519,7 @@ class _FFIDartTypes {
       switch (mTy) {
         case Types.natString:
         case Types.natBytes:
+        case Types.natUUID:
           body = '''$body
             for (var \$i = 0; \$i < $valueName.ref.length!; \$i += 1) {
               ${_getffiTypeArray(map.mapTy)}.disposeWithPtr(\$data.elementAt(\$i));
@@ -601,6 +610,15 @@ class _FFIDartTypes {
               \$result.add(\$listSource.elementAt(\$i).asUint8List());
             }
             return \$result;''';
+            break;
+        case Types.natUUID:
+          body += '''
+            final \$listSource = \$data.cast<AbiUuid>();
+            final \$result = <String>[];
+            for (var \$i = 0; \$i < \$length; \$i += 1) {
+              \$result.add(\$listSource.elementAt(\$i).asUuid());
+            }
+            return \$result;''';
           break;
         default:
           throw Exception('Invalid type for array in code: `${aTy.toString}`');
@@ -666,6 +684,7 @@ class _FFIDartTypes {
           break;
         case Types.natString:
         case Types.natBytes:
+        case Types.natUUID:
           body = '''
             for (var \$i = 0; \$i < $valueName.length; \$i += 1) {
               ${_typeToffiForFieldWithPtr(arrayType, '$valueName[\$i]', '\$data.elementAt(\$i)')};
@@ -721,6 +740,7 @@ class _FFIDartTypes {
       switch (aTy) {
         case Types.natString:
         case Types.natBytes:
+        case Types.natUUID:
           body += '''
             for (var \$i = 0; \$i < $valueName.ref.length!; \$i += 1) {
               ${_getffiTypeArray(arrayType)}.disposeWithPtr(\$data.elementAt(\$i));
@@ -790,6 +810,15 @@ class _FFIDartTypes {
             }
             return \$result;''';
           break;
+        case Types.natUUID:
+          body += '''
+            final \$listSource = \$data.cast<AbiUuid>();
+            final \$result = <String>[];
+            for (var \$i = 0; \$i < \$length; \$i += 1) {
+              \$result.add(\$listSource.elementAt(\$i).asUuid());
+            }
+            return \$result;''';
+          break;
         default:
           throw Exception('Invalid type for array in code: `${aTy.toString}`');
       }
@@ -845,6 +874,8 @@ class _FFIDartTypes {
           return 'AbiString';
         case Types.natBytes:
           return 'AbiBytes';
+        case Types.natUUID:
+          return 'AbiUuid';
         default:
           throw ArgumentError('Invalid `Types`');
       }
@@ -884,6 +915,8 @@ class _FFIDartTypes {
           return 'Pointer<AbiString>';
         case Types.natBytes:
           return 'Pointer<AbiBytes>';
+        case Types.natUUID:
+          return 'Pointer<AbiUuid>';
       }
     } else if (ty is ListTypeName || ty is TypeOption || ty is TypeResult) {
       return 'Pointer<AbiVariant>';
@@ -917,6 +950,8 @@ class _FFIDartTypes {
           return 'Pointer<AbiString>';
         case Types.natBytes:
           return 'Pointer<AbiBytes>';
+        case Types.natUUID:
+          return 'Pointer<AbiUuid>';
         case Types.natInt:
         case Types.natBool:
         case Types.natNone:
@@ -1397,7 +1432,7 @@ class _FFIDartTypes {
     TypeInterface typeInterface,
     InterfaceField field,
   ) {
-    //!!!! Variables inside the body must start with a underscore.
+    //!!!! Variables inside the body must start with an underscore.
     var body = '';
     var argList = '';
 
@@ -1645,7 +1680,7 @@ class _FFIDartTypes {
 
         final fieldFunctionName = '_\$${funcType}${methodFieldName}';
         final ffiFunctionName =
-            '${funcType}_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+            '${toSnakeCase(_packageLibrary.libraryName)}_${funcType}_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
         methodFields.add(Field((b) => b
           ..name = fieldFunctionName
@@ -1659,7 +1694,7 @@ class _FFIDartTypes {
           if (PackageLibrary.fieldReturnsStream(node)) {
             fieldDisposeFunctionName = '_\$disposeStream${methodFieldName}';
             final ffiDisposeFunctionName =
-                'dispose_stream_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+               '${toSnakeCase(_packageLibrary.libraryName)}_dispose_stream_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
             final nativeDisposeNameFunction =
                 '${disposeName}${methodFieldName}Native';
@@ -1676,7 +1711,7 @@ class _FFIDartTypes {
           } else if (!_packageLibrary.isTypePrimitive(ty)) {
             fieldDisposeFunctionName = '_\$dispose${methodFieldName}';
             final ffiDisposeFunctionName =
-                'dispose_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+                '${toSnakeCase(_packageLibrary.libraryName)}_dispose_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
             final nativeDisposeNameFunction =
                 '${disposeName}${methodFieldName}Native';
@@ -1738,7 +1773,7 @@ class _FFIDartTypes {
           final fieldSenderDisposeFunctionName =
               '_\$disposeStreamSender${methodFieldName}';
           final ffiDisposeFunctionName =
-              'dispose_stream_sender_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+              '${toSnakeCase(_packageLibrary.libraryName)}_dispose_stream_sender_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
           final nativeDisposeNameFunction =
               '${disposeName}${methodFieldName}Native';
@@ -1770,7 +1805,7 @@ class _FFIDartTypes {
 
           final fieldFunctionName = '_\$streamSender${methodFieldName}';
           final ffiFunctionName =
-              'stream_sender_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+              '${toSnakeCase(_packageLibrary.libraryName)}_stream_sender_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
           methodFields.add(Field((b) => b
             ..name = fieldFunctionName
@@ -1829,7 +1864,7 @@ class _FFIDartTypes {
 
           final fieldFunctionName = '_\$stream${methodFieldName}';
           final ffiFunctionName =
-              'stream_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+              '${toSnakeCase(_packageLibrary.libraryName)}_stream_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
           methodFields.add(Field((b) => b
             ..name = fieldFunctionName
@@ -1974,7 +2009,7 @@ class _FFIDartTypes {
       ..name = '_\$instanceCreate'
       ..type = refer('${instanceCreateName}Func')
       ..assignment = Code(
-          '_\$kLib.lookupFunction<${instanceCreateName}Native, ${instanceCreateName}Func>(\'create_${toSnakeCase(tyInterface.ident)}\')')
+          '_\$kLib.lookupFunction<${instanceCreateName}Native, ${instanceCreateName}Func>(\'${toSnakeCase(_packageLibrary.libraryName)}_create_${toSnakeCase(tyInterface.ident)}\')')
       ..static = true
       ..modifier = FieldModifier.final$));
 
@@ -1982,7 +2017,7 @@ class _FFIDartTypes {
       ..name = '_\$instanceDispose'
       ..type = refer('${instanceDisposeName}Func')
       ..assignment = Code(
-          '_\$kLib.lookupFunction<${instanceDisposeName}Native, ${instanceDisposeName}Func>(\'dispose_${toSnakeCase(tyInterface.ident)}\')')
+          '_\$kLib.lookupFunction<${instanceDisposeName}Native, ${instanceDisposeName}Func>(\'${toSnakeCase(_packageLibrary.libraryName)}_dispose_${toSnakeCase(tyInterface.ident)}\')')
       ..static = true
       ..modifier = FieldModifier.final$));
 
@@ -2065,7 +2100,7 @@ class _FFIDartTypes {
 
         final fieldFunctionName = '_\$${funcType}${methodFieldName}';
         final ffiFunctionName =
-            '${funcType}_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+            '${toSnakeCase(_packageLibrary.libraryName)}_${funcType}_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
         methodFields.add(Field((b) => b
           ..name = fieldFunctionName
@@ -2079,7 +2114,7 @@ class _FFIDartTypes {
           if (PackageLibrary.fieldReturnsStream(node)) {
             fieldDisposeFunctionName = '_\$disposeStream${methodFieldName}';
             final ffiDisposeFunctionName =
-                'dispose_stream_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+                '${toSnakeCase(_packageLibrary.libraryName)}_dispose_stream_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
             final nativeDisposeNameFunction =
                 '${disposeName}${methodFieldName}Native';
@@ -2096,7 +2131,7 @@ class _FFIDartTypes {
           } else if (!_packageLibrary.isTypePrimitive(ty)) {
             fieldDisposeFunctionName = '_\$dispose${methodFieldName}';
             final ffiDisposeFunctionName =
-                'dispose_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+                '${toSnakeCase(_packageLibrary.libraryName)}_dispose_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
             final nativeDisposeNameFunction =
                 '${disposeName}${methodFieldName}Native';
@@ -2161,7 +2196,7 @@ class _FFIDartTypes {
           final fieldSenderDisposeFunctionName =
               '_\$disposeStreamSender${methodFieldName}';
           final ffiDisposeFunctionName =
-              'dispose_stream_sender_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+              '${toSnakeCase(_packageLibrary.libraryName)}_dispose_stream_sender_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
           final nativeDisposeNameFunction =
               '${disposeName}${methodFieldName}Native';
@@ -2192,7 +2227,7 @@ class _FFIDartTypes {
 
           final fieldFunctionName = '_\$streamSender${methodFieldName}';
           final ffiFunctionName =
-              'stream_sender_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+              '${toSnakeCase(_packageLibrary.libraryName)}_stream_sender_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
           methodFields.add(Field((b) => b
             ..name = fieldFunctionName
@@ -2253,7 +2288,7 @@ class _FFIDartTypes {
 
           final fieldFunctionName = '_\$stream${methodFieldName}';
           final ffiFunctionName =
-              'stream_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
+              '${toSnakeCase(_packageLibrary.libraryName)}_stream_${toSnakeCase(tyInterface.ident)}_${toSnakeCase(node.ident)}';
 
           methodFields.add(Field((b) => b
             ..name = fieldFunctionName

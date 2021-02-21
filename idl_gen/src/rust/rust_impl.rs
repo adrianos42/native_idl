@@ -42,7 +42,7 @@ impl RustImpl {
         let mut context = RustImpl::new();
 
         context.module.push(quote! {
-            use idl_internal::{StreamReceiver, StreamSender, StreamInstance};
+            use idl_internal::{StreamReceiver, StreamSender, StreamInstance, Uuid};
         });
 
         let nodes: &[IdlNode] = &analyzer.nodes;
@@ -190,6 +190,7 @@ impl RustImplMod {
         let module = quote! {
             pub mod idl_impl; // rust interface type
             pub use idl_internal;
+            pub use idl_internal::Uuid;
         };
 
         Ok(RustImplMod { module })

@@ -24,7 +24,7 @@ class DartSpec {
         'ffi':
             Dependency(version: VersionConstraint.parse('^0.2.0-nullsafety.1')),
         'idl_internal':
-            Dependency(version: VersionConstraint.parse('^0.1.3-2.12.0-0'))
+            Dependency(version: VersionConstraint.parse('^0.1.4-2.12.0-0'))
       },
     );
 

@@ -5,6 +5,12 @@ pub struct CargoGit {
 }
 
 #[derive(Serialize)]
+pub struct CargoDep {
+    pub version: String,
+    pub features: Option<Vec<String>>,
+}
+
+#[derive(Serialize)]
 pub struct CargoPackage {
     pub name: String,
     pub version: String,

@@ -5,6 +5,7 @@ import 'package:ffi/ffi.dart';
 import 'dart:typed_data';
 
 import 'dart:convert';
+import 'package:uuid/uuid.dart';
 
 DynamicLibrary openLibrary(String name, String path) {
   final finalPath;
@@ -168,6 +169,43 @@ extension AbiMapEx on AbiMap {
   }
 }
 
+class AbiUuid extends Struct {
+  Pointer<Uint8>? data;
+
+  static void disposeWithPtr(Pointer<AbiUuid> value) {
+    free(value.ref.data!);
+  }
+}
+
+extension UuidPointer on Pointer<AbiUuid> {
+  void dispose() {
+    free(ref.data!);
+    free(this);
+  }
+
+  String asUuid() => Uuid.unparse(ref.data!.asTypedList(0x10));
+}
+
+extension UuidInto on String {
+  Pointer<AbiUuid> asAbiUuid() {
+    final data = allocate<Uint8>(count: 0x10);
+    final listSource = data.asTypedList(0x10);
+    Uuid.parse(this, buffer: listSource);
+
+    final bytes = allocate<AbiUuid>().ref..data = data;
+
+    return bytes.addressOf;
+  }
+
+  void asAbiUuidWithPtr(Pointer<AbiUuid> value) {
+    final data = allocate<Uint8>(count: 0x10);
+    final listSource = data.asTypedList(length);
+    Uuid.parse(this, buffer: listSource);
+
+    value.ref.data = data;
+  }
+}
+
 class AbiBytes extends Struct {
   @Int64()
   int? length;
@@ -184,9 +222,7 @@ extension BytesPointer on Pointer<AbiBytes> {
     free(this);
   }
 
-  Uint8List asUint8List() {
-    return Uint8List.fromList(ref.data!.asTypedList(ref.length!));
-  }
+  Uint8List asUint8List() => ref.data!.asTypedList(ref.length!);
 }
 
 extension BytesInto on Uint8List {

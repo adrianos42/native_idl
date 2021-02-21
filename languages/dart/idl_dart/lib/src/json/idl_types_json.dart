@@ -10,6 +10,7 @@ enum Types {
   natString,
   natBytes,
   natBool,
+  natUUID,
   natNone,
 }
 
@@ -25,6 +26,8 @@ Types _typesFromJson(String json) {
       return Types.natBytes;
     case 'NatBool':
       return Types.natBool;
+    case 'NatUUID':
+      return Types.natUUID;
     case 'NatNone':
       return Types.natNone;
   }

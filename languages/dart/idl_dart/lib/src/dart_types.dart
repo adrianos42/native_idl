@@ -430,6 +430,8 @@ class DartTypes {
       switch (typeName) {
         case Types.natBool:
           return 'bool';
+        case Types.natUUID:
+          return 'String';
         case Types.natBytes:
           return 'Uint8List';
         case Types.natFloat:

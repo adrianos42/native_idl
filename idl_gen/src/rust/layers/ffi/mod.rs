@@ -2,7 +2,7 @@ use crate::rust::string_pros::StringRustFmt;
 use idl::analyzer::Analyzer;
 use idl::idl_nodes::*;
 use proc_macro2::{self, TokenStream};
-use quote::{ToTokens, TokenStreamExt, format_ident};
+use quote::{format_ident, ToTokens, TokenStreamExt};
 use std::fmt;
 
 pub(crate) mod client;
@@ -157,10 +157,10 @@ impl FFITypeName for TypeName {
                 }
             }
             TypeName::EnumTypeName(_) => quote! { i64 },
-            TypeName::StructTypeName(value) | TypeName::ListTypeName(value) => {
+            TypeName::ListTypeName(_) => quote! { AbiVariant },
+            TypeName::StructTypeName(value) => {
                 let ident = format_ident!("{}", &value);
                 if references {
-                    // TODO ?? Would it be better?
                     quote! { crate::ffi_types::#ident }
                 } else {
                     quote! { #ident }
@@ -183,7 +183,7 @@ impl FFITypeName for TypeName {
     ) -> TokenStream {
         match self {
             TypeName::Types(value) => match value {
-                Types::NatString | Types::NatBytes => {
+                Types::NatString | Types::NatBytes | Types::NatUUID => {
                     return self.conv_ffi_ptr_to_value(ffi_name, references, analyzer)
                 }
                 _ => {}
@@ -351,11 +351,23 @@ impl FFITypeName for TypeName {
             TypeName::TypeStream(_) => {
                 quote! { #ffi_name }
             }
-            TypeName::ListTypeName(value)
-            | TypeName::StructTypeName(value)
+            // TypeName::ListTypeName(value) => {
+            //     let ident = format_ident!("{}", &value);
+            //     if references { // TODO ??
+            //         quote! { { idl_types::#ident::from(crate::ffi_types::#ident::from(#ffi_name)) } }
+            //     } else {
+            //         quote! { { idl_types::#ident::from(#ident::from(#ffi_name)) } }
+            //     }
+            // }
+            TypeName::StructTypeName(value)
+            | TypeName::ListTypeName(value)
             | TypeName::EnumTypeName(value) => {
                 let ident = format_ident!("{}", &value);
-                quote! { { idl_types::#ident::from(crate::ffi_types::#ident::from(#ffi_name)) } }
+                if references {
+                    quote! { { idl_types::#ident::from(crate::ffi_types::#ident::from(#ffi_name)) } }
+                } else {
+                    quote! { { idl_types::#ident::from(#ident::from(#ffi_name)) } }
+                }
             }
             TypeName::ConstTypeName(value) => {
                 let const_ty = analyzer
@@ -375,7 +387,7 @@ impl FFITypeName for TypeName {
             }
         }
     }
-    
+
     fn conv_value_to_ffi_boxed(
         &self,
         value_name: &TokenStream,
@@ -396,7 +408,7 @@ impl FFITypeName for TypeName {
     ) -> TokenStream {
         match self {
             TypeName::Types(value) => match value {
-                Types::NatBytes | Types::NatString => {
+                Types::NatBytes | Types::NatString | Types::NatUUID => {
                     return self.conv_value_to_ffi_boxed(value_name, references, analyzer)
                 }
                 _ => {}
@@ -453,9 +465,10 @@ impl FFITypeName for TypeName {
                     value
                         .ty
                         .conv_value_to_ffi_value(&array_item, references, analyzer);
+                let array_ty_ident = value.ty.get_value_ffi_ty_ref(references, analyzer);
 
                 quote! { {
-                    let mut _array_value_items = vec![];
+                    let mut _array_value_items = Vec::<#array_ty_ident>::new();
                     for #array_item in #value_name { _array_value_items.push(#array_to_ffi); }
                     let mut _array = _array_value_items.into_boxed_slice();
                     let _inn_array = AbiArray {
@@ -476,10 +489,12 @@ impl FFITypeName for TypeName {
                 let map_to_key = value
                     .index_ty
                     .conv_value_to_ffi_value(&map_key, references, analyzer);
+                let value_ty_ident = value.map_ty.get_value_ffi_ty_ref(references, analyzer);
+                let key_ty_ident = value.index_ty.get_value_ffi_ty_ref(references, analyzer);
 
                 quote! { {
-                    let mut _array_map_values = vec![];
-                    let mut _array_map_keys = vec![];
+                    let mut _array_map_values = Vec::<#value_ty_ident>::new();
+                    let mut _array_map_keys = Vec::<#key_ty_ident>::new();
                     for (#map_key, #map_data) in #value_name {
                         _array_map_values.push(#map_to_value);
                         _array_map_keys.push(#map_to_key);
@@ -555,14 +570,22 @@ impl FFITypeName for TypeName {
                     handle: _stream_handle as i64,
                 }
             } },
-            TypeName::ListTypeName(value)
-            | TypeName::StructTypeName(value)
+            // TypeName::ListTypeName(value) => {
+            //     let ident = format_ident!("{}", value);
+            //     if references {
+            //         quote! { { crate::ffi_types::#ident::into_abi(#value_name) } }
+            //     } else {
+            //         quote! { { #ident::into_abi(#value_name) } }
+            //     }
+            // }
+            TypeName::StructTypeName(value)
+            | TypeName::ListTypeName(value) 
             | TypeName::EnumTypeName(value) => {
                 let ident = format_ident!("{}", value);
                 if references {
                     quote! { { crate::ffi_types::#ident::from(#value_name).into() } }
                 } else {
-                    quote! { { #ident::from(#value_name) } }
+                    quote! { { #ident::from(#value_name).into() } }
                 }
             }
             TypeName::InterfaceTypeName(value) => {

@@ -1,6 +1,5 @@
-use std::ptr::write_unaligned;
-
 use crate::StreamReceiver;
+use std::convert::TryInto;
 
 #[repr(i64)]
 pub enum AbiInternalError {
@@ -153,7 +152,7 @@ impl AbiBytes {
 
 impl AbiBytes {
     pub fn free(&mut self) {
-     //   unsafe {}
+        //   unsafe {}
     }
 }
 
@@ -181,38 +180,29 @@ impl AbiUuid {
             Box::from_raw(sl)
         };
 
-        let mut bytes = [0; 0x10];
+        let bytes: [u8; 0x10] = sl
+            .to_vec()
+            .try_into()
+            .unwrap_or_else(|_| panic!("Error converting `uuid`"));
 
-        for d in 0..0x10 {
-            bytes[d] = sl[d];
-        }
-        
         std::mem::forget(sl);
-        
+
         uuid::Uuid::from_bytes(bytes)
     }
 }
 
 impl AbiUuid {
     pub fn free(&mut self) {
-     //   unsafe {}
+        //   unsafe {}
     }
 }
 
 impl From<uuid::Uuid> for AbiUuid {
     fn from(value: uuid::Uuid) -> Self {
-        let result: Vec<u8> = Vec::with_capacity(0x10);
-        let bytes = value.as_bytes();
-
-        let mut data = result.into_boxed_slice();
-        let dst = data.as_mut_ptr() as *mut &[u8; 0x10];
-
-        unsafe {
-            dst.write_unaligned(bytes);
-        }
-
+        let bytes = value.as_bytes().to_vec();
+        let mut data = bytes.into_boxed_slice();
         let result = AbiUuid {
-            data: dst as *const u8,
+            data: data.as_mut_ptr(),
         };
         std::mem::forget(data);
         result
