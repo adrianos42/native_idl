@@ -10,6 +10,7 @@ pub(crate) fn get_rust_ty_ref(ty: &TypeName, references: bool) -> TokenStream {
             Types::NatString => quote! { String },
             Types::NatBytes => quote! { Vec<u8> },
             Types::NatBool => quote! { bool },
+            Types::NatUUID => quote! { Uuid },
             Types::NatNone => quote! { () },
         },
         TypeName::TypeFunction(value) => {
@@ -80,6 +81,7 @@ pub(crate) fn get_rust_ty_name(ty: &TypeName) -> String {
             Types::NatString => "String".to_owned(),
             Types::NatBytes => "Vecu8".to_owned(),
             Types::NatBool => "bool".to_owned(),
+            Types::NatUUID => "Uuid".to_owned(),
             Types::NatNone => "none".to_owned(),
         },
         TypeName::TypeFunction(value) => {

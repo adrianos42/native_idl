@@ -125,18 +125,7 @@ pub struct TypeNative {
 
 impl fmt::Display for TypeNative {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}",
-            match self.ty {
-                NativeTypes::Int => "int".to_owned(),
-                NativeTypes::Bytes => "bytes".to_owned(),
-                NativeTypes::Float => "float".to_owned(),
-                NativeTypes::String => "string".to_owned(),
-                NativeTypes::Bool => "bool".to_owned(),
-                NativeTypes::None => "none".to_owned(),
-            }
-        )
+        write!(f, "{}", self.ty.to_string())
     }
 }
 

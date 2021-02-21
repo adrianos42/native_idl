@@ -20,6 +20,7 @@ pub enum Types {
     NatString,
     NatBytes,
     NatBool,
+    NatUUID,
     NatNone,
 }
 

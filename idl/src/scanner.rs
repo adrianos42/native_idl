@@ -26,7 +26,7 @@ static KEYWORDS: &'static [&str] = &[
 
 static BOOLEAN_VALUES: &'static [&str] = &["false", "true"];
 
-static NATIVE_TYPES: &'static [&str] = &["int", "float", "bool", "string", "bytes", "none"];
+static NATIVE_TYPES: &'static [&str] = &["int", "float", "bool", "string", "bytes", "uuid", "none"];
 
 static ATTRIBUTES_NAMES: &'static [&str] = &["deprecated"];
 
@@ -112,6 +112,7 @@ pub enum NativeTypes {
     String,
     Bytes,
     Bool,
+    UUID,
     None,
 }
 
@@ -123,6 +124,7 @@ impl From<&str> for NativeTypes {
             "string"  => NativeTypes::String,
             "bytes" => NativeTypes::Bytes,
             "bool" => NativeTypes::Bool,
+            "uuid" => NativeTypes::UUID,
             "none" => NativeTypes::None,
             _ => panic!(),
         }
@@ -137,6 +139,7 @@ impl fmt::Display for NativeTypes {
             NativeTypes::String => "string",
             NativeTypes::Bytes => "bytes",
             NativeTypes::Bool => "bool",
+            NativeTypes::UUID => "uuid",
             NativeTypes::None => "none",
         };
 

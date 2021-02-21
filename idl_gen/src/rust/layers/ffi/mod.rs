@@ -109,7 +109,7 @@ impl FFITypeName for TypeName {
         match self {
             TypeName::Types(types) => match types {
                 Types::NatInt | Types::NatFloat | Types::NatBool | Types::NatNone => false,
-                Types::NatString | Types::NatBytes => true,
+                Types::NatString | Types::NatBytes | Types::NatUUID => true,
             },
             TypeName::EnumTypeName(_) => true,
             TypeName::ConstTypeName(value) => {
@@ -138,6 +138,7 @@ impl FFITypeName for TypeName {
                 Types::NatFloat => quote! { f64 },
                 Types::NatString => quote! { AbiString },
                 Types::NatBytes => quote! { AbiBytes },
+                Types::NatUUID => quote! { AbiUuid },
             },
             TypeName::TypeArray(_) => quote! { AbiArray },
             TypeName::TypeMap(_) => quote! { AbiMap },
@@ -244,6 +245,7 @@ impl FFITypeName for TypeName {
                 Types::NatFloat => quote! { { #ffi_name } as f64 },
                 Types::NatString => quote! { { #ffi_name.to_string() } },
                 Types::NatBytes => quote! { { #ffi_name.to_vec() } },
+                Types::NatUUID => quote! { { #ffi_name.to_uuid() } },
                 Types::NatBool => quote! { { #ffi_name } as i64 == 1 },
                 Types::NatNone => quote! { { assert!({ #ffi_name } as i64 == 0); () } },
             },
@@ -440,6 +442,7 @@ impl FFITypeName for TypeName {
                 Types::NatFloat => quote! { { #value_name } as f64 },
                 Types::NatString => quote! { { AbiString::from(#value_name) } },
                 Types::NatBytes => quote! { { AbiBytes::from(#value_name) } },
+                Types::NatUUID => quote! { { AbiUuid::from(#value_name) } },
                 Types::NatBool => quote! { { #value_name } as i64 },
                 Types::NatNone => quote! { { 0 } as i64 },
             },

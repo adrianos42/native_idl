@@ -1,3 +1,5 @@
+use std::ptr::write_unaligned;
+
 use crate::StreamReceiver;
 
 #[repr(i64)]
@@ -163,6 +165,56 @@ impl From<Vec<u8>> for AbiBytes {
             data: sl.as_mut_ptr(),
         };
         std::mem::forget(sl);
+        result
+    }
+}
+
+#[repr(C)]
+pub struct AbiUuid {
+    pub data: *const u8,
+}
+
+impl AbiUuid {
+    pub fn to_uuid(&self) -> uuid::Uuid {
+        let sl = unsafe {
+            let sl = std::slice::from_raw_parts_mut(self.data as *mut u8, 0x10);
+            Box::from_raw(sl)
+        };
+
+        let mut bytes = [0; 0x10];
+
+        for d in 0..0x10 {
+            bytes[d] = sl[d];
+        }
+        
+        std::mem::forget(sl);
+        
+        uuid::Uuid::from_bytes(bytes)
+    }
+}
+
+impl AbiUuid {
+    pub fn free(&mut self) {
+     //   unsafe {}
+    }
+}
+
+impl From<uuid::Uuid> for AbiUuid {
+    fn from(value: uuid::Uuid) -> Self {
+        let result = Vec::with_capacity(0x10);
+        let bytes = value.as_bytes();
+
+        let mut data = result.into_boxed_slice();
+        let dst = data.as_mut_ptr() as *mut &[u8; 0x10];
+
+        unsafe {
+            dst.write_unaligned(bytes);
+        }
+
+        let result = AbiUuid {
+            data: dst as *const u8,
+        };
+        std::mem::forget(data);
         result
     }
 }

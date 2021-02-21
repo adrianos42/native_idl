@@ -1,5 +1,7 @@
 pub mod ffi;
 
+pub use uuid::Uuid;
+
 pub enum StreamSender<R> {
     Ok,
     Value(R),

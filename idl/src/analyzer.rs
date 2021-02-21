@@ -1482,6 +1482,7 @@ impl AnalyzerItems {
                 scanner::NativeTypes::Bytes => idl_nodes::Types::NatBytes,
                 scanner::NativeTypes::String => idl_nodes::Types::NatString,
                 scanner::NativeTypes::None => idl_nodes::Types::NatNone,
+                scanner::NativeTypes::UUID => idl_nodes::Types::NatUUID,
                 scanner::NativeTypes::Float => idl_nodes::Types::NatFloat,
             })),
             parser::Type::Array(array) => Ok(idl_nodes::TypeName::TypeArray(Box::new(
