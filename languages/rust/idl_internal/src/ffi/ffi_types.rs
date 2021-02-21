@@ -201,7 +201,7 @@ impl AbiUuid {
 
 impl From<uuid::Uuid> for AbiUuid {
     fn from(value: uuid::Uuid) -> Self {
-        let result = Vec::with_capacity(0x10);
+        let result: Vec<u8> = Vec::with_capacity(0x10);
         let bytes = value.as_bytes();
 
         let mut data = result.into_boxed_slice();
