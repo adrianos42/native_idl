@@ -1,5 +1,4 @@
 use crate::StreamReceiver;
-use core::panic;
 use std::convert::TryInto;
 
 #[repr(i64)]
@@ -153,18 +152,12 @@ impl AbiBytes {
 
 impl AbiBytes {
     pub fn dispose(&mut self) {
-        if self.length == 0 {
-            panic!("length equals to zero");
-            
-        }
-        let value: Box<[u8]> = unsafe {
+        let _: Box<[u8]> = unsafe {
             Box::from_raw(std::slice::from_raw_parts_mut(
                 self.data as *mut u8,
                 self.length as usize,
             ))
         };
-
-        std::mem::drop(value);
     }
 }
 
