@@ -126,6 +126,7 @@ pub enum ConstTypes {
     NatInt,
     NatFloat,
     NatString,
+    NatUuid,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]

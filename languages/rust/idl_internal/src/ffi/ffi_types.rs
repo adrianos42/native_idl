@@ -151,8 +151,11 @@ impl AbiBytes {
 }
 
 impl AbiBytes {
-    pub fn free(&mut self) {
-        //   unsafe {}
+    pub fn dispose(&mut self) {
+         unsafe {
+            let sl = std::slice::from_raw_parts_mut(self.data as *mut u8, self.length as usize);
+            let _ = Box::from_raw(sl);
+        }
     }
 }
 
@@ -192,8 +195,11 @@ impl AbiUuid {
 }
 
 impl AbiUuid {
-    pub fn free(&mut self) {
-        //   unsafe {}
+    pub fn dispose(&mut self) {
+         unsafe {
+            let sl = std::slice::from_raw_parts_mut(self.data as *mut u8, 0x10 as usize);
+            let _ = Box::from_raw(sl);
+        }
     }
 }
 
@@ -216,7 +222,7 @@ pub struct AbiString {
 }
 
 impl AbiString {
-    pub fn free(&mut self) {
+    pub fn dispose(&mut self) {
         unsafe {
             let sl = std::slice::from_raw_parts_mut(self.data as *mut u8, self.length as usize);
             let _ = Box::from_raw(sl);

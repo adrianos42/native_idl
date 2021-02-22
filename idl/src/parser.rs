@@ -414,6 +414,7 @@ pub enum ConstType {
     Int,
     Float,
     String,
+    UUID,
 }
 
 impl fmt::Display for ConstType {
@@ -425,6 +426,7 @@ impl fmt::Display for ConstType {
                 ConstType::Float => "float",
                 ConstType::Int => "int",
                 ConstType::String => "string",
+                ConstType::UUID => "uuid",
             }
         )
     }
@@ -4003,39 +4005,36 @@ impl Parser {
                             }
                             WordStream::Literal(s_body)
                             | WordStream::FloatValue(s_body)
-                            | WordStream::IntegerValue(s_body) => {
+                            | WordStream::IntegerValue(s_body)
+                            | WordStream::UUIDValue(s_body) => {
                                 let range = s_body.range;
 
                                 const_type = match w_stream {
                                     WordStream::Literal(_) => match const_type {
                                         Some(ConstType::String) | None => Some(ConstType::String),
-                                        _ => {
-                                            return Err(ConstFieldError(
-                                                ConstFieldErrorKind::ConstTypeMustBeUnique,
-                                                range,
-                                            ))
-                                        }
+                                        _ => None,
                                     },
                                     WordStream::FloatValue(_) => match const_type {
                                         Some(ConstType::Float) | None => Some(ConstType::Float),
-                                        _ => {
-                                            return Err(ConstFieldError(
-                                                ConstFieldErrorKind::ConstTypeMustBeUnique,
-                                                range,
-                                            ))
-                                        }
+                                        _ => None,
                                     },
                                     WordStream::IntegerValue(_) => match const_type {
                                         Some(ConstType::Int) | None => Some(ConstType::Int),
-                                        _ => {
-                                            return Err(ConstFieldError(
-                                                ConstFieldErrorKind::ConstTypeMustBeUnique,
-                                                range,
-                                            ))
-                                        }
+                                        _ => None,
+                                    },
+                                    WordStream::UUIDValue(_) => match const_type {
+                                        Some(ConstType::UUID) | None => Some(ConstType::UUID),
+                                        _ => None,
                                     },
                                     _ => None,
                                 };
+
+                                if const_type.is_none() {
+                                    return Err(ConstFieldError(
+                                        ConstFieldErrorKind::ConstTypeMustBeUnique,
+                                        range,
+                                    ));
+                                }
 
                                 parsing = match parsing {
                                     ConstFieldParsing::ExpectingValue => {

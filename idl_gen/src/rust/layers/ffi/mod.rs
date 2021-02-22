@@ -38,15 +38,10 @@ impl FFIMod {
 
 pub(crate) trait FFITypeName {
     fn get_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
+    fn get_ffi_ty_ref_mut(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
     fn is_boxed_ffi(&self, analyzer: &Analyzer) -> bool;
     fn get_ptr_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
     fn get_value_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
-    fn conv_value_to_ffi(
-        &self,
-        value_name: &TokenStream,
-        references: bool,
-        analyzer: &Analyzer,
-    ) -> TokenStream;
     fn conv_ffi_to_value(
         &self,
         ffi_name: &TokenStream,
@@ -65,6 +60,12 @@ pub(crate) trait FFITypeName {
         references: bool,
         analyzer: &Analyzer,
     ) -> TokenStream;
+    fn conv_value_to_ffi(
+        &self,
+        value_name: &TokenStream,
+        references: bool,
+        analyzer: &Analyzer,
+    ) -> TokenStream;
     fn conv_value_to_ffi_boxed(
         &self,
         value_name: &TokenStream,
@@ -77,6 +78,10 @@ pub(crate) trait FFITypeName {
         references: bool,
         analyzer: &Analyzer,
     ) -> TokenStream;
+    fn dispose_ffi_boxed(&self,
+        value_name: &TokenStream,
+        references: bool,
+        analyzer: &Analyzer,) -> TokenStream;
 }
 
 impl FFITypeName for TypeName {
@@ -94,7 +99,7 @@ impl FFITypeName for TypeName {
                     .find_ty_const(&value)
                     .expect("Could not reference const type");
                 match const_ty.const_type {
-                    ConstTypes::NatString => quote! { *const #ident_ty },
+                    ConstTypes::NatString | ConstTypes::NatUuid => quote! { *const #ident_ty },
                     ConstTypes::NatInt | ConstTypes::NatFloat => ident_ty,
                 }
             }
@@ -105,20 +110,46 @@ impl FFITypeName for TypeName {
         }
     }
 
+    fn get_ffi_ty_ref_mut(&self, references: bool, analyzer: &Analyzer) -> TokenStream {
+        let ident_ty = self.get_value_ffi_ty_ref(references, analyzer);
+
+        match self {
+            TypeName::Types(types) => match types {
+                Types::NatInt | Types::NatBool | Types::NatNone | Types::NatFloat => ident_ty,
+                _ => quote! { *mut #ident_ty },
+            },
+            TypeName::EnumTypeName(_) => ident_ty,
+            TypeName::ConstTypeName(value) => {
+                let const_ty = analyzer
+                    .find_ty_const(&value)
+                    .expect("Could not reference const type");
+                match const_ty.const_type {
+                    ConstTypes::NatString | ConstTypes::NatUuid => quote! { *mut #ident_ty },
+                    ConstTypes::NatInt | ConstTypes::NatFloat => ident_ty,
+                }
+            }
+            TypeName::TypeFunction(_) | TypeName::TypeTuple(_) => {
+                panic!("Invalid type `{:?}`", self)
+            }
+            _ => quote! { *mut #ident_ty },
+        }
+    }
+
+    // Types that need to be released
     fn is_boxed_ffi(&self, analyzer: &Analyzer) -> bool {
         match self {
             TypeName::Types(types) => match types {
                 Types::NatInt | Types::NatFloat | Types::NatBool | Types::NatNone => false,
                 Types::NatString | Types::NatBytes | Types::NatUUID => true,
             },
-            TypeName::EnumTypeName(_) => true,
+            TypeName::EnumTypeName(_) => false,
             TypeName::ConstTypeName(value) => {
                 let const_ty = analyzer
                     .find_ty_const(&value)
                     .expect("Could not reference const type");
 
                 match const_ty.const_type {
-                    ConstTypes::NatString => true,
+                    ConstTypes::NatString | ConstTypes::NatUuid => true,
                     ConstTypes::NatInt | ConstTypes::NatFloat => false,
                 }
             }
@@ -151,6 +182,7 @@ impl FFITypeName for TypeName {
                     .expect("Could not reference const type");
 
                 match const_ty.const_type {
+                    ConstTypes::NatUuid => quote! { AbiUuid },
                     ConstTypes::NatString => quote! { AbiString },
                     ConstTypes::NatInt => quote! { i64 },
                     ConstTypes::NatFloat => quote! { f64 },
@@ -204,7 +236,7 @@ impl FFITypeName for TypeName {
                     .expect("Could not reference const type");
 
                 match const_ty.const_type {
-                    ConstTypes::NatString => {
+                    ConstTypes::NatUuid | ConstTypes::NatString => {
                         return self.conv_ffi_ptr_to_value(ffi_name, references, analyzer)
                     }
                     _ => {}
@@ -351,14 +383,6 @@ impl FFITypeName for TypeName {
             TypeName::TypeStream(_) => {
                 quote! { #ffi_name }
             }
-            // TypeName::ListTypeName(value) => {
-            //     let ident = format_ident!("{}", &value);
-            //     if references { // TODO ??
-            //         quote! { { idl_types::#ident::from(crate::ffi_types::#ident::from(#ffi_name)) } }
-            //     } else {
-            //         quote! { { idl_types::#ident::from(#ident::from(#ffi_name)) } }
-            //     }
-            // }
             TypeName::StructTypeName(value)
             | TypeName::ListTypeName(value)
             | TypeName::EnumTypeName(value) => {
@@ -378,6 +402,7 @@ impl FFITypeName for TypeName {
                     ConstTypes::NatInt => &TypeName::Types(Types::NatInt),
                     ConstTypes::NatFloat => &TypeName::Types(Types::NatFloat),
                     ConstTypes::NatString => &TypeName::Types(Types::NatString),
+                    ConstTypes::NatUuid =>  &TypeName::Types(Types::NatUUID),
                 };
 
                 c_ty.conv_ffi_value_to_value(ffi_name, references, analyzer)
@@ -430,7 +455,7 @@ impl FFITypeName for TypeName {
                     .expect("Could not reference const type");
 
                 match const_ty.const_type {
-                    ConstTypes::NatString => {
+                    ConstTypes::NatUuid | ConstTypes::NatString => {
                         return self.conv_value_to_ffi_boxed(value_name, references, analyzer)
                     }
                     _ => {}
@@ -458,7 +483,6 @@ impl FFITypeName for TypeName {
                 Types::NatBool => quote! { { #value_name } as i64 },
                 Types::NatNone => quote! { { 0 } as i64 },
             },
-            // TypeName::EnumTypeName(_) => quote! { { #value_name as i64 } },
             TypeName::TypeArray(value) => {
                 let array_item = quote! { _array_item };
                 let array_to_ffi =
@@ -570,14 +594,6 @@ impl FFITypeName for TypeName {
                     handle: _stream_handle as i64,
                 }
             } },
-            // TypeName::ListTypeName(value) => {
-            //     let ident = format_ident!("{}", value);
-            //     if references {
-            //         quote! { { crate::ffi_types::#ident::into_abi(#value_name) } }
-            //     } else {
-            //         quote! { { #ident::into_abi(#value_name) } }
-            //     }
-            // }
             TypeName::StructTypeName(value)
             | TypeName::ListTypeName(value) 
             | TypeName::EnumTypeName(value) => {
@@ -601,11 +617,24 @@ impl FFITypeName for TypeName {
                     ConstTypes::NatInt => &TypeName::Types(Types::NatInt),
                     ConstTypes::NatFloat => &TypeName::Types(Types::NatFloat),
                     ConstTypes::NatString => &TypeName::Types(Types::NatString),
+                    ConstTypes::NatUuid => &TypeName::Types(Types::NatUUID),
                 };
 
                 c_ty.conv_value_to_ffi_value(value_name, references, analyzer)
             }
             sw => panic!("Invalid type `{:?}`", sw),
         }
+    }
+
+    fn dispose_ffi_boxed(&self,
+        value_name: &TokenStream,
+        references: bool,
+        analyzer: &Analyzer,) -> TokenStream {
+        let ref_ffi = self.get_value_ffi_ty_ref(references, analyzer);
+        let ret_val_ident = format_ident!("_val_result");
+        quote! { {
+            let #ret_val_ident: Box<#ref_ffi> = unsafe { Box::from_raw(#value_name) };
+            #ret_val_ident.dispose();
+        } }
     }
 }

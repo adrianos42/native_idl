@@ -112,6 +112,7 @@ enum ConstTypes {
     NatInt,
     NatFloat,
     NatString,
+    NatUuid,
 }
 
 type ConstNode {

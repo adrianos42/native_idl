@@ -120,8 +120,8 @@ impl From<&str> for NativeTypes {
     fn from(value: &str) -> Self {
         match value {
             "int" => NativeTypes::Int,
-            "float"  => NativeTypes::Float,
-            "string"  => NativeTypes::String,
+            "float" => NativeTypes::Float,
+            "string" => NativeTypes::String,
             "bytes" => NativeTypes::Bytes,
             "bool" => NativeTypes::Bool,
             "uuid" => NativeTypes::UUID,
@@ -216,6 +216,7 @@ pub(super) enum WordStream {
     Literal(WordRange<String>),
     FloatValue(WordRange<String>),
     IntegerValue(WordRange<String>),
+    UUIDValue(WordRange<String>),
     BooleanValue(WordRange<String>),
 }
 
@@ -241,7 +242,8 @@ impl WordStream {
             | WordStream::Literal(value)
             | WordStream::FloatValue(value)
             | WordStream::BooleanValue(value)
-            | WordStream::IntegerValue(value) => value.range,
+            | WordStream::IntegerValue(value)
+            | WordStream::UUIDValue(value) => value.range,
             WordStream::Keyword(value) => value.range,
             WordStream::NativeType(value) => value.range,
             WordStream::Attribute(value) => value.range,
@@ -276,7 +278,8 @@ impl fmt::Display for WordStream {
             | WordStream::Literal(name)
             | WordStream::FloatValue(name)
             | WordStream::BooleanValue(name)
-            | WordStream::IntegerValue(name) => name.get_word().to_owned(),
+            | WordStream::IntegerValue(name)
+            | WordStream::UUIDValue(name) => name.get_word().to_owned(),
             WordStream::Keyword(name) => name.get_word().to_string(),
             WordStream::NativeType(name) => name.get_word().to_string(),
             WordStream::Attribute(name) => name.get_word().to_string(),
@@ -308,6 +311,12 @@ pub(super) struct ContextStream {
 #[derive(Debug)]
 pub(super) struct SourceStream {
     pub(super) word_streams: Vec<WordStream>,
+}
+
+lazy_static! {
+    static ref RE_UUID: Regex =
+        Regex::new(r"^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$")
+            .unwrap();
 }
 
 impl ContextStream {
@@ -651,7 +660,7 @@ impl ContextStream {
 
         while let Some(ch) = line_text.chars().nth(self.cur_char) {
             // Looks for a correct word, until it finds a whitespace.
-            if ch.is_ascii_alphanumeric() || ch == '_' {
+            if ch.is_ascii_alphanumeric() || ch == '_' || ch == '-' {
                 ident.push(ch);
                 self.cur_char += 1;
             } else {
@@ -700,6 +709,11 @@ impl ContextStream {
                 word: ident.to_owned(),
             };
 
+            if let Some(_) = RE_UUID.captures(ident.as_str()) {
+                word_stream.push(WordStream::UUIDValue(word_range));
+                return Ok(());
+            }
+
             lazy_static! {
                 static ref RE: Regex =
                     Regex::new(r"^(?:([A-Z]+[A-Za-z0-9]*)|((?:[a-z]+[0-9]*)+(?:_[a-z0-9]+)*))$")
@@ -738,9 +752,9 @@ impl ContextStream {
             match ch {
                 c if c.is_ascii_hexdigit() => {
                     cur_char += 1;
-                    ident.push(ch);
+                    ident.push(c);
                 }
-                'x' | '.' | '-' | 'e' | 'E' => {
+                'x' | '.' | '-' => {
                     cur_char += 1;
                     ident.push(ch);
                 }
@@ -770,6 +784,10 @@ impl ContextStream {
                 self.cur_char = cur_char;
                 return Ok(());
             }
+        } else if let Some(_) = RE_UUID.captures(ident.as_str()) {
+            word_stream.push(WordStream::UUIDValue(word_range));
+            self.cur_char = cur_char;
+            return Ok(());
         }
 
         return Err(ScError::InvalidString(WordRange {

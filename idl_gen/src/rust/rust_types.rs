@@ -5,8 +5,8 @@ use super::con_idl::get_rust_ty_ref;
 
 use super::string_pros::{StringPros, StringRustFmt};
 use proc_macro2::{self, Literal, Punct, Spacing, TokenStream};
-use quote::{TokenStreamExt, ToTokens};
 use quote::format_ident;
+use quote::{ToTokens, TokenStreamExt};
 use regex::Regex;
 use std::f64;
 use std::i64;
@@ -43,7 +43,7 @@ impl fmt::Display for RustTypes {
 impl RustTypes {
     pub fn generate(analyzer: &Analyzer) -> Result<Self, RustTypeError> {
         let mut context = RustTypes::new();
-        
+
         let nodes: &[IdlNode] = &analyzer.nodes;
 
         for node in nodes {
@@ -190,10 +190,22 @@ impl RustTypes {
                     );
                     let fd_ident = format_ident!("{}", &field_name);
 
+                    //let z_lit = Punct::new('0', Spacing::Joint);
+                    //let c_lit = Punct::new('x', Spacing::Joint);
+
                     match ty_const.const_type {
                         ConstTypes::NatString => {
                             let literal = Literal::string(&field.value);
                             fields.push(quote! { pub const #fd_ident: &str = #literal; })
+                        }
+                        ConstTypes::NatUuid => {
+                            let normalized = format!("{}", field.value.replace("-", ""));
+                            let value = u128::from_str_radix(&normalized, 0x10)
+                                .expect(&format!("Invalid uuid value `{}`", normalized));
+                            let literal = Literal::u128_unsuffixed(value);
+                            fields.push(
+                                quote! { pub const #fd_ident: Uuid = Uuid::from_u128(#literal); },
+                            )
                         }
                         ConstTypes::NatInt => {
                             lazy_static! {
@@ -210,8 +222,6 @@ impl RustTypes {
                                 let literal = Literal::i64_unsuffixed(value);
                                 fields.push(quote! { pub const #fd_ident: i64 = #literal; })
                             } else if let Some(cap) = caps.get(1) {
-                                let z_lit = Punct::new('0', Spacing::Joint);
-                                let c_lit = Punct::new('x', Spacing::Joint);
                                 if let Some(_) = caps.get(2) {
                                     let value = i64::from_str_radix(
                                         cap.as_str().trim_start_matches("-0x"),
@@ -224,7 +234,7 @@ impl RustTypes {
                                     let s_lit = Punct::new('-', Spacing::Joint);
 
                                     fields.push(
-                                    quote! { pub const #fd_ident: i64 = #s_lit#z_lit#c_lit#num; },
+                                    quote! { pub const #fd_ident: i64 = #s_lit#num; },
                                 )
                                 } else {
                                     let value = i64::from_str_radix(
@@ -236,7 +246,7 @@ impl RustTypes {
                                     let num = Literal::i64_unsuffixed(value);
 
                                     fields.push(
-                                        quote! { pub const #fd_ident: i64 = #z_lit#c_lit#num; },
+                                        quote! { pub const #fd_ident: i64 = #num; },
                                     )
                                 }
                             } else {
@@ -259,6 +269,7 @@ impl RustTypes {
             ConstTypes::NatInt => quote! { i64 },
             ConstTypes::NatFloat => quote! { f64 },
             ConstTypes::NatString => quote! { String },
+            ConstTypes::NatUuid => quote! { Uuid },
         };
         let const_ident = format_ident!("{}", &ident);
 

@@ -159,6 +159,9 @@ class DartTypes {
             assignment = '\'${node.value}\'';
             dType = 'String';
             break;
+          case ConstTypes.natUuid:
+            assignment = '\'${node.value}\'';
+            dType = 'String';
         }
 
         constFields.add(Field((b) => b
@@ -396,6 +399,8 @@ class DartTypes {
         case ConstTypes.natFloat:
           return TypeName(typeName: Types.natFloat);
         case ConstTypes.natString:
+          return TypeName(typeName: Types.natString);
+        case ConstTypes.natUuid:
           return TypeName(typeName: Types.natString);
       }
     }

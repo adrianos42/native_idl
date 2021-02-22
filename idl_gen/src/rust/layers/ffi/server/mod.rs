@@ -195,7 +195,7 @@ impl FFIServer {
                             &value.return_ty,
                         ),
                         TypeName::TypeTuple(tuple) => {
-                            // Returns none type, since it's accepted anyway.
+                            // Returns none type, since it's accepted anyways.
                             (Some(&tuple.fields), &TypeName::Types(Types::NatNone))
                         }
                         _ => (None, &field.ty),
@@ -360,14 +360,16 @@ impl FFIServer {
                         // FIXME change release
                         let func_ffi_ident = format_ident!("{}_dispose_{}", analyzer.library_name(), field_name);
 
-                        let result_ident = quote! { _result };
-                        let result_ty_ident = ret_ty.get_ffi_ty_ref(true, analyzer);
+                        let result_ident = quote! { _result_disp };
+                        let result_ty_ident = ret_ty.get_ffi_ty_ref_mut(true, analyzer);
                         let args_ident =
-                            quote! { #instance_args #result_ident: *mut #result_ty_ident };
+                            quote! { 
+                                #instance_args 
+                                #result_ident: #result_ty_ident 
+                        };
+                        let result_dispose = ret_ty.dispose_ffi_boxed(&result_ty_ident, true, analyzer);
                         let body_ident = quote! {
-                            //let _ = unsafe { Box::from_raw() };
-                            //std::mem::forget(#ins_ident);
-
+                            #result_dispose
                             return AbiInternalError::Ok;
                         };
 

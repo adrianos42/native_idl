@@ -731,6 +731,7 @@ impl Analyzer {
                         parser::ConstType::Int => idl_nodes::ConstTypes::NatInt,
                         parser::ConstType::String => idl_nodes::ConstTypes::NatString,
                         parser::ConstType::Float => idl_nodes::ConstTypes::NatFloat,
+                        parser::ConstType::UUID => idl_nodes::ConstTypes::NatUuid,
                     };
 
                     analyzer.nodes.push(idl_nodes::IdlNode::TypeConst(Box::new(
@@ -831,23 +832,24 @@ impl Analyzer {
                 let index_ref = map.index_ty.get_type_reference(); // TODO get the real name of the type
                 let ty_ref = map.map_ty.get_type_reference();
 
-                let index_invalid = match &map.index_ty {
-                    idl_nodes::TypeName::Types(types) => match types {
-                        idl_nodes::Types::NatInt | idl_nodes::Types::NatString => None,
-                        _ => Some(index_ref),
-                    },
-                    idl_nodes::TypeName::EnumTypeName(_) => None, // Since it's a integer, can be used as an index.
-                    idl_nodes::TypeName::ConstTypeName(value) => {
-                        let const_ty = self.find_ty_const(value).unwrap();
-                        match const_ty.const_type {
-                            idl_nodes::ConstTypes::NatInt | idl_nodes::ConstTypes::NatString => {
-                                None
+                let index_invalid =
+                    match &map.index_ty {
+                        idl_nodes::TypeName::Types(types) => match types {
+                            idl_nodes::Types::NatInt | idl_nodes::Types::NatString => None,
+                            _ => Some(index_ref),
+                        },
+                        idl_nodes::TypeName::EnumTypeName(_) => None, // Since it's a integer, can be used as an index.
+                        idl_nodes::TypeName::ConstTypeName(value) => {
+                            let const_ty = self.find_ty_const(value).unwrap();
+                            match const_ty.const_type {
+                                idl_nodes::ConstTypes::NatInt
+                                | idl_nodes::ConstTypes::NatString => None,
+                                idl_nodes::ConstTypes::NatFloat
+                                | idl_nodes::ConstTypes::NatUuid => Some(index_ref),
                             }
-                            idl_nodes::ConstTypes::NatFloat => Some(index_ref),
                         }
-                    }
-                    _ => Some(index_ref),
-                };
+                        _ => Some(index_ref),
+                    };
 
                 if let Some(ty) = index_invalid {
                     return Err(ReferenceError(

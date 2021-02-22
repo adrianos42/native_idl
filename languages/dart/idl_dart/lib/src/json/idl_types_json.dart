@@ -601,6 +601,7 @@ enum ConstTypes {
   natInt,
   natFloat,
   natString,
+  natUuid,
 }
 
 ConstTypes _constTypeFromJson(String json) {
@@ -611,6 +612,8 @@ ConstTypes _constTypeFromJson(String json) {
       return ConstTypes.natFloat;
     case 'NatString':
       return ConstTypes.natString;
+    case 'NatUuid':
+      return ConstTypes.natUuid;
   }
 
   throw ArgumentError.value(json, 'json', 'Invalid convertion input data `${json}`');
