@@ -367,7 +367,7 @@ impl FFIServer {
                                 #instance_args 
                                 #result_ident: #result_ty_ident 
                         };
-                        let result_dispose = ret_ty.dispose_ffi_boxed(&result_ty_ident, true, analyzer);
+                        let result_dispose = ret_ty.dispose_ffi_boxed(&result_ident, true, analyzer);
                         let body_ident = quote! {
                             #result_dispose
                             return AbiInternalError::Ok;
@@ -693,6 +693,12 @@ impl FFIServerTypes {
             #[repr(C)]
             pub struct #struct_ident { #( #fields )* }
 
+            impl #struct_ident {
+                pub fn dispose() {
+
+                }
+            }
+
             impl From<idl_types::#struct_ident> for #struct_ident {
                 #[allow(unused_braces)]
                 fn from(value: idl_types::#struct_ident) -> Self {
@@ -769,6 +775,12 @@ impl FFIServerTypes {
 
         self.module.push(quote! {
             pub struct #ty_name_ident(AbiVariant);
+
+            impl #ty_name_ident {
+                pub fn dispose() {
+                    
+                }
+            }
 
             impl From<#ty_name_ident> for AbiVariant {
                 fn from(value: #ty_name_ident) -> Self {

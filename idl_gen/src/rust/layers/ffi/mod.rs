@@ -41,6 +41,7 @@ pub(crate) trait FFITypeName {
     fn get_ffi_ty_ref_mut(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
     fn is_boxed_ffi(&self, analyzer: &Analyzer) -> bool;
     fn get_ptr_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
+    fn get_ptr_ffi_ty_ref_mut(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
     fn get_value_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
     fn conv_ffi_to_value(
         &self,
@@ -78,10 +79,18 @@ pub(crate) trait FFITypeName {
         references: bool,
         analyzer: &Analyzer,
     ) -> TokenStream;
-    fn dispose_ffi_boxed(&self,
+    fn dispose_ffi_boxed(
+        &self,
         value_name: &TokenStream,
         references: bool,
-        analyzer: &Analyzer,) -> TokenStream;
+        analyzer: &Analyzer,
+    ) -> TokenStream;
+    fn dispose_ffi(
+        &self,
+        value_name: &TokenStream,
+        references: bool,
+        analyzer: &Analyzer,
+    ) -> TokenStream;
 }
 
 impl FFITypeName for TypeName {
@@ -160,6 +169,11 @@ impl FFITypeName for TypeName {
     fn get_ptr_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream {
         let ident = self.get_value_ffi_ty_ref(references, analyzer);
         quote! { *const #ident }
+    }
+
+    fn get_ptr_ffi_ty_ref_mut(&self, references: bool, analyzer: &Analyzer) -> TokenStream {
+        let ident = self.get_value_ffi_ty_ref(references, analyzer);
+        quote! { *mut #ident }
     }
 
     fn get_value_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream {
@@ -402,7 +416,7 @@ impl FFITypeName for TypeName {
                     ConstTypes::NatInt => &TypeName::Types(Types::NatInt),
                     ConstTypes::NatFloat => &TypeName::Types(Types::NatFloat),
                     ConstTypes::NatString => &TypeName::Types(Types::NatString),
-                    ConstTypes::NatUuid =>  &TypeName::Types(Types::NatUUID),
+                    ConstTypes::NatUuid => &TypeName::Types(Types::NatUUID),
                 };
 
                 c_ty.conv_ffi_value_to_value(ffi_name, references, analyzer)
@@ -595,7 +609,7 @@ impl FFITypeName for TypeName {
                 }
             } },
             TypeName::StructTypeName(value)
-            | TypeName::ListTypeName(value) 
+            | TypeName::ListTypeName(value)
             | TypeName::EnumTypeName(value) => {
                 let ident = format_ident!("{}", value);
                 if references {
@@ -626,15 +640,183 @@ impl FFITypeName for TypeName {
         }
     }
 
-    fn dispose_ffi_boxed(&self,
+    fn dispose_ffi_boxed(
+        &self,
         value_name: &TokenStream,
         references: bool,
-        analyzer: &Analyzer,) -> TokenStream {
-        let ref_ffi = self.get_value_ffi_ty_ref(references, analyzer);
-        let ret_val_ident = format_ident!("_val_result");
-        quote! { {
-            let #ret_val_ident: Box<#ref_ffi> = unsafe { Box::from_raw(#value_name) };
-            #ret_val_ident.dispose();
-        } }
+        analyzer: &Analyzer,
+    ) -> TokenStream {
+        if self.is_boxed_ffi(analyzer) {
+            let dispose_name = quote! { _value_disps };
+            let ref_ffi = self.get_value_ffi_ty_ref(references, analyzer);
+            let dispose_body = self.dispose_ffi(&dispose_name, true, analyzer);
+            quote! { {
+                let mut #dispose_name: Box<#ref_ffi> = unsafe { Box::from_raw(#value_name) };
+                #dispose_body
+            } }
+        } else {
+            quote! {}
+        }
+    }
+
+    fn dispose_ffi(
+        &self,
+        value_name: &TokenStream,
+        references: bool,
+        analyzer: &Analyzer,
+    ) -> TokenStream {
+        match self {
+            TypeName::Types(value) => match value {
+                Types::NatUUID | Types::NatBytes | Types::NatString => {
+                    quote! { #value_name.dispose(); }
+                }
+                Types::NatInt | Types::NatFloat | Types::NatBool | Types::NatNone => quote! {},
+            },
+            TypeName::TypeArray(value) => {
+                let array_ty = value.ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
+                let array_data = quote! { #value_name.data as #array_ty };
+                let array_length = quote! { #value_name.length as usize };
+                let data_value = quote! { _value };
+                let array_data_ty = value.ty.get_value_ffi_ty_ref(references, analyzer);
+                let dispose_data = value.ty.dispose_ffi(&data_value, references, analyzer);
+
+                let dispose_body = if value.ty.is_boxed_ffi(analyzer) {
+                    quote! {
+                        for #data_value in _sl_array.iter_mut() {
+                            #dispose_data
+                        }
+                    }
+                } else {
+                    quote! {}
+                };
+
+                quote! { {
+                    let mut _sl_array: Box<[#array_data_ty]> = unsafe {
+                        Box::from_raw(std::slice::from_raw_parts_mut(#array_data, #array_length))
+                    };
+                    #dispose_body
+                } }
+            }
+            TypeName::TypeMap(value) => {
+                let map_length = quote! { #value_name.length as usize };
+
+                let map_data_ty = value.map_ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
+                let map_data_data = quote! { #value_name.data as #map_data_ty };
+
+                let map_key_ty = value.index_ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
+                let map_key_data = quote! { #value_name.key as #map_key_ty };
+
+                let data_value = quote! { _value_data };
+                let dispose_data = value.map_ty.dispose_ffi(&data_value, references, analyzer);
+
+                let key_value = quote! { _value_key };
+                let dispose_key = value.index_ty.dispose_ffi(&key_value, references, analyzer);
+
+                let dispose_data_body = if value.map_ty.is_boxed_ffi(analyzer) {
+                    quote! {
+                        for #data_value in _sl_data.iter_mut() {
+                            #dispose_data
+                        }
+                    }
+                } else {
+                    quote! {}
+                };
+
+                let dispose_key_body = if value.index_ty.is_boxed_ffi(analyzer) {
+                    quote! {
+                        for #key_value in _sl_key.iter_mut() {
+                            #dispose_key
+                        }
+                    }
+                } else {
+                    quote! {}
+                };
+
+                let map_data_ty = value.map_ty.get_value_ffi_ty_ref(references, analyzer);
+                let key_data_ty = value.index_ty.get_value_ffi_ty_ref(references, analyzer);
+
+                quote! { {
+                    let mut _sl_data: Box<[#map_data_ty]> = unsafe {
+                        Box::from_raw(std::slice::from_raw_parts_mut(#map_data_data, #map_length))
+                    };
+                    let mut _sl_key: Box<[#key_data_ty]> = unsafe {
+                        Box::from_raw(std::slice::from_raw_parts_mut(#map_key_data, #map_length))
+                    };
+                    #dispose_data_body
+                    #dispose_key_body
+                } }
+            }
+            TypeName::TypePair(value) => {
+                let first_ty = value.first_ty.get_ffi_ty_ref_mut(references, analyzer);
+                let second_ty = value.second_ty.get_ffi_ty_ref_mut(references, analyzer);
+                let first_data = quote! { #value_name.first_data as #first_ty };
+                let second_data = quote! { #value_name.second_data as #second_ty };
+                let dispose_first =
+                    value
+                        .first_ty
+                        .dispose_ffi_boxed(&first_data, references, analyzer);
+                let dispose_second =
+                    value
+                        .second_ty
+                        .dispose_ffi_boxed(&second_data, references, analyzer);
+
+                quote! { {
+                    #dispose_first
+                    #dispose_second
+                } }
+            }
+            TypeName::TypeOption(value) => {
+                let some_ty = value.some_ty.get_ffi_ty_ref_mut(references, analyzer);
+                let some_data = quote! { #value_name.data as #some_ty };
+                let dispose_some = value
+                    .some_ty
+                    .dispose_ffi_boxed(&some_data, references, analyzer);
+
+                quote! { {
+                    match #value_name.index {
+                        0 => { #dispose_some },
+                        1 => {}
+                        _value => panic!("Invaild option value `{}`", _value),
+                    }
+                } }
+            }
+            TypeName::TypeResult(value) => {
+                let err_ty = value.err_ty.get_ffi_ty_ref_mut(references, analyzer);
+                let ok_ty = value.ok_ty.get_ffi_ty_ref_mut(references, analyzer);
+                let err_data = quote! { #value_name.data as #err_ty };
+                let ok_data = quote! { #value_name.data as #ok_ty };
+                let dispose_err = value
+                    .err_ty
+                    .dispose_ffi_boxed(&err_data, references, analyzer);
+                let dispose_ok = value
+                    .ok_ty
+                    .dispose_ffi_boxed(&ok_data, references, analyzer);
+
+                quote! { {
+                    match #value_name.index {
+                        0 => { #dispose_ok },
+                        1 => { #dispose_err },
+                        _value => panic!("Invaild result value `{}`", _value),
+                    }
+                } }
+            }
+            TypeName::StructTypeName(_) | TypeName::ListTypeName(_) => {
+                //quote! { #ret_val_ident.dispose(); }
+                quote! {}
+            }
+            TypeName::ConstTypeName(value) => {
+                let const_ty = analyzer
+                    .find_ty_const(&value)
+                    .expect("Could not reference const type");
+
+                match const_ty.const_type {
+                    ConstTypes::NatFloat | ConstTypes::NatInt => quote! {},
+                    ConstTypes::NatUuid | ConstTypes::NatString => {
+                        quote! { #value_name.dispose(); }
+                    }
+                }
+            }
+            sw => panic!("Invalid type `{:?}`", sw),
+        }
     }
 }

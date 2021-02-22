@@ -1,0 +1,6 @@
+[package]
+name = "idl_types"
+version = "0.1.0"
+edition = "2018"
+[dependencies.idl_internal]
+git = "https://github.com/adrianos42/native_idl"

@@ -152,10 +152,12 @@ impl AbiBytes {
 
 impl AbiBytes {
     pub fn dispose(&mut self) {
-         unsafe {
-            let sl = std::slice::from_raw_parts_mut(self.data as *mut u8, self.length as usize);
-            let _ = Box::from_raw(sl);
-        }
+        let _: Box<[u8]> = unsafe {
+            Box::from_raw(std::slice::from_raw_parts_mut(
+                self.data as *mut u8,
+                self.length as usize,
+            ))
+        };
     }
 }
 
@@ -196,10 +198,12 @@ impl AbiUuid {
 
 impl AbiUuid {
     pub fn dispose(&mut self) {
-         unsafe {
-            let sl = std::slice::from_raw_parts_mut(self.data as *mut u8, 0x10 as usize);
-            let _ = Box::from_raw(sl);
-        }
+        let _: Box<[u8]> = unsafe {
+            Box::from_raw(std::slice::from_raw_parts_mut(
+                self.data as *mut u8,
+                0x10 as usize,
+            ))
+        };
     }
 }
 
@@ -223,10 +227,12 @@ pub struct AbiString {
 
 impl AbiString {
     pub fn dispose(&mut self) {
-        unsafe {
-            let sl = std::slice::from_raw_parts_mut(self.data as *mut u8, self.length as usize);
-            let _ = Box::from_raw(sl);
-        }
+        let _: Box<[u8]> = unsafe {
+            Box::from_raw(std::slice::from_raw_parts_mut(
+                self.data as *mut u8,
+                self.length as usize,
+            ))
+        };
     }
 }
 

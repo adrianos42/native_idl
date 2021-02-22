@@ -1,0 +1,14 @@
+[package]
+name = "idl_test"
+version = "0.1.0"
+authors = ["Adriano <adriano.souza113@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+idl_types = { path = "idl_types" }
+anyhow = "1.0"
+num = "0.3"
+regex = "1"
+
+[workspace]
+members = ["idl_types"]
