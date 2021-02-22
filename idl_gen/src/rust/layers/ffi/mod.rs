@@ -667,10 +667,10 @@ impl FFITypeName for TypeName {
     ) -> TokenStream {
         match self {
             TypeName::Types(value) => match value {
-                Types::NatUUID | Types::NatBytes | Types::NatString => {
+                Types::NatUUID |  Types::NatString => {
                     quote! { #value_name.dispose(); }
                 }
-                Types::NatInt | Types::NatFloat | Types::NatBool | Types::NatNone => quote! {},
+                Types::NatBytes | Types::NatInt | Types::NatFloat | Types::NatBool | Types::NatNone => quote! {},
             },
             TypeName::TypeArray(value) => {
                 let array_ty = value.ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
