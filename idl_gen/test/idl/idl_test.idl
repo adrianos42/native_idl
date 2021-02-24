@@ -18,6 +18,7 @@ interface Test {
     test_result: (value: string) -> result[string, bool],
     test_result_err: result[string, bool],
     test_int_stream: stream[string],
+    test_pair: (value: pair[string, int]) -> pair[string, int],
     test_names: (value: Names) -> Names,
     test_values: (value: ValuesFloat) -> ValuesFloat,
 }
@@ -32,19 +33,30 @@ type Types {
     StringType: string,
 }
 
+-- Strings
 const Names {
     name: "Adriano",
     surname: "Souza",
 }
 
+-- floats
 const ValuesFloat {
     pi: 3.14,
     sqrt: 2.55,
     onedw: 122332.0,
 }
 
+-- integers
 const ValuesInteger {
     one: 1,
     two: 2,
     three: 3,
+}
+
+-- uuids
+const ValuesUuid {
+    first: dee75f77-c47d-4181-bef0-6ac98d3e5a33,
+    second: c45663f3-f68f-4c6b-b35d-c5f0206105cd,
+    third: dbb39e64-6850-4161-8338-c9c66d792279,
+    fourth: 2daa47b4-52cb-41af-970e-3cad8fc5f2ad,
 }

@@ -4,8 +4,8 @@ package idl_test {
 }
 
 client Main {
-    language: "dart",
-    layers: [Flutter],
+    language: "rust",
+    layers: [RustAsync],
     servers: [MainServer],
 }
 

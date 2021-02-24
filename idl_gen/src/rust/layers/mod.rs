@@ -12,7 +12,11 @@ pub trait LayerBuilder {
 pub struct Layer;
 
 impl Layer {
-    pub fn layer_builder(server_name: String) -> impl LayerBuilder {
-        ffi::server::compile::FFILayer::new(server_name)
+    pub fn layer_builder_server(server_name: String) -> impl LayerBuilder {
+        ffi::server::layer::FFILayer::new(server_name)
+    }
+
+    pub fn layer_builder_client(client_name: String) -> impl LayerBuilder {
+        ffi::client::layer::FFILayer::new(client_name)
     }
 }

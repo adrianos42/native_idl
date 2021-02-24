@@ -2654,7 +2654,6 @@ class _FFIDartTypes {
       ..directives.add(Directive.import('dart:typed_data'))
       ..directives.add(Directive.import('dart:isolate'))
       ..directives.add(Directive.import('dart:collection'))
-      ..directives.add(Directive.import('package:ffi/ffi.dart'))
       ..directives
           .add(Directive.import('package:idl_internal/idl_internal.dart'))
       ..body.addAll(fields)

@@ -12,7 +12,6 @@ import '../../json/ids_types_json.dart' as ids_types;
 import '../../json/idl_json.dart';
 import '../../module.dart';
 import '../../dart_layer.dart';
-import '../../string_pos.dart';
 
 const _kFlutterCreateWhitelist = [
   'linux',

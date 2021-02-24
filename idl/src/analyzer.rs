@@ -902,6 +902,8 @@ impl Analyzer {
                     | idl_nodes::TypeName::StructTypeName(_)
                     | idl_nodes::TypeName::TypeMap(_)
                     | idl_nodes::TypeName::TypePair(_)
+                    // Since the types are recursive, there's no need to verify the type of the array itself.
+                    | idl_nodes::TypeName::TypeArray(_) 
                     | idl_nodes::TypeName::ConstTypeName(_) => None,
                     _ => Some(ty_ref),
                 };
@@ -967,6 +969,9 @@ impl Analyzer {
         types
     }
 
+    // Destructs all types, for example:
+    // int[][] becomes int[][], int[], and int.
+    // result[string, map[int, float]] becomes result[string, map[int, float]], string, map[int, float], int, float
     fn get_all_types_recursive<'a>(
         &'a self,
         parsers: &parser::Parser,
@@ -1531,7 +1536,18 @@ impl idl_nodes::TypeName {
             | idl_nodes::TypeName::InterfaceTypeName(value)
             | idl_nodes::TypeName::StructTypeName(value)
             | idl_nodes::TypeName::EnumTypeName(value)
-            | idl_nodes::TypeName::ListTypeName(value) => value.to_owned(),
+            | idl_nodes::TypeName::ListTypeName(value) => value.to_owned(), // TODO
+            idl_nodes::TypeName::Types(types) => {
+                match types {
+                    idl_nodes::Types::NatInt => parser::NativeTypes::Int.to_string(),
+                    idl_nodes::Types::NatFloat => parser::NativeTypes::Float.to_string(),
+                    idl_nodes::Types::NatString => parser::NativeTypes::String.to_string(),
+                    idl_nodes::Types::NatBytes => parser::NativeTypes::Bytes.to_string(),
+                    idl_nodes::Types::NatBool => parser::NativeTypes::Bool.to_string(),
+                    idl_nodes::Types::NatUUID => parser::NativeTypes::UUID.to_string(),
+                    idl_nodes::Types::NatNone => parser::NativeTypes::None.to_string(),
+                }
+            }
             _ => "".to_owned(),
         }
     }

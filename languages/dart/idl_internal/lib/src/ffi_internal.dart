@@ -1,11 +1,12 @@
 import 'dart:ffi';
 import 'dart:io' show Platform;
 
-import 'package:ffi/ffi.dart';
 import 'dart:typed_data';
 
 import 'dart:convert';
 import 'package:uuid/uuid.dart';
+
+import 'package:ffi/ffi.dart' show allocate, free;
 
 DynamicLibrary openLibrary(String name, String path) {
   final finalPath;
@@ -222,7 +223,11 @@ extension BytesPointer on Pointer<AbiBytes> {
     free(this);
   }
 
-  Uint8List asUint8List() => ref.data!.asTypedList(ref.length!);
+  Uint8List asUint8List() {
+    final result = Uint8List(ref.length!);
+    result.setAll(0, ref.data!.asTypedList(ref.length!));
+    return result;
+  }
 }
 
 extension BytesInto on Uint8List {

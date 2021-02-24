@@ -140,17 +140,13 @@ pub struct AbiBytes {
 impl AbiBytes {
     // This makes a copy from bytes
     pub fn to_vec(&self) -> Vec<u8> {
-        let sl = unsafe {
-            let sl = std::slice::from_raw_parts_mut(self.data as *mut u8, self.length as usize);
-            Box::from_raw(sl)
-        };
-        let result = sl.to_vec();
-        std::mem::forget(sl);
-        result
+        unsafe { std::slice::from_raw_parts_mut(self.data as *mut u8, self.length as usize) }
+            .to_vec()
     }
 }
 
 impl AbiBytes {
+    // Only called when allocated by the same module
     pub fn dispose(&mut self) {
         let _: Box<[u8]> = unsafe {
             Box::from_raw(std::slice::from_raw_parts_mut(

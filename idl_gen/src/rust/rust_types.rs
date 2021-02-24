@@ -177,35 +177,31 @@ impl RustTypes {
 
     fn add_const(&mut self, ty_const: &TypeConst) -> Result<(), RustTypeError> {
         let ident = &ty_const.ident;
+        let const_ident = format_ident!("{}", &ident);
 
         let mut fields = vec![];
 
         for field_node in &ty_const.fields {
             match field_node {
                 ConstNode::ConstField(field) => {
-                    let field_name = format!(
-                        "{}_{}",
-                        ident.to_snake_case_upper(),
-                        &field.ident.as_str().to_snake_case_upper()
-                    );
-                    let fd_ident = format_ident!("{}", &field_name);
-
-                    //let z_lit = Punct::new('0', Spacing::Joint);
-                    //let c_lit = Punct::new('x', Spacing::Joint);
+                    let fd_ident = format_ident!("{}", &field.ident.as_str().to_snake_case_upper());
 
                     match ty_const.const_type {
                         ConstTypes::NatString => {
                             let literal = Literal::string(&field.value);
-                            fields.push(quote! { pub const #fd_ident: &str = #literal; })
+                            fields.push(quote! {
+                                pub const #fd_ident: #const_ident = #const_ident(#literal);
+                            })
                         }
                         ConstTypes::NatUuid => {
                             let normalized = format!("{}", field.value.replace("-", ""));
                             let value = u128::from_str_radix(&normalized, 0x10)
                                 .expect(&format!("Invalid uuid value `{}`", normalized));
                             let literal = Literal::u128_unsuffixed(value);
-                            fields.push(
-                                quote! { pub const #fd_ident: Uuid = Uuid::from_u128(#literal); },
-                            )
+                            fields.push(quote! {
+                                pub const #fd_ident: #const_ident =
+                                    #const_ident(Uuid::from_u128(#literal));
+                            })
                         }
                         ConstTypes::NatInt => {
                             lazy_static! {
@@ -220,7 +216,9 @@ impl RustTypes {
                                     .expect("Invalid number value");
 
                                 let literal = Literal::i64_unsuffixed(value);
-                                fields.push(quote! { pub const #fd_ident: i64 = #literal; })
+                                fields.push(quote! {
+                                    pub const #fd_ident: #const_ident = #const_ident(#literal);
+                                })
                             } else if let Some(cap) = caps.get(1) {
                                 if let Some(_) = caps.get(2) {
                                     let value = i64::from_str_radix(
@@ -233,9 +231,10 @@ impl RustTypes {
 
                                     let s_lit = Punct::new('-', Spacing::Joint);
 
-                                    fields.push(
-                                    quote! { pub const #fd_ident: i64 = #s_lit#num; },
-                                )
+                                    fields.push(quote! {
+                                        pub const #fd_ident: #const_ident =
+                                            #const_ident(#s_lit#num);
+                                    })
                                 } else {
                                     let value = i64::from_str_radix(
                                         cap.as_str().trim_start_matches("0x"),
@@ -245,9 +244,9 @@ impl RustTypes {
 
                                     let num = Literal::i64_unsuffixed(value);
 
-                                    fields.push(
-                                        quote! { pub const #fd_ident: i64 = #num; },
-                                    )
+                                    fields.push(quote! {
+                                        pub const #fd_ident: #const_ident = #const_ident(#num);
+                                    })
                                 }
                             } else {
                                 panic!("Expected number.");
@@ -257,7 +256,9 @@ impl RustTypes {
                             let value =
                                 f64::from_str(&field.value).expect("Invalid floating number.");
                             let num = Literal::f64_unsuffixed(value);
-                            fields.push(quote! { pub const #fd_ident: f64 = #num; })
+                            fields.push(
+                                quote! { pub const #fd_ident: #const_ident = #const_ident(#num); },
+                            )
                         }
                     }
                 }
@@ -271,11 +272,13 @@ impl RustTypes {
             ConstTypes::NatString => quote! { String },
             ConstTypes::NatUuid => quote! { Uuid },
         };
-        let const_ident = format_ident!("{}", &ident);
 
         self.module.push(quote! {
-            pub type #const_ident = #const_def;
-            #( #fields )*
+            #[derive(Debug)]
+            pub struct #const_ident(#const_def);
+            impl #const_ident {
+                #( #fields )*
+            }
         });
 
         Ok(())

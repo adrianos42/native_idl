@@ -13,3 +13,11 @@
 0.1.4-2.12.0-0
 
 - Uuid
+
+0.1.5-2.12.0-0
+
+- Fix list
+
+0.1.6-2.12.0-0
+
+- Change list allocation

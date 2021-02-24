@@ -45,7 +45,7 @@ impl crate::IdlGen for RustGen {
 
                 match name.args {
                     ServerArg::Build => {
-                        let layer = Layer::layer_builder(name.server_name.to_owned());
+                        let layer = Layer::layer_builder_server(name.server_name.to_owned());
                         root_items.append(
                             &mut layer
                                 .build(&analyzers, &ids_analyzer)
@@ -54,7 +54,6 @@ impl crate::IdlGen for RustGen {
                     }
                     ServerArg::Generate => {
                         root_items.push(rust_impl_files(&analyzers, &ids_analyzer));
-                        //root_items.push(ffi_server_files(&analyzer));
                     }
                 }
                 Ok(LanguageResponse {
@@ -62,7 +61,33 @@ impl crate::IdlGen for RustGen {
                     response_messages: vec![],
                 })
             }
-            _ => panic!("Invalid type"),
+            RequestType::Client(name) => {
+                let mut root_items = vec![];
+
+                let analyzers: Vec<idl::analyzer::Analyzer> = request
+                    .libraries
+                    .into_iter()
+                    .map(|library| idl::analyzer::Analyzer::from_nodes(library.nodes))
+                    .collect();
+
+                let ids_analyzer = idl::ids::analyzer::Analyzer::from_nodes(request.ids_nodes);
+
+                // let client = ids_analyzer.find_client(&name).ok_or_else(|| {
+                //     crate::IdlGenError::RustGenError(RustGenError::Undefined("".to_owned()))
+                // })?;
+
+                let layer = Layer::layer_builder_client(name.to_owned());
+                root_items.append(
+                    &mut layer
+                        .build(&analyzers, &ids_analyzer)
+                        .map_err(|err| RustGenError::Undefined(err.to_string()))?,
+                );
+
+                Ok(LanguageResponse {
+                    gen_response: ResponseType::Generated(root_items),
+                    response_messages: vec![],
+                })
+            }
         }
     }
 }

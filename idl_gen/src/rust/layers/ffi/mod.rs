@@ -8,34 +8,6 @@ use std::fmt;
 pub(crate) mod client;
 pub(crate) mod server;
 
-pub struct FFIMod {
-    module: TokenStream,
-}
-
-impl ToTokens for FFIMod {
-    fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.append_all(self.module.to_token_stream());
-    }
-}
-
-impl fmt::Display for FFIMod {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.module.to_string().rust_fmt())
-    }
-}
-
-impl FFIMod {
-    pub fn generate(_analyzer: &Analyzer) -> Result<Self, ()> {
-        let module = quote! {
-            mod ffi; // interface and static functions
-            mod ffi_types; // ffi types
-            mod ffi_impl; // ffi interface type
-        };
-
-        Ok(FFIMod { module })
-    }
-}
-
 pub(crate) trait FFITypeName {
     fn get_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
     fn get_ffi_ty_ref_mut(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
@@ -419,7 +391,10 @@ impl FFITypeName for TypeName {
                     ConstTypes::NatUuid => &TypeName::Types(Types::NatUUID),
                 };
 
-                c_ty.conv_ffi_value_to_value(ffi_name, references, analyzer)
+                let ident = format_ident!("{}", &value);
+                let conv_v = c_ty.conv_ffi_value_to_value(ffi_name, references, analyzer);
+                quote! { { idl_types::#ident(#conv_v) } }
+                
             }
             TypeName::TypeFunction(_) | TypeName::TypeTuple(_) | TypeName::InterfaceTypeName(_) => {
                 panic!("Invalid type")
@@ -490,7 +465,7 @@ impl FFITypeName for TypeName {
         match self {
             TypeName::Types(value) => match value {
                 Types::NatInt => quote! { { #value_name } as i64 },
-                Types::NatFloat => quote! { { #value_name } as f64 },
+                Types::NatFloat => quote! { { #value_name } as f64 }, // TODO
                 Types::NatString => quote! { { AbiString::from(#value_name) } },
                 Types::NatBytes => quote! { { AbiBytes::from(#value_name) } },
                 Types::NatUUID => quote! { { AbiUuid::from(#value_name) } },
@@ -634,7 +609,8 @@ impl FFITypeName for TypeName {
                     ConstTypes::NatUuid => &TypeName::Types(Types::NatUUID),
                 };
 
-                c_ty.conv_value_to_ffi_value(value_name, references, analyzer)
+                let value_name = quote! { #value_name.0 };
+                c_ty.conv_value_to_ffi_value(&value_name, references, analyzer)
             }
             sw => panic!("Invalid type `{:?}`", sw),
         }
@@ -667,12 +643,10 @@ impl FFITypeName for TypeName {
     ) -> TokenStream {
         match self {
             TypeName::Types(value) => match value {
-                Types::NatBytes => {
+                Types::NatBytes | Types::NatUUID | Types::NatString => {
                     quote! { #value_name.dispose(); }
                 }
-                Types::NatUUID |  Types::NatString => {
-                    quote! { #value_name.dispose(); }
-                }
+                // In case there's a new one, matches all types
                 Types::NatInt | Types::NatFloat | Types::NatBool | Types::NatNone => quote! {},
             },
             TypeName::TypeArray(value) => {
@@ -770,16 +744,21 @@ impl FFITypeName for TypeName {
             }
             TypeName::TypeOption(value) => {
                 let some_ty = value.some_ty.get_ffi_ty_ref_mut(references, analyzer);
+                let none_ty =
+                    TypeName::Types(Types::NatNone).get_ffi_ty_ref_mut(references, analyzer);
                 let some_data = quote! { #value_name.data as #some_ty };
+                let none_data = quote! { #value_name.data as #none_ty };
                 let dispose_some = value
                     .some_ty
                     .dispose_ffi_boxed(&some_data, references, analyzer);
+                let dispose_none = TypeName::Types(Types::NatNone)
+                    .dispose_ffi_boxed(&none_data, references, analyzer);
 
                 quote! { {
                     match #value_name.index {
                         0 => { #dispose_some },
-                        1 => {}
-                        _value => panic!("Invaild option value `{}`", _value),
+                        1 => { #dispose_none },
+                        _value => panic!("Invaild option variant `{}`", _value),
                     }
                 } }
             }
@@ -799,13 +778,17 @@ impl FFITypeName for TypeName {
                     match #value_name.index {
                         0 => { #dispose_ok },
                         1 => { #dispose_err },
-                        _value => panic!("Invaild result value `{}`", _value),
+                        _value => panic!("Invaild result variant `{}`", _value),
                     }
                 } }
             }
-            TypeName::StructTypeName(_) | TypeName::ListTypeName(_) => {
-                //quote! { #ret_val_ident.dispose(); }
-                quote! {}
+            TypeName::StructTypeName(value) | TypeName::ListTypeName(value) => {
+                let ident = format_ident!("{}", value);
+                if references {
+                    quote! { { crate::ffi_types::#ident::dispose(#value_name) } }
+                } else {
+                    quote! { { #ident::dispose(#value_name) } }
+                }
             }
             TypeName::ConstTypeName(value) => {
                 let const_ty = analyzer
