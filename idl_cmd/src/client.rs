@@ -4,7 +4,7 @@ use anyhow::{anyhow, Result};
 use clap::{App, Arg, ArgMatches};
 use idl_gen::lang::*;
 use message::Message;
-use std::fs;
+use std::{fs, path::PathBuf};
 use std::path::Path;
 
 enum GenArgs {
@@ -16,23 +16,26 @@ pub fn create_command<'a>() -> App<'a> {
         Arg::new("output")
             .about("Output path")
             .short('o')
-            .default_value(".")
             .long("output")
+            .conflicts_with("path")
             .takes_value(true),
         Arg::new("input")
-            .about("Idl path")
-            .default_value("idl/")
+            .about("Idl input path")
             .short('i')
             .long("input")
+            .conflicts_with("path")
             .takes_value(true),
+        Arg::new("path")
+            .about("The target directory")
+            .long("path")
+            .takes_value(true)
+            .conflicts_with_all(&["input", "output"]),
         Arg::new("server")
             .about("Server")
-            .short('s')
             .long("server")
             .takes_value(true),
         Arg::new("client")
             .about("Client")
-            .short('c')
             .long("client")
             .default_value("Main")
             .takes_value(true),
@@ -44,15 +47,37 @@ pub fn create_command<'a>() -> App<'a> {
         Arg::new("clean")
             .about("Remove all generated files")
             .long("clean")
+            .conflicts_with("output")
             .takes_value(false)
             .conflicts_with("no_build"),
     ])
 }
 
 pub fn parse(matches: &ArgMatches) -> Result<()> {
-    let input = matches.value_of("input").unwrap();
-    let output = matches.value_of("output").unwrap();
-    let client = matches.value_of("client").unwrap();
+    let input: PathBuf;
+    let mut output: PathBuf;
+
+    if let Some(path) = matches.value_of("path") {
+        let path = std::path::Path::new(path);
+        input = path.to_path_buf();
+        output = path.join("build");
+    } else {
+        input = match matches.value_of("input") {
+            Some(value) => Path::new(value).to_path_buf(),
+            None => Path::new(".").to_path_buf(),
+        };
+        output = match matches.value_of("output") {
+            Some(value) => Path::new(value).to_path_buf(),
+            None => Path::new("build").to_path_buf(),
+        };
+    }
+
+    if matches.is_present("clean") {
+        let _ = fs::remove_dir_all(&output);
+        return Ok(());
+    }
+
+    let client = matches.value_of("client").unwrap();   
 
     let server = matches.value_of("server");
 
@@ -60,7 +85,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
     //let mut layers = vec![];
 
-    let mut module = crate::open_directory(std::path::Path::new(input))?;
+    let mut module = crate::open_directory(&input)?;
     module.update()?;
 
     if diagnostics::diagnostic(&module)? {
@@ -71,16 +96,11 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
     let analyzer_ids = analyzer_i.as_ref().map_err(|err| anyhow!("{}", err))?;
     let package_name = analyzer_ids.get_package().name();
 
-    if matches.is_present("clean") {
-        let src = Path::new(output).join(&package_name);
-        let _ = fs::remove_dir_all(&src);
-        let build = Path::new(output).join("build").join(&package_name);
-        let _ = fs::remove_dir_all(&build);
-        return Ok(());
+    if !matches.is_present("output") {
+        output = output.join(&package_name);
     }
 
     let names = module.idl_documents_all_valid_names()?;
-    // TODO Better way to do this?
     let ref_names: Vec<&str> = names.iter().map(|v| v.as_str()).collect(); 
     let analyzers = module
         .idl_all_analyzers(&ref_names)
@@ -107,15 +127,14 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
     match response.gen_response {
         ResponseType::Generated(value) => {
-            let src = Path::new(output).join(&package_name);
-            let _ = fs::remove_dir_all(&src);
-            fs::create_dir_all(&src)?;
+            let _ = fs::remove_dir_all(&output);
+            fs::create_dir_all(&output)?;
 
             for item in value {
-                item.write_items(&src, true)?;
+                item.write_items(&output, true)?;
             }
 
-            Message::info(format!("Generated files at {:#?}", src))?;
+            Message::info(format!("Generated files at {:#?}", output))?;
         }
         ResponseType::Undefined(err) => {
             Message::error("Request error", err)?;
@@ -152,8 +171,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
                 match response.gen_response {
                     ResponseType::Generated(value) => {
-                        let src = Path::new(output)
-                            .join(&package_name)
+                        let src = output
                             .join("build")
                             .join("idl");
                         let _ = fs::remove_dir_all(&src); // Always remove the contents of `build` folder.

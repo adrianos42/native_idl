@@ -11,7 +11,7 @@ pub(crate) mod server;
 pub(crate) trait FFITypeName {
     fn get_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
     fn get_ffi_ty_ref_mut(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
-    fn is_boxed_ffi(&self, analyzer: &Analyzer) -> bool;
+    fn is_ptr_ffi(&self, analyzer: &Analyzer) -> bool;
     fn get_ptr_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
     fn get_ptr_ffi_ty_ref_mut(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
     fn get_value_ffi_ty_ref(&self, references: bool, analyzer: &Analyzer) -> TokenStream;
@@ -52,6 +52,12 @@ pub(crate) trait FFITypeName {
         analyzer: &Analyzer,
     ) -> TokenStream;
     fn dispose_ffi_boxed(
+        &self,
+        value_name: &TokenStream,
+        references: bool,
+        analyzer: &Analyzer,
+    ) -> TokenStream;
+    fn dispose_ffi_ptr(
         &self,
         value_name: &TokenStream,
         references: bool,
@@ -117,7 +123,7 @@ impl FFITypeName for TypeName {
     }
 
     // Types that need to be released
-    fn is_boxed_ffi(&self, analyzer: &Analyzer) -> bool {
+    fn is_ptr_ffi(&self, analyzer: &Analyzer) -> bool {
         match self {
             TypeName::Types(types) => match types {
                 Types::NatInt | Types::NatFloat | Types::NatBool | Types::NatNone => false,
@@ -394,7 +400,6 @@ impl FFITypeName for TypeName {
                 let ident = format_ident!("{}", &value);
                 let conv_v = c_ty.conv_ffi_value_to_value(ffi_name, references, analyzer);
                 quote! { { idl_types::#ident(#conv_v) } }
-                
             }
             TypeName::TypeFunction(_) | TypeName::TypeTuple(_) | TypeName::InterfaceTypeName(_) => {
                 panic!("Invalid type")
@@ -622,7 +627,22 @@ impl FFITypeName for TypeName {
         references: bool,
         analyzer: &Analyzer,
     ) -> TokenStream {
-        if self.is_boxed_ffi(analyzer) {
+        let dispose_name = quote! { _value_disps };
+        let ref_ffi = self.get_value_ffi_ty_ref(references, analyzer);
+        let dispose_body = self.dispose_ffi(&dispose_name, true, analyzer);
+        quote! { {
+            let mut #dispose_name: Box<#ref_ffi> = unsafe { Box::from_raw(#value_name) };
+            #dispose_body
+        } }
+    }
+
+    fn dispose_ffi_ptr(
+        &self,
+        value_name: &TokenStream,
+        references: bool,
+        analyzer: &Analyzer,
+    ) -> TokenStream {
+        if self.is_ptr_ffi(analyzer) {
             let dispose_name = quote! { _value_disps };
             let ref_ffi = self.get_value_ffi_ty_ref(references, analyzer);
             let dispose_body = self.dispose_ffi(&dispose_name, true, analyzer);
@@ -657,7 +677,7 @@ impl FFITypeName for TypeName {
                 let array_data_ty = value.ty.get_value_ffi_ty_ref(references, analyzer);
                 let dispose_data = value.ty.dispose_ffi(&data_value, references, analyzer);
 
-                let dispose_body = if value.ty.is_boxed_ffi(analyzer) {
+                let dispose_body = if value.ty.is_ptr_ffi(analyzer) {
                     quote! {
                         for #data_value in _sl_array.iter_mut() {
                             #dispose_data
@@ -689,7 +709,7 @@ impl FFITypeName for TypeName {
                 let key_value = quote! { _value_key };
                 let dispose_key = value.index_ty.dispose_ffi(&key_value, references, analyzer);
 
-                let dispose_data_body = if value.map_ty.is_boxed_ffi(analyzer) {
+                let dispose_data_body = if value.map_ty.is_ptr_ffi(analyzer) {
                     quote! {
                         for #data_value in _sl_data.iter_mut() {
                             #dispose_data
@@ -699,7 +719,7 @@ impl FFITypeName for TypeName {
                     quote! {}
                 };
 
-                let dispose_key_body = if value.index_ty.is_boxed_ffi(analyzer) {
+                let dispose_key_body = if value.index_ty.is_ptr_ffi(analyzer) {
                     quote! {
                         for #key_value in _sl_key.iter_mut() {
                             #dispose_key
@@ -724,8 +744,8 @@ impl FFITypeName for TypeName {
                 } }
             }
             TypeName::TypePair(value) => {
-                let first_ty = value.first_ty.get_ffi_ty_ref_mut(references, analyzer);
-                let second_ty = value.second_ty.get_ffi_ty_ref_mut(references, analyzer);
+                let first_ty = value.first_ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
+                let second_ty = value.second_ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
                 let first_data = quote! { #value_name.first_data as #first_ty };
                 let second_data = quote! { #value_name.second_data as #second_ty };
                 let dispose_first =
@@ -743,9 +763,9 @@ impl FFITypeName for TypeName {
                 } }
             }
             TypeName::TypeOption(value) => {
-                let some_ty = value.some_ty.get_ffi_ty_ref_mut(references, analyzer);
+                let some_ty = value.some_ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
                 let none_ty =
-                    TypeName::Types(Types::NatNone).get_ffi_ty_ref_mut(references, analyzer);
+                    TypeName::Types(Types::NatNone).get_ptr_ffi_ty_ref_mut(references, analyzer);
                 let some_data = quote! { #value_name.data as #some_ty };
                 let none_data = quote! { #value_name.data as #none_ty };
                 let dispose_some = value
@@ -763,8 +783,8 @@ impl FFITypeName for TypeName {
                 } }
             }
             TypeName::TypeResult(value) => {
-                let err_ty = value.err_ty.get_ffi_ty_ref_mut(references, analyzer);
-                let ok_ty = value.ok_ty.get_ffi_ty_ref_mut(references, analyzer);
+                let err_ty = value.err_ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
+                let ok_ty = value.ok_ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
                 let err_data = quote! { #value_name.data as #err_ty };
                 let ok_data = quote! { #value_name.data as #ok_ty };
                 let dispose_err = value
@@ -782,12 +802,13 @@ impl FFITypeName for TypeName {
                     }
                 } }
             }
-            TypeName::StructTypeName(value) | TypeName::ListTypeName(value) => {
+            TypeName::StructTypeName(_) => quote! { { #value_name.dispose(); } },
+            TypeName::ListTypeName(value) => {
                 let ident = format_ident!("{}", value);
                 if references {
-                    quote! { { crate::ffi_types::#ident::dispose(#value_name) } }
+                    quote! { { crate::ffi_types::#ident::dispose(#value_name.index, #value_name.data); } }
                 } else {
-                    quote! { { #ident::dispose(#value_name) } }
+                    quote! { { #ident::dispose(#value_name.index, #value_name.data); } }
                 }
             }
             TypeName::ConstTypeName(value) => {

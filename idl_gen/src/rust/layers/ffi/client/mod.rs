@@ -362,7 +362,7 @@ impl FFIClient {
                         };
 
                         fields.push(create_fn(func_ffi_ident, args_ident, body_ident));
-                    } else if ret_ty.is_boxed_ffi(analyzer) {
+                    } else if ret_ty.is_ptr_ffi(analyzer) {
                         let func_ffi_ident = format_ident!("{}_dispose_{}", analyzer.library_name(), field_name);
 
                         let result_ident = quote! { _result_disp };

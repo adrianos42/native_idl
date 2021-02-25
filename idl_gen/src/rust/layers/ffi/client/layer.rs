@@ -21,6 +21,8 @@ impl LayerBuilder for FFILayer {
         analyzers: &[idl::analyzer::Analyzer],
         ids_analyzer: &ids::analyzer::Analyzer,
     ) -> anyhow::Result<Vec<StorageItem>> {
+        panic!("Client side is not fully implemented yet!");
+
         let ffi_cargo =
             super::client_cargo::FFIClientCargo::generate(&ids_analyzer, &self.client_name)?;
 

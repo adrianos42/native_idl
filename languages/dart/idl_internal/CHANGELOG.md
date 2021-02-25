@@ -21,3 +21,7 @@
 0.1.6-2.12.0-0
 
 - Change list allocation
+
+0.1.7-2.12.0-0
+
+- Allocation

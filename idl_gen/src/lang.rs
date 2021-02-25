@@ -69,6 +69,8 @@ pub struct LanguageResponse {
 }
 
 impl StorageItem {
+    // Merged means that no folder will have the contents removed if another folder of the same
+    // name if found in the same directory.
     pub fn write_items(&self, path: &Path, is_merged: bool) -> anyhow::Result<()> {
         match self {
             Self::Source { name, txt } => {

@@ -358,7 +358,7 @@ impl FFIServer {
                         };
 
                         fields.push(create_fn(func_ffi_ident, args_ident, body_ident));
-                    } else if ret_ty.is_boxed_ffi(analyzer) {
+                    } else if ret_ty.is_ptr_ffi(analyzer) {
                         let func_ffi_ident = format_ident!("{}_dispose_{}", analyzer.library_name(), field_name);
 
                         let result_ident = quote! { _result_disp };
@@ -368,7 +368,7 @@ impl FFIServer {
                                 #instance_args 
                                 #result_ident: #result_ty_ident 
                         };
-                        let result_dispose = ret_ty.dispose_ffi_boxed(&result_ident, true, analyzer);
+                        let result_dispose = ret_ty.dispose_ffi_ptr(&result_ident, true, analyzer);
                         let body_ident = quote! {
                             #result_dispose
                             return AbiInternalError::Ok;

@@ -11,7 +11,7 @@ dependencies:
   flutter:
     sdk: flutter
   desktop:
-    path: ../../desktop/source
+    path: ../../desktop
     
   url_launcher: 6.0.0-nullsafety.6
 

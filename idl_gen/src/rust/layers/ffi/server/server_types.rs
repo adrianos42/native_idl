@@ -80,6 +80,7 @@ impl FFIServerTypes {
         let mut fields = vec![];
         let mut fields_conv = vec![];
         let mut fields_value_conv = vec![];
+        let mut fields_dispose = vec![];
 
         let struct_ident = format_ident!("{}", &ident);
 
@@ -95,6 +96,11 @@ impl FFIServerTypes {
                     let con_value_ty = field.ty.conv_ffi_to_value(&field_value, false, analyzer);
                     fields_conv.push(quote! { #field_name: #con_ty });
                     fields_value_conv.push(quote! { #field_name: #con_value_ty });
+
+                    let value_ty = field.ty.get_ffi_ty_ref_mut(false, analyzer);
+                    let value_name = quote! { self.#field_name as #value_ty };
+                    let ty_ident = field.ty.dispose_ffi_ptr(&value_name, false, analyzer);
+                    fields_dispose.push(quote! { #ty_ident });
                 }
                 StructNode::Comment(_) => {}
             }
@@ -105,8 +111,8 @@ impl FFIServerTypes {
             pub struct #struct_ident { #( #fields )* }
 
             impl #struct_ident {
-                pub fn dispose() {
-
+                pub fn dispose(&self) {
+                    #( #fields_dispose );*
                 }
             }
 
@@ -183,8 +189,8 @@ impl FFIServerTypes {
                         #f_name => { #list_ty_name::#f_ident(#ty_ident) }
                     });
 
-                    let value_ty = field.ty.get_ffi_ty_ref_mut(false, analyzer);
-                    let value_name = quote! { value.data as #value_ty };
+                    let value_ty = field.ty.get_ptr_ffi_ty_ref_mut(false, analyzer);
+                    let value_name = quote! { data as #value_ty };
                     let ty_ident = field.ty.dispose_ffi_boxed(&value_name, false, analyzer);
                     dispose_ffi.push(quote! { #f_name => { #ty_ident } });
 
@@ -198,8 +204,8 @@ impl FFIServerTypes {
             pub struct #ty_name_ident(AbiVariant);
 
             impl #ty_name_ident {
-                pub fn dispose(value: AbiVariant) {
-                    match value.index {
+                pub fn dispose(index: i64, data: *const ::core::ffi::c_void) {
+                    match index {
                         #( #dispose_ffi )*
                         _ => panic!("Invalid variant value for type list")
                     }
