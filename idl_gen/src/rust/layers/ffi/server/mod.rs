@@ -1,12 +1,12 @@
-use idl::{analyzer::Analyzer};
+use idl::analyzer::Analyzer;
 use idl::idl_nodes::*;
 
-use crate::{rust::con_idl::{get_rust_ty_name, get_rust_ty_ref}};
+use crate::rust::con_idl::{get_rust_ty_name, get_rust_ty_ref};
 
 use crate::rust::string_pros::{StringPros, StringRustFmt};
 use proc_macro2::{self, Literal, TokenStream};
-use quote::{TokenStreamExt, ToTokens};
 use quote::format_ident;
+use quote::{ToTokens, TokenStreamExt};
 use std::{collections::HashMap, fmt};
 
 use super::*;
@@ -14,8 +14,8 @@ use super::*;
 pub(crate) mod layer;
 pub(super) mod server_cargo;
 pub(super) mod server_impl;
-pub(super) mod server_types;
 pub(super) mod server_mod;
+pub(super) mod server_types;
 
 #[derive(Debug)]
 pub enum FFIServerError {
@@ -53,8 +53,8 @@ impl FFIServer {
 
         let library_name = analyzer.library_name();
         let library_ident = format_ident!("{}", library_name);
-        let lib_ident = if package_name == analyzer.library_name() { 
-            quote! { #library_ident } 
+        let lib_ident = if package_name == analyzer.library_name() {
+            quote! { #library_ident }
         } else {
             let package_ident = format_ident!("{}", package_name);
             quote! { #package_ident::#library_ident }
@@ -109,7 +109,9 @@ impl FFIServer {
                 #[no_mangle]
                 #[allow(unused_braces)]
                 pub extern "C" fn #func_ffi_ident( #args ) -> i64 {
-                    match ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(move || { #body })) {
+                    match ::std::panic::catch_unwind(::std::panic::AssertUnwindSafe(move || { 
+                        #body 
+                    })) {
                         Ok(value) => value as i64,
                         Err(_) => AbiInternalError::UndefinedException as i64,
                     }
@@ -255,14 +257,12 @@ impl FFIServer {
 
                             let result_val_ident = quote! { _result_val };
 
-                            let result_conv =
+                            let result_conv = 
                                 ret_ty.conv_value_to_ffi(&result_val_ident, true, analyzer);
 
                             let r_ty = get_rust_ty_ref(ret_ty, true);
 
-                            ret_conv_ffi.push(quote! {
-                                unsafe { *#result_ident = #result_conv; }
-                            });
+                            ret_conv_ffi.push(quote! { unsafe { *#result_ident = #result_conv; } });
                             quote! { let #result_val_ident: #r_ty= }
                         }
                     };
@@ -288,7 +288,9 @@ impl FFIServer {
                                 std::mem::forget(#ins_ident);
                                 return AbiInternalError::Ok;
                             },
-                            quote! { #instance_ident: *mut #library_ident_ffi_impl::#interface_instance_ident, },
+                            quote! { 
+                                #instance_ident: *mut #library_ident_ffi_impl::#interface_instance_ident,
+                            },
                         )
                     };
 
@@ -306,8 +308,8 @@ impl FFIServer {
                     fields.push(create_fn(func_ffi_ident, args, body_ident));
 
                     // Add the function to set the stream callback
-                    if let TypeName::TypeStream(_) = ret_ty {
-                        let func_ffi_ident = format_ident!("stream_{}", field_name);
+                    if let TypeName::TypeStream(stream_ty) = ret_ty {
+                        let func_ffi_ident = format_ident!("{}_stream_{}", analyzer.library_name(), field_name);
                         let func_ident = format_ident!("{}_stream", &field.ident);
                         let stream_ident = quote! { _stream };
                         let stream_result_ident = quote! { _stream_result };
@@ -322,9 +324,14 @@ impl FFIServer {
 
                         let body_stream = quote! {
                             let #stream_value_ident = #con;
-                            let _result = #instance_call#func_ident(#conv,#stream_value_ident.into());
+                            let _result = 
+                                #instance_call#func_ident(#conv,#stream_value_ident.into());
                             unsafe {
-                                *#stream_result_ident = { Box::into_raw(Box::new({ _result.into_abi() })) as *mut AbiStream };
+                                *#stream_result_ident = { 
+                                    Box::into_raw(Box::new({ 
+                                        _result.into_abi() 
+                                    })) as *mut AbiStream 
+                                };
                             }
 
                         };
@@ -346,27 +353,29 @@ impl FFIServer {
 
                         fields.push(create_fn(func_ffi_ident, args, body_ident));
 
-                        let func_ffi_ident = format_ident!("dispose_stream_{}", field_name);
+                        let func_ffi_ident = format_ident!("{}_dispose_stream_{}", analyzer.library_name(), field_name);
                         let args_ident = quote! {
                                 #instance_args
                                 #stream_ident: *mut AbiStream,
                         };
+
+                        let r_ty = get_rust_ty_ref(&stream_ty.s_ty, true);
                         let body_ident = quote! {
-                            let #stream_value_ident: Box<AbiStream> = unsafe { Box::from_raw(#stream_ident) };
-                            #stream_value_ident.dispose();
+                            let #stream_value_ident: Box<AbiStream> = 
+                                unsafe { Box::from_raw(#stream_ident) };
+                            <AbiStream as StreamAbiSenderDispose<#r_ty>>::dispose(*#stream_value_ident);
                             return AbiInternalError::Ok;
                         };
-
                         fields.push(create_fn(func_ffi_ident, args_ident, body_ident));
                     } else if ret_ty.is_ptr_ffi(analyzer) {
-                        let func_ffi_ident = format_ident!("{}_dispose_{}", analyzer.library_name(), field_name);
+                        let func_ffi_ident =
+                            format_ident!("{}_dispose_{}", analyzer.library_name(), field_name);
 
                         let result_ident = quote! { _result_disp };
                         let result_ty_ident = ret_ty.get_ffi_ty_ref_mut(true, analyzer);
-                        let args_ident =
-                            quote! { 
-                                #instance_args 
-                                #result_ident: #result_ty_ident 
+                        let args_ident = quote! {
+                                #instance_args
+                                #result_ident: #result_ty_ident
                         };
                         let result_dispose = ret_ty.dispose_ffi_ptr(&result_ident, true, analyzer);
                         let body_ident = quote! {
@@ -378,7 +387,11 @@ impl FFIServer {
                     }
 
                     if let Some(stream_arg_ty) = stream_arg {
-                        let func_ffi_ident = format_ident!("{}_stream_sender_{}", analyzer.library_name(), field_name);
+                        let func_ffi_ident = format_ident!(
+                            "{}_stream_sender_{}",
+                            analyzer.library_name(),
+                            field_name
+                        );
                         let func_ident = format_ident!("{}_stream_sender", &field.ident);
                         let stream_ident = quote! { _stream };
                         let stream_result_ident = quote! { _stream_result };
@@ -393,9 +406,11 @@ impl FFIServer {
 
                         let body_stream = quote! {
                             let #stream_value_ident = #con;
-                            let _result = #instance_call#func_ident(#conv,#stream_value_ident.into_sender());
+                            let _result = 
+                                #instance_call#func_ident(#conv,#stream_value_ident.into_sender());
                             unsafe {
-                                *#stream_result_ident = { Box::into_raw(Box::new({ _result.into() })) as *mut AbiStream };
+                                *#stream_result_ident = 
+                                    { Box::into_raw(Box::new({ _result.into() })) as *mut AbiStream };
                             }
                         };
 
@@ -416,13 +431,18 @@ impl FFIServer {
 
                         fields.push(create_fn(func_ffi_ident, args, body_ident));
 
-                        let func_ffi_ident = format_ident!("{}_dispose_stream_sender_{}", analyzer.library_name(), field_name);
+                        let func_ffi_ident = format_ident!(
+                            "{}_dispose_stream_sender_{}",
+                            analyzer.library_name(),
+                            field_name
+                        );
                         let args_ident = quote! {
                             #instance_args
                             #stream_ident: *mut AbiStream,
                         };
                         let body_ident = quote! {
-                            let #stream_value_ident: Box<AbiStream> = unsafe { Box::from_raw(#stream_ident) };
+                            let #stream_value_ident: Box<AbiStream> = 
+                                unsafe { Box::from_raw(#stream_ident) };
                             return AbiInternalError::Ok;
                         };
 
@@ -467,14 +487,18 @@ impl FFIServer {
             let arg_ident = {
                 let interface_ty_ident = TypeName::InterfaceTypeName(ident.to_owned());
                 let result_ident = quote! { _result };
-               // let result_val_ident = quote! { _result_val };
+                // let result_val_ident = quote! { _result_val };
 
                 let result_ty_ident = interface_ty_ident.get_ffi_ty_ref(true, analyzer);
 
                 quote! { #result_ident: *mut #result_ty_ident }
             };
 
-            let field_name = format!("{}_dispose_{}", analyzer.library_name(), ident.to_snake_case());
+            let field_name = format!(
+                "{}_dispose_{}",
+                analyzer.library_name(),
+                ident.to_snake_case()
+            );
             let func_ffi_ident = format_ident!("{}", &field_name);
 
             // let ins_ident = quote! { _ins };
@@ -528,7 +552,7 @@ impl FFIServer {
         if !stream_ret_types.is_empty() {
             self.module.push(quote! {
                 trait StreamSenderIntoAbiStream<T> {
-                    fn into_abi(self) -> AbiStream;
+                    fn into_abi(self) -> AbiStream; 
                 }
                 trait StreamAbiSenderDispose<T> {
                     fn dispose(self);
@@ -539,6 +563,10 @@ impl FFIServer {
                 let r_ty = get_rust_ty_ref(ret_ty, true);
                 let cont_val = ret_ty.conv_value_to_ffi_boxed(&quote! { value }, true, analyzer);
 
+                let value_ty = ret_ty.get_ptr_ffi_ty_ref_mut(true, analyzer);
+                let value_name = quote! { self.data as #value_ty };
+                let dispose_body = ret_ty.dispose_ffi_boxed(&value_name, true, analyzer);
+
                 fields.push(quote! {
                     impl StreamSenderIntoAbiStream<#r_ty> for StreamSender<#r_ty> {
                         #[allow(unused_braces)]
@@ -546,7 +574,8 @@ impl FFIServer {
                             match self {
                                 StreamSender::Ok => AbiStream::new(AbiStreamSenderState::Ok as i64),
                                 StreamSender::Value(value) => {
-                                    let mut _result = AbiStream::new(AbiStreamSenderState::Value as i64);
+                                    let mut _result = 
+                                        AbiStream::new(AbiStreamSenderState::Value as i64);
                                     _result.data = #cont_val as *const ::core::ffi::c_void;
                                     _result
                                 }
@@ -559,7 +588,7 @@ impl FFIServer {
                     impl StreamAbiSenderDispose<#r_ty> for AbiStream {
                         fn dispose(self) {
                             match self.state.into() {
-                                AbiStreamSenderState::Value => {}
+                                AbiStreamSenderState::Value => { #dispose_body }
                                 _ => {}
                             }
                         }
@@ -577,8 +606,7 @@ impl FFIServer {
 
             for send_ty in stream_send_types.values() {
                 let s_ty = get_rust_ty_ref(send_ty, true);
-                let cont_val =
-                    send_ty.conv_ffi_ptr_to_value(&quote! { self.data }, true, analyzer);
+                let cont_val = send_ty.conv_ffi_ptr_to_value(&quote! { self.data }, true, analyzer);
 
                 fields.push(quote! {
                     impl AbiStreamIntoStreamSender<#s_ty> for AbiStream {

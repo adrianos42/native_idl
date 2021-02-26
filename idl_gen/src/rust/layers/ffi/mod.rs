@@ -670,7 +670,7 @@ impl FFITypeName for TypeName {
                 Types::NatInt | Types::NatFloat | Types::NatBool | Types::NatNone => quote! {},
             },
             TypeName::TypeArray(value) => {
-                let array_ty = value.ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
+                let array_ty = value.ty.get_ffi_ty_ref_mut(references, analyzer);
                 let array_data = quote! { #value_name.data as #array_ty };
                 let array_length = quote! { #value_name.length as usize };
                 let data_value = quote! { _value };
@@ -697,10 +697,10 @@ impl FFITypeName for TypeName {
             TypeName::TypeMap(value) => {
                 let map_length = quote! { #value_name.length as usize };
 
-                let map_data_ty = value.map_ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
+                let map_data_ty = value.map_ty.get_ffi_ty_ref_mut(references, analyzer);
                 let map_data_data = quote! { #value_name.data as #map_data_ty };
 
-                let map_key_ty = value.index_ty.get_ptr_ffi_ty_ref_mut(references, analyzer);
+                let map_key_ty = value.index_ty.get_ffi_ty_ref_mut(references, analyzer);
                 let map_key_data = quote! { #value_name.key as #map_key_ty };
 
                 let data_value = quote! { _value_data };

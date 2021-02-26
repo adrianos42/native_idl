@@ -89,6 +89,7 @@ impl From<i64> for AbiStreamReceiverState {
 pub struct AbiStream {
     pub state: i64,
     pub wake_handle: i64,
+    pub wake_object_id: i64,
     pub wake_object: *const ::core::ffi::c_void,
     pub wake_callback: *const ::core::ffi::c_void,
     pub data: *const ::core::ffi::c_void,
@@ -101,6 +102,7 @@ impl AbiStream {
             data: 0 as *const ::core::ffi::c_void,
             wake_object: 0 as *const ::core::ffi::c_void,
             wake_handle: 0,
+            wake_object_id: 0,
             state: state,
         }
     }

@@ -113,6 +113,8 @@ class AbiStream extends Struct {
   int? state;
   @Int64()
   int? wakeHandle;
+  @Int64()
+  int? wakeObjectId;
   Pointer<Void>? wakeObject;
   Pointer<Void>? wakeCallback;
   Pointer<Void>? data;

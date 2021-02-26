@@ -1225,7 +1225,7 @@ class _FFIDartTypes {
       final \$fValue = allocate<Pointer<AbiStream>>();''';
 
     final streamTy = PackageLibrary.fieldStreamReturnTy(field);
-    final streamffiTy = _getffiTypeForInterface(streamTy);
+    final streamffiTy = _getffiTypeArray(streamTy);
 
     final disposeArgList =
         instanceArg.isEmpty ? '\$fValue.value' : '$instanceArg,\$fValue.value';
@@ -1245,7 +1245,7 @@ class _FFIDartTypes {
             \$sendPort.send([\$wakeObject, \$stream.ref.state!, 0]);
             break;
           case AbiStreamSenderState.value:
-            final \$result = ${_ffiToTypeForField(streamTy, '\$stream.ref.data!.cast<$streamffiTy>().value')};
+            final \$result = ${_ffiToTypeForFieldBoxed(streamTy, '\$stream.ref.data!.cast<$streamffiTy>()')};
             \$sendPort.send([\$wakeObject, \$stream.ref.state!, \$result]);
             break;
           default:

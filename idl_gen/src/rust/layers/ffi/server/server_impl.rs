@@ -222,13 +222,13 @@ impl FFIServerImpl {
                         let a_ty = get_rust_ty_ref(arg_ty, true);
                         let s_ty = get_rust_ty_ref(stream_ty, true);
                         static_fields.push(quote! {
-                            pub(crate) fn #f_ident(stream_instance: #a_ty, stream: StreamSender<#s_ty>) -> StreamReceiver {
-                                #interface_static_instance_ident::#f_ident::<#lib_ident::#interface_ident>(stream_instance, stream)
+                            pub(crate) fn #f_ident(stream_instance: #a_ty, stream_sender: StreamSender<#s_ty>) -> StreamReceiver {
+                                #interface_static_instance_ident::#f_ident::<#lib_ident::#interface_ident>(stream_instance, stream_sender)
                             }
                         });
                         static_instance_fields.push(quote! {
-                            fn #f_ident<T: #library_ident_impl::#interface_static_ident>(stream_instance: #a_ty, stream: StreamSender<#s_ty>) -> StreamReceiver {
-                                T::#f_ident(stream_instance,stream)
+                            fn #f_ident<T: #library_ident_impl::#interface_static_ident>(stream_instance: #a_ty, stream_sender: StreamSender<#s_ty>) -> StreamReceiver {
+                                T::#f_ident(stream_instance,stream_sender)
                             }
                         });
                     }
@@ -237,14 +237,14 @@ impl FFIServerImpl {
                         let r_ty = get_rust_ty_ref(ret_ty, true);
                         let s_ty = get_rust_ty_ref(stream_ty, true);
                         static_fields.push(quote! {
-                            pub(crate) fn #f_ident(stream_instance: #r_ty, stream: StreamReceiver) -> StreamSender<#s_ty> {
-                                #interface_static_instance_ident::#f_ident::<#lib_ident::#interface_ident>(stream_instance, stream)
+                            pub(crate) fn #f_ident(stream_instance: #r_ty, stream_receiver: StreamReceiver) -> StreamSender<#s_ty> {
+                                #interface_static_instance_ident::#f_ident::<#lib_ident::#interface_ident>(stream_instance, stream_receiver)
                             }
                         });
 
                         static_instance_fields.push(quote! {
-                            fn #f_ident<T: #library_ident_impl::#interface_static_ident>(stream_instance: #r_ty, stream: StreamReceiver) -> StreamSender<#s_ty> {
-                                T::#f_ident(stream_instance,stream)
+                            fn #f_ident<T: #library_ident_impl::#interface_static_ident>(stream_instance: #r_ty, stream_receiver: StreamReceiver) -> StreamSender<#s_ty> {
+                                T::#f_ident(stream_instance,stream_receiver)
                             }
                         });
                     }

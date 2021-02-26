@@ -130,7 +130,7 @@ impl LayerBuilder for FFILayer {
             let ws = Workspace::new(&package_path, &config)?;
 
             let mut compile_options = CompileOptions::new(&config, CompileMode::Build)?;
-            compile_options.build_config.requested_profile = InternedString::new("release");
+            compile_options.build_config.requested_profile = InternedString::new("debug");
 
             let comp = cargo::ops::compile(&ws, &compile_options)?;
 

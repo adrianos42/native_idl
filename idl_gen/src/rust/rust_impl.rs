@@ -133,7 +133,7 @@ impl RustImpl {
                         let a_ty = get_rust_ty_ref(arg_ty, false);
                         let s_ty = get_rust_ty_ref(stream_ty, false);
                         fields_add.push(quote! {
-                            fn #ident(#self_ident stream_instance: #a_ty, stream: StreamSender<#s_ty>) -> StreamReceiver;
+                            fn #ident(#self_ident stream_instance: #a_ty, stream_sender: StreamSender<#s_ty>) -> StreamReceiver;
                         });
                     }
                     if let Some((ret_ty, stream_ty)) = stream_ret {
@@ -141,7 +141,7 @@ impl RustImpl {
                         let r_ty = get_rust_ty_ref(ret_ty, false);
                         let s_ty = get_rust_ty_ref(stream_ty, false);
                         fields_add.push(quote! {
-                            fn #ident(#self_ident stream_instance: #r_ty, stream: StreamReceiver) -> StreamSender<#s_ty>;
+                            fn #ident(#self_ident stream_instance: #r_ty, stream_receiver: StreamReceiver) -> StreamSender<#s_ty>;
                         });
                     }
                 }
