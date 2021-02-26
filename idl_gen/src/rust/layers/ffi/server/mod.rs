@@ -132,6 +132,7 @@ impl FFIServer {
                     callback: unsafe { std::mem::transmute(_value.wake_callback) },
                     handle: _value.wake_handle,
                     object: _value.wake_object,
+                    object_id: _value.wake_object_id,
                 })
             };
 
@@ -171,6 +172,7 @@ impl FFIServer {
                     callback: unsafe { std::mem::transmute(#value_name.wake_callback) },
                     handle: #value_name.wake_handle,
                     object: #value_name.wake_object,
+                    object_id: #value_name.wake_object_id,
                 })
             }
         };

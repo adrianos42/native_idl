@@ -1121,6 +1121,7 @@ class _FFIDartTypes {
             \$streamDataValue.value = -1;
             \$fValue${toPascalCase(value.ident)}.ref.wakeHandle = \$wakePortSend;
             \$fValue${toPascalCase(value.ident)}.ref.wakeObject = DartCObjectInt.newObject(\$wakeObjectSend).cast();
+            \$fValue${toPascalCase(value.ident)}.ref.wakeObjectId = \$wakeObjectSend;
             \$fValue${toPascalCase(value.ident)}.ref.wakeCallback = NativeApi.postCObject.cast();
             \$fValue${toPascalCase(value.ident)}.ref.state = AbiStreamSenderState.waiting;
             \$streamValue.ref.data = \$streamDataValue.cast();''';
@@ -1152,6 +1153,7 @@ class _FFIDartTypes {
           \$streamValue.ref.wakeHandle = \$wakePort;
           \$streamValue.ref.wakeObject = DartCObjectInt.newObject(\$wakeObject).cast();
           \$streamValue.ref.wakeCallback = NativeApi.postCObject.cast();
+          \$streamValue.ref.wakeObjectId = \$wakeObject;
           \$streamValue.ref.state = AbiStreamReceiverState.start;
           AbiInternalError.handleError($fieldFunctionName($argList), \'${errorMessage}\');''';
 
@@ -1233,6 +1235,7 @@ class _FFIDartTypes {
     setValue += '''
       \$streamValue.ref.wakeHandle = \$wakePort;
       \$streamValue.ref.wakeObject = DartCObjectInt.newObject(\$wakeObject).cast();
+      \$streamValue.ref.wakeObjectId = \$wakeObject;
       \$streamValue.ref.wakeCallback = NativeApi.postCObject.cast();
       \$streamValue.ref.state = \$streamState;
       AbiInternalError.handleError($fieldFunctionName($argList), \'${errorMessage}\');
@@ -1296,6 +1299,7 @@ class _FFIDartTypes {
       }
       \$streamValue.ref.wakeHandle = \$wakePort;
       \$streamValue.ref.wakeObject = DartCObjectInt.newObject(\$wakeObject).cast();
+      \$streamValue.ref.wakeObjectId = \$wakeObject;
       \$streamValue.ref.wakeCallback = NativeApi.postCObject.cast();
       \$streamValue.ref.state = \$streamState;
       AbiInternalError.handleError($fieldFunctionName($argList), \'${errorMessage}\');

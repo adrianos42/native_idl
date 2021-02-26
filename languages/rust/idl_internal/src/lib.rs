@@ -21,5 +21,5 @@ pub enum StreamReceiver {
 
 pub trait StreamInstance {
     fn wake_client(&self);
-    fn get_handle(&self) -> i64;
+    fn get_id(&self) -> i64;
 }

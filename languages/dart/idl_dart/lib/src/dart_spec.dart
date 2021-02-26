@@ -22,7 +22,7 @@ class DartSpec {
       environment: {'sdk': VersionConstraint.parse(environment)},
       dependencies: {
         'idl_internal':
-            Dependency(version: VersionConstraint.parse('^0.1.6-2.12.0-0'))
+            Dependency(version: VersionConstraint.parse('^0.1.8-2.12.0-0'))
       },
     );
 

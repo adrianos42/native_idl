@@ -95,6 +95,7 @@ impl FFIServerImpl {
                 pub(super) struct #stream_name_ident {
                     pub(super) callback: extern "C" fn(i64, *const ::core::ffi::c_void),
                     pub(super) object: *const ::core::ffi::c_void,
+                    pub(super) object_id: i64,
                     pub(super) handle: i64,
                 }
 
@@ -106,8 +107,8 @@ impl FFIServerImpl {
                         run(self.handle, self.object);
                     }
 
-                    fn get_handle(&self) -> i64 {
-                        self.handle
+                    fn get_id(&self) -> i64 {
+                        self.object_id
                     }
                 }
             });
