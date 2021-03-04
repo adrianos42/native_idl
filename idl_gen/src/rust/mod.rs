@@ -8,7 +8,7 @@ pub(crate) mod con_idl;
 
 use crate::lang::*;
 use anyhow::Result;
-use layers::{Layer, LayerBuilder};
+use layers::{layer_builder_client, layer_builder_server, layer_runner_server, Layer};
 use rust_impl::rust_impl_files;
 use thiserror::Error;
 
@@ -45,7 +45,29 @@ impl crate::IdlGen for RustGen {
 
                 match name.args {
                     ServerArg::Build => {
-                        let layer = Layer::layer_builder_server(name.server_name.to_owned());
+                        let layer = layer_builder_server(
+                            name.server_name.to_owned(),
+                            name.input_path,
+                            match name.build_type {
+                                BuildType::Release => false,
+                                BuildType::Debug => true,
+                            },
+                        );
+                        root_items.append(
+                            &mut layer
+                                .build(&analyzers, &ids_analyzer)
+                                .map_err(|err| RustGenError::Undefined(err.to_string()))?,
+                        );
+                    }
+                    ServerArg::Run => {
+                        let layer = layer_runner_server(
+                            name.server_name.to_owned(),
+                            name.input_path,
+                            match name.build_type {
+                                BuildType::Release => false,
+                                BuildType::Debug => true,
+                            },
+                        );
                         root_items.append(
                             &mut layer
                                 .build(&analyzers, &ids_analyzer)
@@ -76,7 +98,7 @@ impl crate::IdlGen for RustGen {
                 //     crate::IdlGenError::RustGenError(RustGenError::Undefined("".to_owned()))
                 // })?;
 
-                let layer = Layer::layer_builder_client(name.to_owned());
+                let layer = layer_builder_client(name.to_owned());
                 root_items.append(
                     &mut layer
                         .build(&analyzers, &ids_analyzer)

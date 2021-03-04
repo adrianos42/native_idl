@@ -12,7 +12,6 @@ client Main {
 server MainServer {
     layers: [RustAsync, FFI],
     language: "rust",
-    path: "/home/adriano/repos/native_idl/idl_gen/test/rust/idl_test",
 }
 
 layer Flutter {

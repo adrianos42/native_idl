@@ -3071,7 +3071,7 @@ impl Parser {
                                 let range = keyword.range;
                                 let keywords = *keyword.get_word();
                                 match keywords {
-                                    Keywords::Map | Keywords::Pair
+                                    Keywords::Map | Keywords::Pair | Keywords::Option
                                         if parsing == StructFieldParsing::ExpectingType =>
                                     {
                                         let (r_ty, range) = Self::get_romm(
@@ -3639,7 +3639,7 @@ impl Parser {
                                 let range = keyword.range;
                                 let keywords = *keyword.get_word();
                                 match keywords {
-                                    Keywords::Map | Keywords::Pair
+                                    Keywords::Map | Keywords::Pair | Keywords::Option
                                         if parsing == TypeListFieldParsing::ExpectingType =>
                                     {
                                         let (r_ty, range) = Self::get_romm(

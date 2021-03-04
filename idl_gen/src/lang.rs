@@ -11,7 +11,14 @@ pub struct ClientType {
 }
 
 #[derive(Debug, Deserialize, Serialize)]
+pub enum BuildType {
+    Release,
+    Debug,
+}
+
+#[derive(Debug, Deserialize, Serialize)]
 pub enum ServerArg {
+    Run,
     Build,
     Generate,
 }
@@ -19,6 +26,8 @@ pub enum ServerArg {
 #[derive(Debug, Deserialize, Serialize)]
 pub struct ServerType {
     pub server_name: String,
+    pub input_path: String,
+    pub build_type: BuildType,
     pub args: ServerArg,
 }
 

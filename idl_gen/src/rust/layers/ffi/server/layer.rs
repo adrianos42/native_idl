@@ -1,9 +1,6 @@
-use super::{server_impl::FFIServerImpl, server_types::FFIServerTypes, server_mod::FFIMod};
+use super::{server_impl::FFIServerImpl, server_mod::FFIMod, server_types::FFIServerTypes};
 use crate::rust::string_pros::StringRustFmt;
-use crate::{lang::StorageItem, rust::layers::LayerBuilder};
-use idl::ids;
-use quote::{ToTokens, TokenStreamExt};
-use tempfile::tempdir;
+use crate::{lang::StorageItem, rust::layers::Layer};
 use cargo::core::compiler::CompileMode;
 use cargo::core::Workspace;
 use cargo::{
@@ -11,14 +8,18 @@ use cargo::{
     util::{interning::InternedString, paths::read_bytes},
     Config,
 };
+use idl::ids;
+use quote::{ToTokens, TokenStreamExt};
+use tempfile::tempdir;
 
 pub fn ffi_server_files(
     analyzers: &[idl::analyzer::Analyzer],
     ids_analyzer: &ids::analyzer::Analyzer,
     server_name: &str,
+    input_dir: &str,
 ) -> StorageItem {
     let ffi_cargo =
-        super::server_cargo::FFIServerCargo::generate(&ids_analyzer, server_name).unwrap();
+        super::server_cargo::FFIServerCargo::generate(&ids_analyzer, server_name, input_dir).unwrap();
 
     let package = ids_analyzer.get_package();
     let package_name = package.name();
@@ -102,15 +103,17 @@ pub fn ffi_server_files(
 
 pub(crate) struct FFILayer {
     server_name: String,
+    input_dir: String,
+    debug_mode: bool,
 }
 
 impl FFILayer {
-    pub(crate) fn new(server_name: String) -> Self {
-        Self { server_name }
+    pub(crate) fn new(server_name: String, input_dir: String, debug_mode: bool) -> Self {
+        Self { server_name, input_dir, debug_mode }
     }
 }
 
-impl LayerBuilder for FFILayer {
+impl Layer for FFILayer {
     fn build(
         &self,
         analyzers: &[idl::analyzer::Analyzer],
@@ -121,16 +124,18 @@ impl LayerBuilder for FFILayer {
         let mut files = vec![];
 
         if analyzers.iter().any(|v| v.has_interface()) {
-            let item = ffi_server_files(analyzers, ids_analyzer, &self.server_name);
+            let item = ffi_server_files(analyzers, ids_analyzer, &self.server_name, &self.input_dir);
             item.write_items(path, true)?;
 
             let package_path = path.join("idl_ffi/Cargo.toml");
+
+            let profile = if self.debug_mode { "debug" } else { "release" };
 
             let config = Config::default()?;
             let ws = Workspace::new(&package_path, &config)?;
 
             let mut compile_options = CompileOptions::new(&config, CompileMode::Build)?;
-            compile_options.build_config.requested_profile = InternedString::new("debug");
+            compile_options.build_config.requested_profile = InternedString::new(profile);
 
             let comp = cargo::ops::compile(&ws, &compile_options)?;
 

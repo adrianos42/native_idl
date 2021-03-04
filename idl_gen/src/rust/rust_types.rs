@@ -113,7 +113,6 @@ impl RustTypes {
                         TypeName::TypeFunction(_)
                         | TypeName::TypeTuple(_)
                         | TypeName::TypeResult(_)
-                        | TypeName::TypeOption(_)
                         | TypeName::InterfaceTypeName(_) => {
                             return Err(RustTypeError::UnexpectedType)
                         }
@@ -153,7 +152,6 @@ impl RustTypes {
                         TypeName::TypeFunction(_)
                         | TypeName::TypeTuple(_)
                         | TypeName::TypeResult(_)
-                        | TypeName::TypeOption(_)
                         | TypeName::InterfaceTypeName(_) => {
                             return Err(RustTypeError::UnexpectedType)
                         }

@@ -2,7 +2,7 @@ use super::FFIServerError;
 use crate::cargo_m::*;
 use core::fmt;
 use idl::ids;
-use std::collections::HashMap;
+use std::{collections::HashMap, path::Path};
 
 pub struct FFIServerCargo {
     cargo_toml: Option<String>,
@@ -18,6 +18,7 @@ impl FFIServerCargo {
     pub fn generate(
         analyzer: &ids::analyzer::Analyzer,
         server_name: &str,
+        input_path: &str,
     ) -> Result<Self, FFIServerError> {
         let package_name = analyzer.get_package().name();
         let target_server = analyzer
@@ -28,26 +29,42 @@ impl FFIServerCargo {
 
         let mut dependencies = HashMap::<String, HashMap<String, String>>::new();
 
-        let path = target_server
+        let lib_path = target_server
             .get_field("path")
-            .and_then(|v| v.as_string_value())
-            .or_else(|| {
-                target_server
-                    .get_field("git")
-                    .and_then(|v| v.as_string_value())
+            .and_then(|v| {
+                let mut lib_path = HashMap::<String, String>::new();
+                lib_path.insert("path".to_owned(), v.as_string_value()?);
+                Some(lib_path)
             })
-            .unwrap_or_else(|| "rust/".to_owned()); // TODO replace with the right path
+            .or_else(|| {
+                target_server.get_field("git").and_then(|v| {
+                    let mut git = HashMap::<String, String>::new();
+                    git.insert("git".to_owned(), v.as_string_value()?);
+                    Some(git)
+                })
+            })
+            .unwrap_or_else(|| {
+                let path = Path::new(input_path)
+                    .join("rust")
+                    .join(&package_name)
+                    .to_str()
+                    .expect("path error")
+                    .to_owned();
+                let mut lib_path = HashMap::<String, String>::new();
+                lib_path.insert("path".to_owned(), path);
+                lib_path
+            });
+
+        dependencies.insert(package_name.to_owned(), lib_path);
 
         let mut git = HashMap::<String, String>::new();
+
         git.insert(
             "git".to_owned(),
             "https://github.com/adrianos42/native_idl".to_owned(),
         );
-        dependencies.insert("idl_internal".to_owned(), git);
 
-        let mut lib_path = HashMap::<String, String>::new();
-        lib_path.insert("path".to_owned(), path);
-        dependencies.insert(package_name.to_owned(), lib_path);
+        dependencies.insert("idl_internal".to_owned(), git);
 
         let fields = CargoFields {
             package: CargoPackage {

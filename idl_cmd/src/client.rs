@@ -4,8 +4,8 @@ use anyhow::{anyhow, Result};
 use clap::{App, Arg, ArgMatches};
 use idl_gen::lang::*;
 use message::Message;
-use std::{fs, path::PathBuf};
 use std::path::Path;
+use std::{fs, path::PathBuf};
 
 enum GenArgs {
     TargetLanguage(String),
@@ -39,11 +39,21 @@ pub fn create_command<'a>() -> App<'a> {
             .long("client")
             .default_value("Main")
             .takes_value(true),
+        Arg::new("debug")
+            .about("Debug mode")
+            .long("debug")
+            .takes_value(false)
+            .conflicts_with_all(&["clean, no_build"]),
         Arg::new("no_build")
-            .about("Don't build server files")
+            .about("Skip building server files")
             .long("no-build")
             .takes_value(false)
-            .conflicts_with_all(&["clean"]),
+            .conflicts_with_all(&["clean", "debug"]),
+        Arg::new("only_build")
+            .about("Only build the server without any client side code generation")
+            .long("only-build")
+            .takes_value(false)
+            .conflicts_with_all(&["clean", "no_build"]),
         Arg::new("clean")
             .about("Remove all generated files")
             .long("clean")
@@ -57,18 +67,40 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
     let input: PathBuf;
     let mut output: PathBuf;
 
+    let working_dir = std::env::current_dir().expect("working directory error");
+
     if let Some(path) = matches.value_of("path") {
-        let path = std::path::Path::new(path);
-        input = path.to_path_buf();
+        let path = Path::new(path);
+        let path = if path.is_relative() {
+            working_dir.join(path)
+        } else {
+            path.to_path_buf()
+        };
+
         output = path.join("build");
+        input = path;
     } else {
         input = match matches.value_of("input") {
-            Some(value) => Path::new(value).to_path_buf(),
-            None => Path::new(".").to_path_buf(),
+            Some(value) => {
+                let path = Path::new(value);
+                if path.is_relative() {
+                    working_dir.join(path)
+                } else {
+                    path.to_path_buf()
+                }
+            }
+            None => working_dir.clone(),
         };
         output = match matches.value_of("output") {
-            Some(value) => Path::new(value).to_path_buf(),
-            None => Path::new("build").to_path_buf(),
+            Some(value) => {
+                let path = Path::new(value);
+                if path.is_relative() {
+                    working_dir.join(path)
+                } else {
+                    path.to_path_buf()
+                }
+            }
+            None => working_dir.join("build"),
         };
     }
 
@@ -77,11 +109,11 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
         return Ok(());
     }
 
-    let client = matches.value_of("client").unwrap();   
-
+    let client = matches.value_of("client").unwrap();
     let server = matches.value_of("server");
-
     let no_building = matches.is_present("no_build");
+    let only_building = matches.is_present("only_build");
+    let debug_mode = matches.is_present("debug");
 
     //let mut layers = vec![];
 
@@ -101,7 +133,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
     }
 
     let names = module.idl_documents_all_valid_names()?;
-    let ref_names: Vec<&str> = names.iter().map(|v| v.as_str()).collect(); 
+    let ref_names: Vec<&str> = names.iter().map(|v| v.as_str()).collect();
     let analyzers = module
         .idl_all_analyzers(&ref_names)
         .ok_or(anyhow::format_err!(""))?;
@@ -111,57 +143,68 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
     }
 
     let target_client = analyzer_ids.find_client(client).unwrap();
-    let target_lang = target_client.language().unwrap();
 
-    let request = LanguageRequest {
-        libraries: get_all_idl_nodes(&analyzers),
-        ids_nodes: analyzer_ids.nodes.clone(),
-        request_type: RequestType::Client(client.to_owned()),
-    };
+    if !only_building {
+        let target_lang = target_client.language().unwrap();
 
-    Message::info(format!("Sending language `{}` request", target_lang))?;
-    let gen = idl_gen::for_language(&target_lang)?;
-    let response = gen.send_request(request)?;
+        let request = LanguageRequest {
+            libraries: get_all_idl_nodes(&analyzers),
+            ids_nodes: analyzer_ids.nodes.clone(),
+            request_type: RequestType::Client(client.to_owned()),
+        };
 
-    Message::normal("Response message", response.response_messages)?;
+        Message::info(format!("Sending language `{}` request", target_lang))?;
+        let gen = idl_gen::for_language(&target_lang)?;
+        let response = gen.send_request(request)?;
 
-    match response.gen_response {
-        ResponseType::Generated(value) => {
-            let _ = fs::remove_dir_all(&output);
-            fs::create_dir_all(&output)?;
+        Message::normal("Response message", response.response_messages)?;
 
-            for item in value {
-                item.write_items(&output, true)?;
+        match response.gen_response {
+            ResponseType::Generated(value) => {
+                let _ = fs::remove_dir_all(&output);
+                fs::create_dir_all(&output)?;
+
+                for item in value {
+                    item.write_items(&output, true)?;
+                }
+
+                Message::info(format!("Generated files at {:#?}", output))?;
             }
-
-            Message::info(format!("Generated files at {:#?}", output))?;
+            ResponseType::Undefined(err) => {
+                Message::error("Request error", err)?;
+                return Err(anyhow!(""));
+            }
         }
-        ResponseType::Undefined(err) => {
-            Message::error("Request error", err)?;
-            return Err(anyhow!(""));
-        }
+    } else {
+        Message::warning("This only builds the server side code. This might occur in errors since client generated code was not updated.".to_owned())?;
     }
 
     match target_client.servers(&analyzer_ids) {
         Some(servers) => {
-            let target_server =
-                match server.and_then(|name| servers.iter().find(|v| v.ident == name)) {
-                    Some(&value) => value,
-                    None => servers.first().unwrap(),
+            if !no_building {
+                let target_server =
+                    match server.and_then(|name| servers.iter().find(|v| v.ident == name)) {
+                        Some(&value) => value,
+                        None => servers.first().unwrap(),
+                    };
+
+                let target_lang = target_server.language().unwrap();
+
+                let server_request = LanguageRequest {
+                    libraries: get_all_idl_nodes(&analyzers),
+                    ids_nodes: analyzer_ids.nodes.clone(),
+                    request_type: RequestType::Server(ServerType {
+                        args: ServerArg::Build,
+                        build_type: if debug_mode {
+                            BuildType::Debug
+                        } else {
+                            BuildType::Release
+                        },
+                        server_name: target_server.ident.clone(),
+                        input_path: input.to_str().expect("path error").to_owned(),
+                    }),
                 };
 
-            let target_lang = target_server.language().unwrap();
-
-            let server_request = LanguageRequest {
-                libraries: get_all_idl_nodes(&analyzers),
-                ids_nodes: analyzer_ids.nodes.clone(),
-                request_type: RequestType::Server(ServerType {
-                    args: ServerArg::Build,
-                    server_name: target_server.ident.clone(),
-                }),
-            };
-
-            if !no_building {
                 Message::info(format!(
                     "Sending language `{}` request for building",
                     target_lang
@@ -171,9 +214,7 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
                 match response.gen_response {
                     ResponseType::Generated(value) => {
-                        let src = output
-                            .join("build")
-                            .join("idl");
+                        let src = output.join("build").join("idl");
                         let _ = fs::remove_dir_all(&src); // Always remove the contents of `build` folder.
                         fs::create_dir_all(&src)?;
 
@@ -195,4 +236,3 @@ pub fn parse(matches: &ArgMatches) -> Result<()> {
 
     Ok(())
 }
-

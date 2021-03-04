@@ -19,6 +19,7 @@ class DartTypes {
     final fields = <Field>[];
     final consParameters = <Parameter>[];
     var cmpBody = '';
+    var hashBody = '';
 
     for (var field_node in tyStruct.fields) {
       final node = field_node.node;
@@ -35,23 +36,31 @@ class DartTypes {
 
         // create comparison body
         if (cmpBody.isNotEmpty) cmpBody += '&&';
-
         cmpBody += 'other.${dName} == ${dName}';
+
+        hashBody += '$dName,';
       } else if (node is Comment) {}
     }
 
     return Class((b) => b
       ..name = tyStruct.ident
       ..fields.addAll(fields)
-      ..methods.add(Method((b) => b
-        ..name = 'operator =='
-        ..annotations.add(refer('override'))
-        ..lambda = true
-        ..requiredParameters.add(Parameter((b) => b
-          ..name = 'other'
-          ..type = refer('dynamic')))
-        ..returns = refer('bool')
-        ..body = Code(cmpBody)))
+      // ..methods.add(Method((b) => b
+      //   ..name = 'hashCode'
+      //   ..returns = refer('int')
+      //   ..annotations.add(refer('override'))
+      //   ..type = MethodType.getter
+      //   ..lambda = true
+      //   ..body = Code('hashValues($hashBody)')))
+      // ..methods.add(Method((b) => b
+      //   ..name = 'operator =='
+      //   ..annotations.add(refer('override'))
+      //   ..lambda = true
+      //   ..requiredParameters.add(Parameter((b) => b
+      //     ..name = 'other'
+      //     ..type = refer('dynamic')))
+      //   ..returns = refer('bool')
+      //   ..body = Code(cmpBody)))
       ..constructors.add(Constructor((b) => b
         ..constant = true
         ..requiredParameters.addAll(consParameters))));
@@ -239,16 +248,24 @@ class DartTypes {
         ..type = refer('int')
         ..name = '_variant'
         ..modifier = FieldModifier.final$))
-      ..methods.add(Method((b) => b
-        ..name = 'operator =='
-        ..requiredParameters.add(Parameter((b) => b
-          ..name = 'other'
-          ..type = refer('dynamic')))
-        ..returns = refer('bool')
-        ..lambda = true
-        ..body = Code(''' 
-          variant == other.variant && 
-          value == other.value'''))));
+      // ..methods.add(Method((b) => b
+      //   ..name = 'hashCode'
+      //   ..type = MethodType.getter
+      //   ..annotations.add(refer('override'))
+      //   ..returns = refer('int')
+      //   ..lambda = true
+      //   ..body = Code('hashValues(variant, value)')))
+      // ..methods.add(Method((b) => b
+      //   ..name = 'operator =='
+      //   ..requiredParameters.add(Parameter((b) => b
+      //     ..name = 'other'
+      //     ..type = refer('dynamic')))
+      //   ..returns = refer('bool')
+      //   ..lambda = true
+      //   ..body = Code(''' 
+      //     variant == other.variant && 
+      //     value == other.value''')))
+      );
   }
 
   Code _addEnum(TypeEnum tyEnum) {

@@ -1,7 +1,7 @@
 use super::{client_mod::FFIMod, client_types::FFIClientTypes};
 use crate::rust::rust_types::RustTypes;
 use crate::rust::string_pros::StringRustFmt;
-use crate::{lang::StorageItem, rust::layers::LayerBuilder};
+use crate::{lang::StorageItem, rust::layers::Layer};
 use idl::ids;
 use quote::{ToTokens, TokenStreamExt};
 
@@ -15,11 +15,11 @@ impl FFILayer {
     }
 }
 
-impl LayerBuilder for FFILayer {
+impl Layer for FFILayer {
     fn build(
         &self,
         analyzers: &[idl::analyzer::Analyzer],
-        ids_analyzer: &ids::analyzer::Analyzer,
+        ids_analyzer: &ids::analyzer::Analyzer
     ) -> anyhow::Result<Vec<StorageItem>> {
         panic!("Client side is not fully implemented yet!");
 

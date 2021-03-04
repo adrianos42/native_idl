@@ -1,7 +1,8 @@
 use crate::lang::StorageItem;
 mod ffi;
+mod web_socket;
 
-pub trait LayerBuilder {
+pub trait Layer {
     fn build(
         &self,
         analyzers: &[idl::analyzer::Analyzer],
@@ -9,14 +10,19 @@ pub trait LayerBuilder {
     ) -> anyhow::Result<Vec<StorageItem>>;
 }
 
-pub struct Layer;
+pub fn layer_runner_server(server_name: String, input_dir: String, debug_mode: bool) -> impl Layer {
+    web_socket::server::layer::WebSocketLayer::new(server_name, input_dir, debug_mode)
+}
 
-impl Layer {
-    pub fn layer_builder_server(server_name: String) -> impl LayerBuilder {
-        ffi::server::layer::FFILayer::new(server_name)
-    }
+// The input path is the working diretory, e.g. the same path as the idl files and therefore the source code to be compiled.
+pub fn layer_builder_server(
+    server_name: String,
+    input_dir: String,
+    debug_mode: bool,
+) -> impl Layer {
+    ffi::server::layer::FFILayer::new(server_name, input_dir, debug_mode)
+}
 
-    pub fn layer_builder_client(client_name: String) -> impl LayerBuilder {
-        ffi::client::layer::FFILayer::new(client_name)
-    }
+pub fn layer_builder_client(client_name: String) -> impl Layer {
+    ffi::client::layer::FFILayer::new(client_name)
 }

@@ -31,6 +31,7 @@ struct TypeInterface {
     fields: bytes[],
     tokens: pair[string, bytes],
     mp: map[string, bool],
+    name: option[string],
 }
 
 const Never {

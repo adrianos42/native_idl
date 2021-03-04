@@ -55,4 +55,12 @@ impl Message {
 
         Ok(())
     }
+
+    pub fn warning(message: String) -> anyhow::Result<()> {
+        if !message.is_empty() {
+            println!("{}", Color::Yellow.paint(message));
+        }
+
+        Ok(())
+    }
 }

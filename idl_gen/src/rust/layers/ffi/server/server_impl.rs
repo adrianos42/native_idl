@@ -99,7 +99,7 @@ impl FFIServerImpl {
                     pub(super) handle: i64,
                 }
 
-                unsafe impl Send for #stream_name_ident {} // TODO
+                unsafe impl Send for #stream_name_ident {} // TODO ??
 
                 impl StreamInstance for #stream_name_ident {
                     fn wake_client(&self) {
