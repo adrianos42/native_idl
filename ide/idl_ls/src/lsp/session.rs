@@ -2,7 +2,7 @@ use tower_lsp::{lsp_types::*, Client};
 
 use super::{create_error_diagnostic, file_name_from_uri, get_range_from_parser};
 
-use idl::{idl::analyzer, module, idl::parser};
+use idl::{analyzer, module, parser};
 
 use std::path::Path;
 use std::sync::Arc;
@@ -82,11 +82,13 @@ impl Session {
                         }
                     }
 
-                    let module_state = self.module_state.lock().await;
+                    let mut module_state = self.module_state.lock().await;
                     for (name, doc) in &state.documents {
-                        if module_state.add_idl_document(name).is_ok() {
-                            module_state.update_idl_parser(name, &doc.text);
-                            module_state.update_idl_analyzer(name);
+                        match doc.doc_type {
+                            DocumentType::Idl => module_state.replace_idl_document(name, &doc.text),
+                            DocumentType::IdlSpec => {
+                                let _ = module_state.replace_ids_document(name, &doc.text);
+                            }
                         }
                     }
                 }
@@ -147,55 +149,40 @@ impl Session {
 
         if let Some(file_name) = file_name_from_uri(&uri) {
             let mut state = self.session_state.lock().await;
+            let mut module_state = self.module_state.lock().await;
 
-            if !state.documents.contains_key(&file_name) {
-                match Self::add_file(&uri.to_file_path().unwrap()).await {
-                    Some((file_name, doc)) => {
-                        let module_state = self.module_state.lock().await;
-                        if module_state.add_idl_document(&file_name).is_ok() {
-                            module_state.update_ids_parser(&file_name, &doc.text);
-                            module_state.update_idl_analyzer(&file_name);
-                        } else {
-                            self.client
-                                .log_message(MessageType::Log, "error adding document")
-                                .await;
+            match Self::add_file(&uri.to_file_path().unwrap()).await {
+                Some((file_name, doc)) => {
+                    match doc.doc_type {
+                        DocumentType::Idl => {
+                            module_state.replace_idl_document(&file_name, &doc.text);
                         }
+                        DocumentType::IdlSpec => {
+                            let _ = module_state.replace_ids_document(&file_name, &doc.text);
+                        }
+                    }
 
-                        state.documents.insert(file_name, doc);
-                    }
-                    None => {
-                        self.client
-                            .log_message(MessageType::Log, "error adding file")
-                            .await
-                    }
+                    state.documents.insert(file_name, doc);
+                }
+                None => {
+                    self.client
+                        .log_message(MessageType::Log, "error adding file")
+                        .await
                 }
             }
 
-            if let Some(doc) = state.documents.get_mut(&file_name) {
-                assert!(
-                    language_id == "idl" && doc.doc_type == DocumentType::Idl
-                        || language_id == "ids" && doc.doc_type == DocumentType::IdlSpec
-                );
-
-                let module_state = self.module_state.lock().await;
-                let _ = module_state.add_idl_document(&file_name);
-
-                module_state.update_idl_parser(&file_name, &text);
-                if let Some(parser) = module_state.get_idl_parser(&file_name) {
-                    self.update_diagnostics_parser(uri.clone(), parser).await;
-
-                    module_state.update_idl_analyzer(&file_name);
-                    if let Some(analyzer) = module_state.get_idl_analyzer(&file_name) {
-                        self.update_diagnostics_analyzer(uri.clone(), analyzer)
-                            .await;
-                    }
+            match module_state.update() {
+                Ok(_) => {}
+                Err(err) => {
+                    self.client
+                        .log_message(MessageType::Error, err.to_string())
+                        .await;
                 }
-                doc.text = text;
-            } else {
-                self.client
-                    .log_message(MessageType::Log, "could not find document")
-                    .await;
             }
+        } else {
+            self.client
+                .log_message(MessageType::Log, "could not find document")
+                .await;
         }
     }
 
@@ -207,26 +194,42 @@ impl Session {
 
         let TextDocumentContentChangeEvent { text, .. } = content_changes.remove(0);
 
-        if let Some(file_name) = file_name_from_uri(&uri) {
+       if let Some(file_name) = file_name_from_uri(&uri) {
             let mut state = self.session_state.lock().await;
+            let mut module_state = self.module_state.lock().await;
 
-            if let Some(doc) = state.documents.get_mut(&file_name) {
-                let module_state = self.module_state.lock().await;
-                module_state.update_idl_parser(&file_name, &text);
-                if let Some(parser) = module_state.get_idl_parser(&file_name) {
-                    match &*parser {
-                        Err(_) => self.update_diagnostics_parser(uri.clone(), parser).await,
-                        Ok(_) => {
-                            module_state.update_idl_analyzer(&file_name);
-                            if let Some(analyzer) = module_state.get_idl_analyzer(&file_name) {
-                                self.update_diagnostics_analyzer(uri.clone(), analyzer)
-                                    .await;
-                            }
+            match Self::add_file(&uri.to_file_path().unwrap()).await {
+                Some((file_name, doc)) => {
+                    match doc.doc_type {
+                        DocumentType::Idl => {
+                            module_state.replace_idl_document(&file_name, &doc.text);
+                        }
+                        DocumentType::IdlSpec => {
+                            let _ = module_state.replace_ids_document(&file_name, &doc.text);
                         }
                     }
+
+                    state.documents.insert(file_name, doc);
                 }
-                doc.text = text;
+                None => {
+                    self.client
+                        .log_message(MessageType::Log, "error adding file")
+                        .await
+                }
             }
+
+            match module_state.update() {
+                Ok(_) => {}
+                Err(err) => {
+                    self.client
+                        .log_message(MessageType::Error, err.to_string())
+                        .await;
+                }
+            }
+        } else {
+            self.client
+                .log_message(MessageType::Log, "could not find document")
+                .await;
         }
     }
 

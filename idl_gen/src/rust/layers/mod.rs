@@ -1,6 +1,7 @@
 use crate::lang::StorageItem;
 mod ffi;
-mod web_socket;
+mod ws;
+pub(crate) mod bytes;
 
 pub trait Layer {
     fn build(
@@ -11,7 +12,7 @@ pub trait Layer {
 }
 
 pub fn layer_runner_server(server_name: String, input_dir: String, debug_mode: bool) -> impl Layer {
-    web_socket::server::layer::WebSocketLayer::new(server_name, input_dir, debug_mode)
+    ws::server::layer::WSLayer::new(server_name, input_dir, debug_mode)
 }
 
 // The input path is the working diretory, e.g. the same path as the idl files and therefore the source code to be compiled.

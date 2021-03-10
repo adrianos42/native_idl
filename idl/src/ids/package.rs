@@ -10,6 +10,7 @@ static DEFAULT_IDL_VERSION: &str = "0.1";
 pub struct Package {
     pub ident: String,
     pub nodes: Vec<PackageNode>,
+    pub hash: Box<[u8]>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
@@ -191,5 +192,7 @@ pub(super) fn get_node(
         parser::ItemIdent::TypeName(_) => return Err(analyzer::AnalyzerError::PackageDefinition),
     };
 
-    Ok(IdsNode::Package(Box::new(Package { ident, nodes })))
+    let hash = vec![0x0u8; 0x10].into_boxed_slice();  // TODO Proper hash values
+
+    Ok(IdsNode::Package(Box::new(Package { ident, nodes, hash })))
 }

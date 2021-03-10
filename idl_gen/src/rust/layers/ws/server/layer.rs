@@ -1,6 +1,10 @@
-use super::{ffi_impl::FFIServerImpl, ffi_mod::FFIMod, ffi_types::FFIServerTypes};
+use std::path::Path;
+
+use super::ws_mod::{WSImpl, WSMod, WSCargo};
+use super::ws_types::WSTypes;
 use crate::rust::string_pros::StringRustFmt;
 use crate::{lang::StorageItem, rust::layers::Layer};
+use crate::rust::layers::bytes::server::{BytesInterface, package::BytesPackage};
 use cargo::core::compiler::CompileMode;
 use cargo::core::Workspace;
 use cargo::{
@@ -12,14 +16,14 @@ use idl::ids;
 use quote::{ToTokens, TokenStreamExt};
 use tempfile::tempdir;
 
-pub fn ffi_server_files(
+pub fn ws_server_files(
     analyzers: &[idl::analyzer::Analyzer],
     ids_analyzer: &ids::analyzer::Analyzer,
     server_name: &str,
     input_dir: &str,
 ) -> StorageItem {
-    let ffi_cargo =
-        super::ffi_cargo::FFIServerCargo::generate(&ids_analyzer, server_name, input_dir)
+    let ws_cargo =
+        WSCargo::generate(&ids_analyzer, server_name, input_dir)
             .unwrap();
 
     let package = ids_analyzer.get_package();
@@ -28,59 +32,65 @@ pub fn ffi_server_files(
     let mut libs = quote! {};
     let mut lib_items = vec![];
 
-    for analyzer in analyzers.iter().filter(|v| v.has_interface()) {
-        let ffi_server_impl = FFIServerImpl::generate(&package_name, &analyzer).unwrap();
-        let ffi_server_types = FFIServerTypes::generate(&package_name, &analyzer).unwrap();
-        let ffi_lib = FFIMod::generate(&analyzer).unwrap();
+    let mut lib_names = vec![];
 
-        let ffi_server = super::FFIServer::generate(&package_name, &analyzer).unwrap();
+    for analyzer in analyzers.iter().filter(|v| v.has_interface()) {
+        let ws_server_impl = WSImpl::generate(&package_name, &analyzer).unwrap();
+        let ws_server_types = WSTypes::generate(&package_name, &analyzer).unwrap();
+        let ws_lib = WSMod::generate(&analyzer).unwrap();
+
+        let ws_interface = BytesInterface::generate(&package_name, &analyzer).unwrap();
 
         let library_name = analyzer.library_name();
+        lib_names.push(library_name.clone());
 
         if package_name == library_name {
-            libs.append_all(ffi_lib.to_token_stream());
+            libs.append_all(ws_lib.to_token_stream());
 
             lib_items.push(StorageItem::Source {
-                name: "ffi.rs".to_owned(),
-                txt: ffi_server.to_string(),
+                name: "ws.rs".to_owned(),
+                txt: ws_interface.to_string(),
             });
 
             lib_items.push(StorageItem::Source {
-                name: "ffi_impl.rs".to_owned(),
-                txt: ffi_server_impl.to_string(),
+                name: "ws_impl.rs".to_owned(),
+                txt: ws_server_impl.to_string(),
             });
 
             lib_items.push(StorageItem::Source {
-                name: "ffi_types.rs".to_owned(),
-                txt: ffi_server_types.to_string(),
+                name: "ws_types.rs".to_owned(),
+                txt: ws_server_types.to_string(),
             });
-        } else {
-            let lib_name = format_ident!("ffi_{}", library_name);
+        } else {let lib_name = format_ident!("ws_{}", library_name);
             libs.append_all(quote! { pub mod #lib_name; });
 
             lib_items.push(StorageItem::Folder {
-                name: format!("ffi_{}", library_name),
+                name: format!("ws_{}", library_name),
                 items: vec![
                     StorageItem::Source {
                         name: "mod.rs".to_owned(),
-                        txt: ffi_lib.to_string(),
+                        txt: ws_lib.to_string(),
                     },
                     StorageItem::Source {
-                        name: "ffi.rs".to_owned(),
-                        txt: ffi_server.to_string(),
+                        name: "ws.rs".to_owned(),
+                        txt: ws_interface.to_string(),
                     },
                     StorageItem::Source {
-                        name: "ffi_impl.rs".to_owned(),
-                        txt: ffi_server_impl.to_string(),
+                        name: "ws_impl.rs".to_owned(),
+                        txt: ws_server_impl.to_string(),
                     },
                     StorageItem::Source {
-                        name: "ffi_types.rs".to_owned(),
-                        txt: ffi_server_types.to_string(),
+                        name: "ws_types.rs".to_owned(),
+                        txt: ws_server_types.to_string(),
                     },
                 ],
             })
         }
     }
+
+    // Since the library names are all valid here, there's no need to verify them.
+    let ws_main = BytesPackage::generate(package, analyzers).unwrap();
+    libs.append_all(ws_main.to_token_stream());    
 
     lib_items.push(StorageItem::Source {
         name: "lib.rs".to_owned(),
@@ -95,20 +105,20 @@ pub fn ffi_server_files(
             },
             StorageItem::Source {
                 name: "Cargo.toml".to_owned(),
-                txt: ffi_cargo.to_string(),
+                txt: ws_cargo.to_string(),
             },
         ],
-        name: "idl_ffi".to_owned(),
+        name: "idl_ws".to_owned(),
     }
 }
 
-pub(crate) struct FFILayer {
+pub(crate) struct WSLayer {
     server_name: String,
     input_dir: String,
     debug_mode: bool,
 }
 
-impl FFILayer {
+impl WSLayer {
     pub(crate) fn new(server_name: String, input_dir: String, debug_mode: bool) -> Self {
         Self {
             server_name,
@@ -118,22 +128,22 @@ impl FFILayer {
     }
 }
 
-impl Layer for FFILayer {
+impl Layer for WSLayer {
     fn build(
         &self,
         analyzers: &[idl::analyzer::Analyzer],
         ids_analyzer: &ids::analyzer::Analyzer,
     ) -> anyhow::Result<Vec<StorageItem>> {
-        let dir = tempdir()?;
-        let path = dir.path();
+        //let dir = tempdir()?;
+        let path = Path::new("/home/adriano/repos_tmp/basic_types");
         let mut files = vec![];
 
         if analyzers.iter().any(|v| v.has_interface()) {
             let item =
-                ffi_server_files(analyzers, ids_analyzer, &self.server_name, &self.input_dir);
+                ws_server_files(analyzers, ids_analyzer, &self.server_name, &self.input_dir);
             item.write_items(path, true)?;
 
-            let package_path = path.join("idl_ffi/Cargo.toml");
+            let package_path = path.join("idl_ws/Cargo.toml");
 
             let profile = if self.debug_mode { "debug" } else { "release" };
 
@@ -145,21 +155,15 @@ impl Layer for FFILayer {
 
             let comp = cargo::ops::compile(&ws, &compile_options)?;
 
-            for (_, path) in comp.cdylibs {
+            for (_, path) in comp.binaries {
                 // lib file
                 files.push(StorageItem::BinarySource {
                     name: path.file_name().unwrap().to_str().unwrap().to_owned(),
                     data: read_bytes(&path)?,
                 });
-
-                let so_path = path.with_extension("so");
-                files.push(StorageItem::BinarySource {
-                    name: so_path.file_name().unwrap().to_str().unwrap().to_owned(),
-                    data: read_bytes(&so_path)?,
-                })
             }
 
-            dir.close()?;
+            //dir.close()?;
         }
 
         Ok(files)

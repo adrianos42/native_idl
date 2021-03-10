@@ -16,7 +16,7 @@
 		"keywords": {
 			"patterns": [
 				{
-					"match": "\\b(enum|struct|interface|import|library|stream|async|sync|type|const|static)\\b",
+					"match": "\\b(enum|struct|interface|import|library|stream|type|const|static|dynamic|generic|is)\\b",
 					"name": "keyword.control.idl"
 				},
 				{
@@ -24,15 +24,11 @@
 					"name": "constant.numeric.idl"
 				},
 				{
-					"match": "(?<!\\$)\\b(?:bool|int|float|string|bytes|none)\\b(?!\\$)",
+					"match": "(?<!\\$)\\b(?:bool|int|float|string|bytes|none|option|result|map|set|pair|uuid)\\b(?!\\$)",
 					"name": "storage.type.primitive.idl"
 				},
 				{
-					"match": "(?<!\\$)\\b(?:arrayi8|arrayu8|arrayi16|arrayu16|arrayi32|arrayu32|arrayf16|arrayf32)\\b(?!\\$)",
-					"name": "storage.type.primitive.idl"
-				},
-				{
-					"match": "(?<!\\$)\\b(?:streami8|streamu8|streami16|streamu16|streami32|streamu32|streamf16|streamf32)\\b(?!\\$)",
+					"match": "(?<!\\$)\\b(?:array_i8|array_u8|array_i16|array_u16|array_i32|array_u32|array_i64|array_u64|array_f16|array_f32)\\b(?!\\$)",
 					"name": "storage.type.primitive.idl"
 				},
 				{
@@ -41,6 +37,10 @@
 				},
 				{
 					"match": "[A-Z](?:[a-z0-9][A-Z]?)+(?=:)",
+					"name": "constant.numeric.idl"
+				},
+				{
+					"match": "(?<!\\$)[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?!\\$)",
 					"name": "constant.numeric.idl"
 				},
 				{

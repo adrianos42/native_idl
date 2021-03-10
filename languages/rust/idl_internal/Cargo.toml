@@ -16,3 +16,4 @@ proc-macro2 = { version = "1", default-features = false }
 uuid = { version = "0.8", features = ["v4"] }
 anyhow = "1.0"
 thiserror = "1.0"
+byteorder = "1.4.2"

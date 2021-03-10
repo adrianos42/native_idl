@@ -10,7 +10,7 @@ import {
 import { workspace, ExtensionContext } from 'vscode';
 
 export function createClient(serverPath: string): LanguageClient {
-	const run: Executable = { command: serverPath,  };
+	const run: Executable = { command: serverPath, };
 
 	const serverOptions: ServerOptions = {
 		run,
@@ -18,7 +18,7 @@ export function createClient(serverPath: string): LanguageClient {
 	};
 
 	let clientOptions: LanguageClientOptions = {
-		documentSelector: [{ scheme: 'file', language: 'idl' }],
+		documentSelector: [{ scheme: 'file', language: 'idl' }, { scheme: 'file', language: 'ids' }],
 		synchronize: {
 			fileEvents: workspace.createFileSystemWatcher('**/.idl')
 		}

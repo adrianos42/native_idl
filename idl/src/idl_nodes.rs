@@ -45,6 +45,7 @@ pub enum IdlNode {
 pub struct TypeInterface {
     pub ident: String,
     pub fields: Vec<InterfaceNode>,
+    pub hash: Box<[u8]>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
@@ -59,12 +60,14 @@ pub struct InterfaceField {
     pub ident: String,
     pub is_static: bool,
     pub ty: TypeName,
+    pub hash: Box<[u8]>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct TypeStruct {
     pub ident: String,
     pub fields: Vec<StructNode>,
+    pub hash: Box<[u8]>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
@@ -77,12 +80,14 @@ pub enum StructNode {
 pub struct StructField {
     pub ident: String,
     pub ty: TypeName,
+    pub hash: Box<[u8]>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct TypeList {
     pub ident: String,
     pub fields: Vec<TypeListNode>,
+    pub hash: Box<[u8]>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
@@ -95,12 +100,14 @@ pub enum TypeListNode {
 pub struct TypeListField {
     pub ident: String,
     pub ty: TypeName,
+    pub hash: Box<[u8]>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct TypeEnum {
     pub ident: String,
     pub fields: Vec<EnumNode>,
+    pub hash: Box<[u8]>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
@@ -112,6 +119,7 @@ pub enum EnumNode {
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 pub struct EnumField {
     pub ident: String,
+    pub hash: Box<[u8]>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
@@ -119,6 +127,7 @@ pub struct TypeConst {
     pub ident: String,
     pub fields: Vec<ConstNode>,
     pub const_type: ConstTypes,
+    pub hash: Box<[u8]>,
 }
 
 #[derive(Debug, Copy, Clone, Deserialize, Serialize, PartialEq, Eq)]
@@ -139,6 +148,7 @@ pub enum ConstNode {
 pub struct ConstField {
     pub ident: String,
     pub value: String,
+    pub hash: Box<[u8]>,
 }
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]

@@ -8,7 +8,6 @@ pub(crate) mod symbol;
 pub(crate) mod session;
 
 
-use idl::idl::parser;
 use tower_lsp::lsp_types::*;
 
 pub(crate) fn get_range_from_parser(range: idl::range::Range) -> Range {

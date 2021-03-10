@@ -16,7 +16,7 @@
 		"keywords": {
 			"patterns": [
 				{
-					"match": "\\b(library|const|true|false|server|client|layer)\\b",
+					"match": "\\b(library|const|true|false|server|client|layer|package)\\b",
 					"name": "keyword.control.ids"
 				},
 				{

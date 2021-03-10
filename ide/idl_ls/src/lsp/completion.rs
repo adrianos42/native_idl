@@ -5,7 +5,6 @@ use std::sync::Arc;
 use tower_lsp::lsp_types::*;
 
 use super::{create_parser_position, create_parser_range, file_name_from_uri};
-use idl::idl::parser;
 use crate::core::completion;
 
 pub(crate) async fn completion(

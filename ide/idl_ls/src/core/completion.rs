@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use idl::idl::parser;
+use idl::parser;
 use idl::range::Range;
 
 #[derive(Debug)]
@@ -67,40 +67,40 @@ impl Completion {
             match completion_type {
                 CompletionType::Interface(value) => match value {
                     CompletionInterface::FieldTypeName => {
-                        let sts = module.get_all_struct_refs();
-                        for struct_ref in sts {
-                            if struct_ref.starts_with(reference_name.as_str()) {
-                                nodes.push(CompletionNode::StructName(struct_ref));
-                            }
-                        }
+                        // let sts = module.all_struct_refs();
+                        // for struct_ref in sts {
+                        //     if struct_ref.starts_with(reference_name.as_str()) {
+                        //         nodes.push(CompletionNode::StructName(struct_ref));
+                        //     }
+                        // }
 
-                        let nats = idl::module::Module::get_all_native_refs();
-                        for nat_ref in nats {
-                            if nat_ref.starts_with(reference_name.as_str()) {
-                                nodes.push(CompletionNode::NativeName(nat_ref));
-                            }
-                        }
+                        // let nats = idl::module::Module::get_all_native_refs();
+                        // for nat_ref in nats {
+                        //     if nat_ref.starts_with(reference_name.as_str()) {
+                        //         nodes.push(CompletionNode::NativeName(nat_ref));
+                        //     }
+                        // }
 
-                        let types = module.get_all_type_refs();
-                        for ty_ref in types {
-                            if ty_ref.starts_with(reference_name.as_str()) {
-                                nodes.push(CompletionNode::ListName(ty_ref));
-                            }
-                        }
+                        // let types = module.get_all_type_refs();
+                        // for ty_ref in types {
+                        //     if ty_ref.starts_with(reference_name.as_str()) {
+                        //         nodes.push(CompletionNode::ListName(ty_ref));
+                        //     }
+                        // }
 
-                        let consts = module.get_all_const_refs();
-                        for cons_ref in consts {
-                            if cons_ref.starts_with(reference_name.as_str()) {
-                                nodes.push(CompletionNode::ConstName(cons_ref));
-                            }
-                        }
+                        // let consts = module.get_all_const_refs();
+                        // for cons_ref in consts {
+                        //     if cons_ref.starts_with(reference_name.as_str()) {
+                        //         nodes.push(CompletionNode::ConstName(cons_ref));
+                        //     }
+                        // }
 
-                        let enums = module.get_all_enum_refs();
-                        for enum_ref in enums {
-                            if enum_ref.starts_with(reference_name.as_str()) {
-                                nodes.push(CompletionNode::EnumName(enum_ref));
-                            }
-                        }
+                        // let enums = module.get_all_enum_refs();
+                        // for enum_ref in enums {
+                        //     if enum_ref.starts_with(reference_name.as_str()) {
+                        //         nodes.push(CompletionNode::EnumName(enum_ref));
+                        //     }
+                        // }
 
                         nodes.push(CompletionNode::KeywordName("stream".to_owned()));
                         nodes.push(CompletionNode::KeywordName("static".to_owned()));
@@ -109,40 +109,40 @@ impl Completion {
                 },
                 CompletionType::Struct(value) => match value {
                     CompletionStruct::FieldTypeName => {
-                        let sts = module.get_all_struct_refs();
-                        for struct_ref in sts {
-                            if struct_ref.starts_with(reference_name.as_str()) {
-                                nodes.push(CompletionNode::StructName(struct_ref));
-                            }
-                        }
+                        // let sts = module.get_all_struct_refs();
+                        // for struct_ref in sts {
+                        //     if struct_ref.starts_with(reference_name.as_str()) {
+                        //         nodes.push(CompletionNode::StructName(struct_ref));
+                        //     }
+                        // }
 
-                        let nats = idl::module::Module::get_all_native_refs();
-                        for nat_ref in nats {
-                            if nat_ref.starts_with(reference_name.as_str()) {
-                                nodes.push(CompletionNode::NativeName(nat_ref));
-                            }
-                        }
+                        // let nats = idl::module::Module::get_all_native_refs();
+                        // for nat_ref in nats {
+                        //     if nat_ref.starts_with(reference_name.as_str()) {
+                        //         nodes.push(CompletionNode::NativeName(nat_ref));
+                        //     }
+                        // }
 
-                        let types = module.get_all_type_refs();
-                        for ty_ref in types {
-                            if ty_ref.starts_with(reference_name.as_str()) {
-                                nodes.push(CompletionNode::ListName(ty_ref));
-                            }
-                        }
+                        // let types = module.get_all_type_refs();
+                        // for ty_ref in types {
+                        //     if ty_ref.starts_with(reference_name.as_str()) {
+                        //         nodes.push(CompletionNode::ListName(ty_ref));
+                        //     }
+                        // }
 
-                        let consts = module.get_all_const_refs();
-                        for cons_ref in consts {
-                            if cons_ref.starts_with(reference_name.as_str()) {
-                                nodes.push(CompletionNode::ConstName(cons_ref));
-                            }
-                        }
+                        // let consts = module.get_all_const_refs();
+                        // for cons_ref in consts {
+                        //     if cons_ref.starts_with(reference_name.as_str()) {
+                        //         nodes.push(CompletionNode::ConstName(cons_ref));
+                        //     }
+                        // }
 
-                        let enums = module.get_all_enum_refs();
-                        for enum_ref in enums {
-                            if enum_ref.starts_with(reference_name.as_str()) {
-                                nodes.push(CompletionNode::EnumName(enum_ref));
-                            }
-                        }
+                        // let enums = module.get_all_enum_refs();
+                        // for enum_ref in enums {
+                        //     if enum_ref.starts_with(reference_name.as_str()) {
+                        //         nodes.push(CompletionNode::EnumName(enum_ref));
+                        //     }
+                        // }
                     }
                     _ => {}
                 },

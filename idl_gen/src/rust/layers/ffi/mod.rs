@@ -284,7 +284,7 @@ impl FFITypeName for TypeName {
                 quote! { {
                     let _array = #ffi_name;
                     let _data = _array.data as *const #array_ty_ident;
-                    let _length = _array.length as isize;
+                    let _length = _array.length as usize;
                     let mut _array_vec = vec![];
                     for _index in 0.._length {
                         let #array_item = unsafe { _data.offset(_index).read() };
@@ -307,7 +307,7 @@ impl FFITypeName for TypeName {
 
                 quote! { {
                     let _map = #ffi_name;
-                    let _length = _map.length as isize;
+                    let _length = _map.length as usize;
                     let _data = _map.data as *const #value_ty_ident;
                     let _key = _map.key as *const #key_ty_ident;
                     let mut _map_result = ::std::collections::HashMap::new();

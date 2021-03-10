@@ -12,10 +12,10 @@ use std::{collections::HashMap, fmt};
 use super::*;
 
 pub(crate) mod layer;
-pub(super) mod server_cargo;
-pub(super) mod server_impl;
-pub(super) mod server_mod;
-pub(super) mod server_types;
+pub(super) mod ffi_cargo;
+pub(super) mod ffi_impl;
+pub(super) mod ffi_mod;
+pub(super) mod ffi_types;
 
 #[derive(Debug)]
 pub enum FFIServerError {
@@ -204,7 +204,7 @@ impl FFIServer {
                             // Returns none type, since it's accepted anyways.
                             (Some(&tuple.fields), &TypeName::Types(Types::NatNone))
                         }
-                        _ => (None, &field.ty),
+                        any => (None, any),
                     };
 
                     let mut args_conv_ffi: Vec<TokenStream> = vec![];
@@ -216,8 +216,7 @@ impl FFIServer {
                             let arg_ident = format_ident!("{}", &arg.ident);
                             let arg_ty_ident = arg.ty.get_ffi_ty_ref(true, analyzer);
 
-                            let arg_call_name = format!("_{}_arg_val", arg.ident);
-                            let arg_value_ident = format_ident!("{}", &arg_call_name);
+                            let arg_value_ident = format_ident!("_{}_arg_val", &arg.ident);
                             args_value.push(quote! { #arg_value_ident });
 
                             args_ffi.push(quote! { #arg_ident: #arg_ty_ident });

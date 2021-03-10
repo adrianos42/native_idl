@@ -4,7 +4,7 @@ use std::sync::Arc;
 use tower_lsp::lsp_types::*;
 
 use super::{file_name_from_uri, get_range_from_parser};
-use idl::idl::parser;
+use idl::parser;
 
 fn create_document_symbol(
     kind: SymbolKind,
@@ -15,12 +15,12 @@ fn create_document_symbol(
     selection_range: Range,
 ) -> DocumentSymbol {
     DocumentSymbol {
-        kind,
         name,
+        detail,
+        kind,
         deprecated: None,
         range,
         children,
-        detail,
         selection_range,
     }
 }
@@ -259,7 +259,7 @@ fn get_const_fields(
         .collect()
 }
 
-pub(crate) async fn get_document_symbol(
+pub(crate) async fn get_document_symbol(    
     session: Arc<Session>,
     params: DocumentSymbolParams,
 ) -> Option<DocumentSymbolResponse> {
@@ -270,7 +270,7 @@ pub(crate) async fn get_document_symbol(
 
     let file_name = file_name_from_uri(&uri)?;
     let module_state = session.module_state.lock().await;
-    let parser_s = module_state.get_idl_parser(&file_name)?;
+    let parser_s = module_state.idl_parser(&file_name)?;
 
     let parser = match &*parser_s {
         Ok(parser) => parser,

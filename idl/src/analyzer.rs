@@ -5,10 +5,10 @@ use crate::reserved::{
     field_name_is_valid, is_reserved_type, is_reserved_word, type_name_is_valid, NameError,
 };
 use crate::scanner;
-use idl_nodes::TypePair;
 use std::sync::Arc;
 use std::{fmt, path::Path};
 use thiserror::Error;
+use sha3::{Digest, Shake128, digest::{ExtendableOutput, Update}};
 
 #[derive(Debug, Clone, Copy)]
 pub enum ReferenceErrorKind {
@@ -252,6 +252,36 @@ impl Analyzer {
             })
     }
 
+    pub fn any_interface_has_static_field(&self) -> bool {
+        self.nodes
+            .iter()
+            .filter_map(|node| match node {
+                idl_nodes::IdlNode::TypeInterface(ty_interface) => Some(ty_interface),
+                _ => None,
+            })
+            .any(|interface| {
+                interface.fields.iter().any(|node| match node {
+                    idl_nodes::InterfaceNode::InterfaceField(field) => field.is_static,
+                    _ => false,
+                })
+            })
+    }
+
+    pub fn any_interface_has_non_static_field(&self) -> bool {
+        self.nodes
+            .iter()
+            .filter_map(|node| match node {
+                idl_nodes::IdlNode::TypeInterface(ty_interface) => Some(ty_interface),
+                _ => None,
+            })
+            .any(|interface| {
+                interface.fields.iter().any(|node| match node {
+                    idl_nodes::InterfaceNode::InterfaceField(field) => !field.is_static,
+                    _ => false,
+                })
+            })
+    }
+
     pub fn interface_has_static_field(name: &idl_nodes::TypeInterface) -> bool {
         name.fields.iter().any(|node| match node {
             idl_nodes::InterfaceNode::InterfaceField(field) => field.is_static,
@@ -372,7 +402,7 @@ impl Analyzer {
                     items.library_name = Some(value.to_owned());
                 }
                 parser::ParserNode::Interface(value) => {
-                    // TODO verify is duplicate???
+                    // TODO verify is duplicated???
                     let ident = match &*value.ident.clone() {
                         parser::Type::Name(name) => name.ident.to_owned(),
                         _ => {
@@ -518,6 +548,9 @@ impl Analyzer {
                         Err(err) => return Err(err.into()),
                     };
 
+                    let mut interface_digest = b"interface".to_vec();
+                    interface_digest.append(&mut ident.as_bytes().to_vec());
+
                     let mut fields = vec![];
 
                     for field in value.fields.iter() {
@@ -553,7 +586,15 @@ impl Analyzer {
                                     .into());
                                 }
 
+                                let mut field_digest = field_ident.as_bytes().to_vec();
+                                if is_static {
+                                    field_digest.append(&mut b"static".to_vec());
+                                }
+                                field_digest.append(&mut Self::type_digest_recv(&ty));
+                                interface_digest.append(&mut field_digest.clone());
+
                                 let interface_field = Box::new(idl_nodes::InterfaceField {
+                                    hash: Self::hash_from_bytes(field_digest),
                                     attributes: vec![],
                                     ident: field_ident,
                                     is_static,
@@ -570,7 +611,11 @@ impl Analyzer {
                     analyzer
                         .nodes
                         .push(idl_nodes::IdlNode::TypeInterface(Box::new(
-                            idl_nodes::TypeInterface { ident, fields },
+                            idl_nodes::TypeInterface { 
+                                ident, 
+                                fields, 
+                                hash: Self::hash_from_bytes(interface_digest),
+                            },
                         )));
                 }
                 parser::ParserNode::Struct(value) => {
@@ -581,6 +626,9 @@ impl Analyzer {
                         },
                         Err(err) => return Err(err.into()),
                     };
+
+                    let mut struct_digest = b"struct".to_vec();
+                    struct_digest.append(&mut ident.as_bytes().to_vec());
 
                     let mut fields = vec![];
 
@@ -616,10 +664,15 @@ impl Analyzer {
                                     .into());
                                 }
 
+                                let mut field_digest = field_ident.as_bytes().to_vec();
+                                field_digest.append(&mut Self::type_digest_recv(&ty));
+                                struct_digest.append(&mut field_digest.clone());
+
                                 fields.push(idl_nodes::StructNode::StructField(Box::new(
                                     idl_nodes::StructField {
-                                        ident: field_ident,
                                         ty,
+                                        ident: field_ident,
+                                        hash: Self::hash_from_bytes(field_digest),
                                     },
                                 )));
                             }
@@ -627,7 +680,11 @@ impl Analyzer {
                     }
 
                     analyzer.nodes.push(idl_nodes::IdlNode::TypeStruct(Box::new(
-                        idl_nodes::TypeStruct { ident, fields },
+                        idl_nodes::TypeStruct { 
+                            ident, 
+                            fields, 
+                            hash: Self::hash_from_bytes(struct_digest),
+                        },
                     )));
                 }
                 parser::ParserNode::Enum(value) => {
@@ -638,6 +695,9 @@ impl Analyzer {
                         },
                         Err(err) => return Err(err.into()),
                     };
+
+                    let mut enum_digest = b"enum".to_vec();
+                    enum_digest.append(&mut ident.as_bytes().to_vec());
 
                     let mut fields = vec![];
 
@@ -668,15 +728,25 @@ impl Analyzer {
                                     .into());
                                 }
 
+                                let field_digest = field_ident.as_bytes().to_vec();
+                                enum_digest.append(&mut field_digest.clone());
+
                                 fields.push(idl_nodes::EnumNode::EnumField(Box::new(
-                                    idl_nodes::EnumField { ident: field_ident },
+                                    idl_nodes::EnumField { 
+                                        ident: field_ident,
+                                        hash: Self::hash_from_bytes(field_digest),
+                                 },
                                 )))
                             }
                         }
                     }
 
                     analyzer.nodes.push(idl_nodes::IdlNode::TypeEnum(Box::new(
-                        idl_nodes::TypeEnum { ident, fields },
+                        idl_nodes::TypeEnum { 
+                            ident, 
+                            fields,
+                            hash: Self::hash_from_bytes(enum_digest),
+                        },
                     )));
                 }
                 parser::ParserNode::Const(value) => {
@@ -687,6 +757,25 @@ impl Analyzer {
                         },
                         Err(err) => return Err(err.into()),
                     };
+
+                    let (const_type, mut type_digest) = match value.const_type {
+                        parser::ConstType::Int => {
+                            (idl_nodes::ConstTypes::NatInt, b"int".to_vec())
+                        } 
+                        parser::ConstType::String => {
+                            (idl_nodes::ConstTypes::NatString, b"string".to_vec()) 
+                        }
+                        parser::ConstType::Float => {
+                            (idl_nodes::ConstTypes::NatFloat, b"float".to_vec())
+                        }
+                        parser::ConstType::UUID => {
+                            (idl_nodes::ConstTypes::NatUuid, b"uuid".to_vec())
+                        }
+                    };
+
+                    let mut const_digest = b"const".to_vec();
+                    const_digest.append(&mut ident.as_bytes().to_vec());
+                    const_digest.append(&mut type_digest);
 
                     let mut fields = vec![];
 
@@ -717,28 +806,27 @@ impl Analyzer {
                                     .into());
                                 }
 
+                                let mut field_digest = field_ident.as_bytes().to_vec();
+                                field_digest.append(&mut const_field.value.as_bytes().to_vec());
+                                const_digest.append(&mut field_digest.clone());
+
                                 fields.push(idl_nodes::ConstNode::ConstField(Box::new(
                                     idl_nodes::ConstField {
                                         ident: field_ident,
                                         value: const_field.value.to_owned(),
+                                        hash: Self::hash_from_bytes(field_digest),
                                     },
                                 )))
                             }
                         }
                     }
 
-                    let const_type = match value.const_type {
-                        parser::ConstType::Int => idl_nodes::ConstTypes::NatInt,
-                        parser::ConstType::String => idl_nodes::ConstTypes::NatString,
-                        parser::ConstType::Float => idl_nodes::ConstTypes::NatFloat,
-                        parser::ConstType::UUID => idl_nodes::ConstTypes::NatUuid,
-                    };
-
                     analyzer.nodes.push(idl_nodes::IdlNode::TypeConst(Box::new(
                         idl_nodes::TypeConst {
                             ident,
                             fields,
                             const_type,
+                            hash: Self::hash_from_bytes(const_digest),
                         },
                     )));
                 }
@@ -750,6 +838,9 @@ impl Analyzer {
                         },
                         Err(err) => return Err(err.into()),
                     };
+
+                    let mut list_digest = b"type".to_vec();
+                    list_digest.append(&mut ident.as_bytes().to_vec());
 
                     let mut fields = vec![];
 
@@ -764,15 +855,15 @@ impl Analyzer {
                                     Err(err) => return Err(err.into()),
                                 };
 
-                                let ident = ty_list_field.ident.to_owned();
+                                let field_ident = ty_list_field.ident.to_owned();
 
-                                type_name_is_valid(ident.as_str(), value.range)?;
-                                is_reserved_type(ident.to_lowercase().as_str(), value.range)?;
-                                is_reserved_word(ident.to_lowercase().as_str(), value.range)?;
+                                type_name_is_valid(field_ident.as_str(), value.range)?;
+                                is_reserved_type(field_ident.to_lowercase().as_str(), value.range)?;
+                                is_reserved_word(field_ident.to_lowercase().as_str(), value.range)?;
 
                                 if fields.iter().any(|v| {
                                     if let idl_nodes::TypeListNode::TypeListField(in_field) = v {
-                                        if in_field.ident.as_str() == ident {
+                                        if in_field.ident.as_str() == field_ident {
                                             return true;
                                         }
                                     }
@@ -785,15 +876,27 @@ impl Analyzer {
                                     .into());
                                 }
 
+                                let mut field_digest = field_ident.as_bytes().to_vec();
+                                field_digest.append(&mut Self::type_digest_recv(&ty));
+                                list_digest.append(&mut field_digest.clone());
+
                                 fields.push(idl_nodes::TypeListNode::TypeListField(Box::new(
-                                    idl_nodes::TypeListField { ty, ident },
+                                    idl_nodes::TypeListField { 
+                                        ty,
+                                        ident: field_ident,
+                                        hash: Self::hash_from_bytes(field_digest), 
+                                    },
                                 )));
                             }
                         }
                     }
 
                     analyzer.nodes.push(idl_nodes::IdlNode::TypeList(Box::new(
-                        idl_nodes::TypeList { ident, fields },
+                        idl_nodes::TypeList { 
+                            ident, 
+                            fields,
+                            hash: Self::hash_from_bytes(list_digest), 
+                        },
                     )));
                 }
                 parser::ParserNode::Library(_) | parser::ParserNode::Imports(_) => {}
@@ -809,6 +912,127 @@ impl Analyzer {
         analyzer.array_has_incorrect_types(parsers)?;
 
         Ok(analyzer)
+    }
+
+    pub fn library_hash(&self) -> Box<[u8]> {
+        let mut digest = Shake128::default();
+
+        for node in &self.nodes {
+            match node {
+                idl_nodes::IdlNode::LibraryName(value) => digest.update(&value.as_bytes().to_vec()),
+                idl_nodes::IdlNode::TypeStruct(value) => digest.update(&value.hash),
+                idl_nodes::IdlNode::TypeEnum(value) => digest.update(&value.hash),
+                idl_nodes::IdlNode::TypeList(value) => digest.update(&value.hash),
+                idl_nodes::IdlNode::TypeConst(value) => digest.update(&value.hash),
+                idl_nodes::IdlNode::TypeInterface(value) => digest.update(&value.hash),
+                idl_nodes::IdlNode::Imports(_) => panic!("imports need to be defined yet"),
+                _ => {}
+            }
+        }
+
+        digest.finalize_boxed(16)
+    }
+
+    fn hash_from_bytes(value: Vec<u8>) -> Box<[u8]> {
+        let mut digest = Shake128::default();
+        digest.update(&value);
+        digest.finalize_boxed(16)
+    }
+
+    pub fn type_digest(ty: &idl_nodes::TypeName) -> Box<[u8]> {
+        let mut digest = Shake128::default();
+        digest.update(Self::type_digest_recv(ty));
+        digest.finalize_boxed(16)
+    }
+
+    fn type_digest_recv(ty: &idl_nodes::TypeName) -> Vec<u8> {
+        match ty {
+            idl_nodes::TypeName::Types(value) => {
+                match value {
+                    idl_nodes::Types::NatInt => b"int".to_vec(), 
+                    idl_nodes::Types::NatFloat => b"float".to_vec(),
+                    idl_nodes::Types::NatString => b"string".to_vec(),
+                    idl_nodes::Types::NatBytes => b"bytes".to_vec(),
+                    idl_nodes::Types::NatBool => b"bool".to_vec(),
+                    idl_nodes::Types::NatUUID => b"uuid".to_vec(),
+                    idl_nodes::Types::NatNone => b"none".to_vec(),
+                }
+            }
+            idl_nodes::TypeName::TypeFunction(value) => {
+                let mut result = b"function".to_vec();
+                result.append(&mut Self::type_digest_recv(&value.args));
+                result.append(&mut Self::type_digest_recv(&value.return_ty));
+                result
+            }
+            idl_nodes::TypeName::TypeTuple(value) => {
+                let mut result = b"tuple".to_vec();
+                
+                for field in &value.fields {
+                    result.append(&mut field.ident.as_bytes().to_vec());
+                    result.append(&mut Self::type_digest_recv(&field.ty));
+                }
+                
+                result
+            }
+            idl_nodes::TypeName::TypeArray(value) => {
+                let mut result = b"array".to_vec();
+                result.append(&mut Self::type_digest_recv(&value.ty));
+                result
+            }
+            idl_nodes::TypeName::TypeMap(value) => {
+                let mut result = b"map".to_vec();
+                result.append(&mut Self::type_digest_recv(&value.index_ty));
+                result.append(&mut Self::type_digest_recv(&value.map_ty));
+                result
+            }
+            idl_nodes::TypeName::TypeOption(value) => {
+                let mut result = b"option".to_vec();
+                result.append(&mut Self::type_digest_recv(&value.some_ty));
+                result
+            }
+            idl_nodes::TypeName::TypeResult(value) => {
+                let mut result = b"result".to_vec();
+                result.append(&mut Self::type_digest_recv(&value.ok_ty));
+                result.append(&mut Self::type_digest_recv(&value.err_ty));
+                result
+            }
+            idl_nodes::TypeName::TypePair(value) => {
+                let mut result = b"pair".to_vec();
+                result.append(&mut Self::type_digest_recv(&value.first_ty));
+                result.append(&mut Self::type_digest_recv(&value.second_ty));
+                result
+            }
+            idl_nodes::TypeName::TypeStream(value) => {
+                let mut result = b"stream".to_vec();
+                result.append(&mut Self::type_digest_recv(&value.s_ty));
+                result
+            }
+            idl_nodes::TypeName::ListTypeName(value) => {
+                let mut result = b"type".to_vec();
+                result.append(&mut value.as_bytes().to_vec());
+                result
+            }
+            idl_nodes::TypeName::EnumTypeName(value) => {
+                let mut result = b"enum".to_vec();
+                result.append(&mut value.as_bytes().to_vec());
+                result
+            }
+            idl_nodes::TypeName::StructTypeName(value) => {
+                let mut result = b"struct".to_vec();
+                result.append(&mut value.as_bytes().to_vec());
+                result
+            }
+            idl_nodes::TypeName::InterfaceTypeName(value) => {
+                let mut result = b"interface".to_vec();
+                result.append(&mut value.as_bytes().to_vec());
+                result
+            }
+            idl_nodes::TypeName::ConstTypeName(value) => {
+                let mut result = b"const".to_vec();
+                result.append(&mut value.as_bytes().to_vec());
+                result
+            }
+        }
     }
 
     fn returns_interface(ty_name: &idl_nodes::TypeName) -> bool {
