@@ -11,3 +11,6 @@ pub trait TestInstance {
 pub trait TestStatic {
     fn test_static(value: i64) -> i64;
 }
+pub trait TetStStatic {
+    fn test_int(value: i64) -> i64;
+}

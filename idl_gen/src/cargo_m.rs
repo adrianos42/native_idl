@@ -26,9 +26,16 @@ pub struct CargoLib {
 }
 
 #[derive(Serialize)]
+pub struct CargoBin {
+    pub name: String,
+    pub path: String,
+}
+
+#[derive(Serialize)]
 pub struct CargoFields<T: Serialize> {
     pub package: CargoPackage,
     pub lib: Option<CargoLib>,
+    pub bin: Option<Vec<CargoBin>>,
     pub dependencies: Option<T>,
 }
 

@@ -299,7 +299,7 @@ impl BytesInterface {
                 quote! {
                     MethodType::CreateInstance => {
                         let _id = Uuid::new_v4();
-                        let _data = _id.as_bytes().to_vec();
+                        let mut _data = _id.as_bytes().to_vec();
                         #output_ident.write_all(&mut _data[..]).unwrap(); // instance id
                         self.#instances_ident.insert(_id, #library_ident_ws_impl::#interface_instance_ident::new());
                         Ok(())
@@ -318,7 +318,7 @@ impl BytesInterface {
                         match self.#instances_ident.get_mut(&_id) {
                             Some(_instance) => {
                                 match _hash[..] {
-                                    #( #hash_fields_match ),*
+                                    #( #hash_fields_match )*
                                     _ => panic!("Method not defined"),
                                 }
                             }
@@ -333,7 +333,7 @@ impl BytesInterface {
                 quote! {
                     MethodType::MethodCall => {
                         match _hash[..] {
-                            #( #hash_fields_match ),*
+                            #( #hash_fields_match )*
                             _ => panic!("Invalid method call"),
                         }
                     }

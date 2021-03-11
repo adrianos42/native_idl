@@ -56,30 +56,40 @@ impl BytesPackage {
                 let instance = format_ident!("_instance_{}", analyzer.library_name());
                 let ident_type = format_ident!("{}", analyzer.library_name().to_pascal_case());
                 let ident_mod = format_ident!("{}", analyzer.library_name());
+                let ident_mod = if analyzer.library_name() == package_name {
+                    quote! { ws:: }
+                } else {
+                    quote! { #ident_mod::ws:: }
+                };
 
-                quote! { #instance: #ident_mod::#ident_type, }
+                quote! { #instance: #ident_mod#ident_type }
             })
             .collect();
 
-        let hash_library_match: Vec<TokenStream> =
-            analyzers.iter().map(|analyzer| {
+        let hash_library_match: Vec<TokenStream> = analyzers
+            .iter()
+            .map(|analyzer| {
                 let library_call = if analyzer.any_interface_has_non_static_field() {
                     let instance = format_ident!("_instance_{}", analyzer.library_name());
                     quote! { self.#instance.#parse_func_ident }
                 } else {
                     quote! { Self::#parse_func_ident }
                 };
-                let library_digest_ident: TokenStream = create_hash_idents(&analyzer.library_hash());
-                quote! { [#library_digest_ident] => #library_call(#input_ident, #output_ident) }
-            }).collect();
+                let library_digest_ident: TokenStream =
+                    create_hash_idents(&analyzer.library_hash());
+                quote! { [#library_digest_ident] => { #library_call(#input_ident, #output_ident) } }
+            })
+            .collect();
 
         let package_digest_ident: TokenStream = create_hash_idents(&package.hash);
 
         context.module.push(quote! {
-            pub struct #package_ident { #( #interface_instances )* }
+            pub struct #package_ident { #( #interface_instances ),* }
 
             impl #package_ident {
-                pub(crate) fn #parse_func_ident<R: ::std::io::Read, W: ::std::io::Write>(
+                pub fn new() -> Self { Self { #( #interface_instances::new() ),* } }
+
+                pub fn #parse_func_ident<R: ::std::io::Read, W: ::std::io::Write>(
                     &mut self,
                     #input_ident: &mut R,
                     #output_ident: &mut W,
@@ -93,14 +103,12 @@ impl BytesPackage {
                             #input_ident.read_exact(&mut _hash[..]).unwrap(); // Library hash
 
                             match _hash[..] {
-                                #( #hash_library_match ),*
+                                #( #hash_library_match )*
                                 _ => panic!("Interface not defined"),
                             }
                          }
                         _ => panic!("Invalid package hash value")
                     }
-
-
                 }
             }
         });

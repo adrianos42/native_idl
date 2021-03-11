@@ -15,6 +15,7 @@ use cargo::{
 use idl::ids;
 use quote::{ToTokens, TokenStreamExt};
 use tempfile::tempdir;
+use super::WSServer;
 
 pub fn ws_server_files(
     analyzers: &[idl::analyzer::Analyzer],
@@ -89,12 +90,22 @@ pub fn ws_server_files(
     }
 
     // Since the library names are all valid here, there's no need to verify them.
-    let ws_main = BytesPackage::generate(package, analyzers).unwrap();
-    libs.append_all(ws_main.to_token_stream());    
+    let ws_package = BytesPackage::generate(package, analyzers).unwrap();
+    libs.append_all(ws_package.to_token_stream());    
 
     lib_items.push(StorageItem::Source {
         name: "lib.rs".to_owned(),
         txt: libs.to_string().rust_fmt(),
+    });
+
+    let ws_main = WSServer::generate(&package_name).unwrap();
+
+    lib_items.push(StorageItem::Folder {
+        name: "bin".to_owned(),
+        items: vec![StorageItem::Source {
+            name: "main.rs".to_owned(),
+            txt: ws_main.to_string(),
+        }],
     });
 
     StorageItem::Folder {

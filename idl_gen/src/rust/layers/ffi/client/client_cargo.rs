@@ -42,6 +42,7 @@ impl FFIClientCargo {
                 edition: Some("2018".to_owned()),
                 version: "0.1.0".to_owned(),
             },
+            bin: None,
             lib: None,
             dependencies: Some(dependencies),
         };

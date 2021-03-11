@@ -84,6 +84,10 @@ impl WSCargo {
                 edition: Some("2018".to_owned()),
                 version: "0.1.0".to_owned(),
             },
+            bin: Some(vec![CargoBin {
+                name: package_name.clone(),
+                path: "src/bin/main.rs".to_owned(),
+            }]),
             lib: None,
             dependencies: Some(dependencies),
         };
@@ -354,8 +358,6 @@ impl WSImpl {
         Self { module: vec![] }
     }
 }
-
-
 
 pub struct WSMod {
     module: TokenStream,

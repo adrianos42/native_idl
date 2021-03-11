@@ -73,6 +73,7 @@ impl FFIServerCargo {
                 edition: Some("2018".to_owned()),
                 version: "0.1.0".to_owned(),
             },
+            bin: None,
             lib: Some(CargoLib {
                 crate_type: Some(vec!["staticlib".to_owned(), "cdylib".to_owned()]),
                 name: package_name.to_owned(),

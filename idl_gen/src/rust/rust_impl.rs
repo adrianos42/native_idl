@@ -231,6 +231,7 @@ mod impl_cargo {
                     version: "0.1.0".to_owned(),
                 },
                 lib: None,
+                bin: None,
                 dependencies: Some(CargoFFIDeps {
                     idl_internal: CargoGit {
                         git: "https://github.com/adrianos42/native_idl".to_owned(),

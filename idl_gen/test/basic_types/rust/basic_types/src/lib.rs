@@ -3,7 +3,7 @@ use std::{collections::HashMap, thread::sleep, time::Duration};
 use std::sync::{Arc, RwLock};
 
 pub use idl_types;
-use idl_types::{idl_impl::{TestInstance, TestStatic}, idl_internal::*};
+use idl_types::{idl_impl::{TestInstance, TestStatic, TetStStatic}, idl_internal::*};
 
 pub struct Test {
     
@@ -47,6 +47,14 @@ impl TestInstance for Test {
     }
 
     fn test_uuid(&mut self, value: Uuid) -> Uuid {
+        value
+    }
+}
+
+pub struct TetSt {}
+
+impl TetStStatic for TetSt {
+    fn test_int(value: i64) -> i64 {
         value
     }
 }
