@@ -44,6 +44,10 @@
 					"name": "constant.numeric.idl"
 				},
 				{
+					"match": "(?<!\\$)\\b(?:ffi|ws|async|sync|flutter)\\b(?!\\$)",
+					"name": "constant.numeric.idl"
+				},
+				{
 					"match": "(?<!\\$)\\b([A-Z](?:[a-z0-9][A-Z]?)*)\\b(?!\\$)",
 					"name": "entity.name.class.idl"
 				},

@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use super::ws_mod::{WSCargo, WSImpl, WSMod};
-use super::WSServer;
+use super::WSClient;
 use crate::rust::layers::bytes::{
     server::{package::BytesPackage, BytesInterface},
     types::BytesTypes,
@@ -19,13 +19,12 @@ use idl::ids;
 use quote::{ToTokens, TokenStreamExt};
 use tempfile::tempdir;
 
-pub fn ws_server_files(
+pub fn ws_client_files(
     analyzers: &[idl::analyzer::Analyzer],
     ids_analyzer: &ids::analyzer::Analyzer,
-    server_name: &str,
-    input_dir: &str,
+    client_name: &str,
 ) -> StorageItem {
-    let ws_cargo = WSCargo::generate(&ids_analyzer, server_name, input_dir).unwrap();
+    let ws_cargo = WSCargo::generate(&ids_analyzer, client_name).unwrap();
 
     let package = ids_analyzer.get_package();
     let package_name = package.name();
@@ -36,8 +35,8 @@ pub fn ws_server_files(
     let mut lib_names = vec![];
 
     for analyzer in analyzers.iter().filter(|v| v.has_interface()) {
-        let ws_server_impl = WSImpl::generate(&package_name, &analyzer).unwrap();
-        let ws_server_types = BytesTypes::generate(&package_name, &analyzer).unwrap();
+        let ws_client_impl = WSImpl::generate(&package_name, &analyzer).unwrap();
+        let ws_client_types = BytesTypes::generate(&package_name, &analyzer).unwrap();
         let ws_lib = WSMod::generate(&analyzer).unwrap();
 
         let ws_interface = BytesInterface::generate(&package_name, &analyzer).unwrap();
@@ -55,12 +54,12 @@ pub fn ws_server_files(
 
             lib_items.push(StorageItem::Source {
                 name: "ws_impl.rs".to_owned(),
-                txt: ws_server_impl.to_string(),
+                txt: ws_client_impl.to_string(),
             });
 
             lib_items.push(StorageItem::Source {
                 name: "ws_types.rs".to_owned(),
-                txt: ws_server_types.to_string(),
+                txt: ws_client_types.to_string(),
             });
         } else {
             let lib_name = format_ident!("ws_{}", library_name);
@@ -79,11 +78,11 @@ pub fn ws_server_files(
                     },
                     StorageItem::Source {
                         name: "ws_impl.rs".to_owned(),
-                        txt: ws_server_impl.to_string(),
+                        txt: ws_client_impl.to_string(),
                     },
                     StorageItem::Source {
                         name: "ws_types.rs".to_owned(),
-                        txt: ws_server_types.to_string(),
+                        txt: ws_client_types.to_string(),
                     },
                 ],
             })
@@ -99,7 +98,7 @@ pub fn ws_server_files(
         txt: libs.to_string().rust_fmt(),
     });
 
-    let ws_main = WSServer::generate(&package).unwrap();
+    let ws_main = WSClient::generate(&package).unwrap();
 
     lib_items.push(StorageItem::Folder {
         name: "bin".to_owned(),
@@ -125,16 +124,14 @@ pub fn ws_server_files(
 }
 
 pub(crate) struct WSLayer {
-    server_name: String,
-    input_dir: String,
+    client_name: String,
     debug_mode: bool,
 }
 
 impl WSLayer {
-    pub(crate) fn new(server_name: String, input_dir: String, debug_mode: bool) -> Self {
+    pub(crate) fn new(client_name: String, debug_mode: bool) -> Self {
         Self {
-            server_name,
-            input_dir,
+            client_name,
             debug_mode,
         }
     }
@@ -147,11 +144,11 @@ impl Layer for WSLayer {
         ids_analyzer: &ids::analyzer::Analyzer,
     ) -> anyhow::Result<Vec<StorageItem>> {
         //let dir = tempdir()?;
-        let path = Path::new("/home/adriano/repos_tmp/basic_types");
+        let path = Path::new("/home/adriano/repos_tmp/client/basic_types");
         let mut files = vec![];
 
         if analyzers.iter().any(|v| v.has_interface()) {
-            let item = ws_server_files(analyzers, ids_analyzer, &self.server_name, &self.input_dir);
+            let item = ws_client_files(analyzers, ids_analyzer, &self.client_name);
             item.write_items(path, true)?;
 
             let package_path = path.join("idl_ws/Cargo.toml");

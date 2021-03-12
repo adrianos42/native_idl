@@ -46,8 +46,9 @@ impl crate::IdlGen for RustGen {
                 match name.args {
                     ServerArg::Build => {
                         let layer = layer_builder_server(
-                            name.server_name.to_owned(),
-                            name.input_path,
+                            "ffi",
+                            &name.server_name,
+                            &name.input_path,
                             match name.build_type {
                                 BuildType::Release => false,
                                 BuildType::Debug => true,
@@ -61,6 +62,7 @@ impl crate::IdlGen for RustGen {
                     }
                     ServerArg::Run => {
                         let layer = layer_runner_server(
+                            "ws",
                             name.server_name.to_owned(),
                             name.input_path,
                             match name.build_type {
@@ -98,7 +100,16 @@ impl crate::IdlGen for RustGen {
                 //     crate::IdlGenError::RustGenError(RustGenError::Undefined("".to_owned()))
                 // })?;
 
-                let layer = layer_builder_client(name.to_owned());
+                let client = ids_analyzer.find_client(&name).unwrap();
+                // let server = client
+                //     .get_field("servers")
+                //     .and_then(|servers| servers.as_values())
+                //     .and_then(|v| v.first())
+                //     .and_then(|server_name| server_name.as_server_name())
+                //     .and_then(|v| ids_analyzer.find_server(&v))
+                //     .expect("Could not find server");
+
+                let layer = layer_builder_client("ffi", &name);
                 root_items.append(
                     &mut layer
                         .build(&analyzers, &ids_analyzer)

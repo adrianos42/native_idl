@@ -6,7 +6,6 @@ use crate::reserved::{
 };
 
 use super::client;
-use super::layer;
 use super::package;
 use super::server;
 
@@ -22,7 +21,7 @@ pub enum ReferenceErrorKind {
     NotFloat,
     NotString,
     NotBoolean,
-    NotLayerTypeName,
+    NotLayer,
     NotClientTypeName,
     NotServerTypeName,
     NotIdentifier,
@@ -44,7 +43,7 @@ impl fmt::Display for ReferenceError {
             ReferenceErrorKind::NotFloat => format!("Not a float `{}`", name),
             ReferenceErrorKind::NotString => format!("Not a string `{}`", name),
             ReferenceErrorKind::NotBoolean => format!("Not a boolean `{}`", name),
-            ReferenceErrorKind::NotLayerTypeName => format!("Not a layer `{}`", name),
+            ReferenceErrorKind::NotLayer => format!("Not a layer `{}`", name),
             ReferenceErrorKind::NotClientTypeName => format!("Not a client `{}`", name),
             ReferenceErrorKind::NotServerTypeName => format!("Not a server `{}`", name),
             ReferenceErrorKind::NotValues => format!("Not a value vector `{}`", name),
@@ -158,8 +157,6 @@ impl AnalyzerItems {
                     Ok(ItemType::ClientTypeName(value.ident.to_owned()))
                 } else if self.servers.contains(&value.ident) {
                     Ok(ItemType::ServerTypeName(value.ident.to_owned()))
-                } else if self.layers.contains(&value.ident) {
-                    Ok(ItemType::LayerTypeName(value.ident.to_owned()))
                 } else {
                     Err(ReferenceError(
                         ReferenceErrorKind::UndefinedType,
@@ -212,19 +209,6 @@ impl Analyzer {
                     Self::has_valid_name_fields(&value.nodes)?;
                     items.package = Some(name.ident.to_owned());
                 }
-                parser::ParserNode::Layer(value) => {
-                    let name = match &value.ident {
-                        parser::ItemIdent::TypeName(value) => value,
-                        parser::ItemIdent::Identifier(_) => return Err(AnalyzerError::Undefined),
-                    };
-
-                    type_name_is_valid(name.ident.as_str(), value.range)?;
-                    is_reserved_type(name.ident.to_lowercase().as_str(), value.range)?;
-                    is_reserved_word(name.ident.to_lowercase().as_str(), value.range)?;
-                    Self::has_duplicate_fields(&value.nodes)?;
-                    Self::has_valid_name_fields(&value.nodes)?;
-                    items.layers.push(name.ident.to_owned());
-                }
                 parser::ParserNode::Server(value) => {
                     let name = match &value.ident {
                         parser::ItemIdent::TypeName(value) => value,
@@ -261,9 +245,6 @@ impl Analyzer {
             match p_value {
                 parser::ParserNode::Package(value) => {
                     analyzer.nodes.push(package::get_node(&value, &items)?)
-                }
-                parser::ParserNode::Layer(value) => {
-                    analyzer.nodes.push(layer::get_node(&value, &items)?)
                 }
                 parser::ParserNode::Server(value) => {
                     analyzer.nodes.push(server::get_node(&value, &items)?)

@@ -6,6 +6,12 @@ use idl::analyzer::Analyzer;
 use idl::idl_nodes::*;
 use proc_macro2::{self, Punct, Spacing, TokenStream};
 
+#[derive(Debug)]
+pub enum BytesError {
+    UnexpectedType,
+    Undefined,
+}
+
 pub(crate) trait BytesTypeName {
     fn conv_bytes_to_value(
         &self,

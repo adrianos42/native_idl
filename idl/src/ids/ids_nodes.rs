@@ -5,7 +5,6 @@ use serde::{de::value, Deserialize, Serialize};
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Deserialize, Serialize)]
 pub enum Keywords {
     Package,
-    Layer,
     Client,
     Server,
 }
@@ -17,7 +16,6 @@ pub enum ItemType {
     NatString(String),
     NatBool(bool),
     Identifier(String),
-    LayerTypeName(String),
     ClientTypeName(String),
     ServerTypeName(String),
     Values(Vec<ItemType>),
@@ -31,9 +29,7 @@ impl fmt::Display for ItemType {
             ItemType::NatString(value) => format!("\"{}\"", value),
             ItemType::NatBool(value) => value.to_string(),
             ItemType::Identifier(value) => value.to_owned(),
-            ItemType::ServerTypeName(value)
-            | ItemType::ClientTypeName(value)
-            | ItemType::LayerTypeName(value) => value.to_owned(),
+            ItemType::ServerTypeName(value) | ItemType::ClientTypeName(value) => value.to_owned(),
             ItemType::Values(value) => {
                 format!(
                     "{}]",
@@ -73,13 +69,6 @@ impl ItemType {
     pub fn is_boolean(&self) -> bool {
         match self {
             ItemType::NatBool(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_layer(&self) -> bool {
-        match self {
-            ItemType::LayerTypeName(_) => true,
             _ => false,
         }
     }
@@ -147,13 +136,6 @@ impl ItemType {
         }
     }
 
-    pub fn as_layer_name(&self) -> Option<String> {
-        match self {
-            ItemType::LayerTypeName(value) => Some(value.clone()),
-            _ => None,
-        }
-    }
-
     pub fn as_client_name(&self) -> Option<String> {
         match self {
             ItemType::ClientTypeName(value) => Some(value.clone()),
@@ -179,7 +161,6 @@ impl ItemType {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub enum IdsNode {
     Package(Box<super::package::Package>),
-    Layer(Box<super::layer::Layer>),
     Server(Box<super::server::Server>),
     Client(Box<super::client::Client>),
 }

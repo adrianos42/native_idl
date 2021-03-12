@@ -1,7 +1,7 @@
-use serde::{Deserialize, Serialize};
 use super::analyzer;
 use super::ids_nodes::*;
 use super::parser;
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct Server {
@@ -13,6 +13,13 @@ impl Server {
     pub fn language(&self) -> Option<String> {
         match self.get_field("language") {
             Some(ItemType::NatString(value)) => Some(value.clone()),
+            _ => None,
+        }
+    }
+
+    pub fn layers(&self) -> Option<&Vec<ItemType>> {
+        match self.get_field("layers") {
+            Some(ItemType::Values(values)) => Some(values),
             _ => None,
         }
     }
@@ -44,7 +51,6 @@ pub struct ServerField {
     pub value: Box<ItemType>,
 }
 
-
 pub(super) fn get_node(
     item: &parser::Item,
     analyzer_items: &analyzer::AnalyzerItems,
@@ -65,11 +71,11 @@ pub(super) fn get_node(
                 match field.ident.as_str() {
                     "layers" => {
                         if match &value {
-                            ItemType::Values(values) => values.iter().any(|v| !v.is_layer()),
+                            ItemType::Values(values) => values.iter().any(|v| !v.is_identifier()),
                             _ => true,
                         } {
                             return Err(analyzer::ReferenceError(
-                                analyzer::ReferenceErrorKind::NotLayerTypeName,
+                                analyzer::ReferenceErrorKind::NotLayer,
                                 field.range,
                                 field.ident.to_owned(),
                             )

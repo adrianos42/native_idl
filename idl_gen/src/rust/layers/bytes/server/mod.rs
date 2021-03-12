@@ -70,8 +70,9 @@ impl BytesInterface {
             use #lib_ident::idl_types;
             use ::std::collections::HashMap;
             use idl_internal::{
+                MethodType, Uuid,
                 ffi::ffi_types::{AbiInternalError, #( #ffi_deps )* },
-                BigEndian, MethodType, ReadBytesExt, Uuid, WriteBytesExt, #( #deps )*
+                byteorder::{BigEndian, ReadBytesExt, WriteBytesExt}, #( #deps )*
             };
         });
 

@@ -90,11 +90,11 @@ pub(super) fn get_node(
                 match field.ident.as_str() {
                     "layers" => {
                         if match &value {
-                            ItemType::Values(values) => values.iter().any(|v| !v.is_layer()),
+                            ItemType::Values(values) => values.iter().any(|v| !v.is_identifier()),
                             _ => true,
                         } {
                             return Err(analyzer::ReferenceError(
-                                analyzer::ReferenceErrorKind::NotLayerTypeName,
+                                analyzer::ReferenceErrorKind::NotLayer,
                                 field.range,
                                 field.ident.to_owned(),
                             )

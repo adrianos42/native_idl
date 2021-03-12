@@ -5,28 +5,10 @@ package basic_types {
 
 client Main {
     language: "rust",
-    layers: [RustAsync],
     servers: [MainServer],
 }
 
 server MainServer {
-    layers: [RustAsync, FFI],
+    layers: [sync, ws],
     language: "rust",
-}
-
-layer Flutter {
-    endpoint: true,
-    languages: ["dart"],
-    client_only: true,
-}
-
-layer FFI {
-    endpoint: false,
-    client_only: false,
-}
-
-layer RustAsync {
-    endpoint: true,
-    client_only: true,
-    languages: ["rust"],
 }

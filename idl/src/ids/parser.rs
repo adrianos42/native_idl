@@ -8,7 +8,6 @@ pub use crate::parser::{Identifier, Keywords, ScannerError, TypeName};
 #[derive(Debug)]
 pub enum ParserNode {
     Package(Arc<Item>),
-    Layer(Arc<Item>),
     Server(Arc<Item>),
     Client(Arc<Item>),
 }
@@ -259,12 +258,6 @@ impl Parser {
                     let start_position = keyword.range.as_position();
 
                     match &keyword.get_word() {
-                        Keywords::Layer => {
-                            match Self::consume_item(&mut word_stream, start_position) {
-                                Ok(value) => context.nodes.push(ParserNode::Layer(Arc::new(value))),
-                                Err(err) => return Err((context, err.into())),
-                            }
-                        }
                         Keywords::Server => {
                             match Self::consume_item(&mut word_stream, start_position) {
                                 Ok(value) => {

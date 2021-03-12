@@ -1,6 +1,4 @@
 This is makeindex, version 2.15 [TeX Live 2020] (kpathsea + Thai support).
-Scanning input file idl.idx....done (44 entries accepted, 0 rejected).
-Sorting entries....done (253 comparisons).
-Generating output file idl.ind....done (94 lines written, 0 warnings).
-Output written in idl.ind.
+Scanning input file idl.idx...done (0 entries accepted, 0 rejected).
+Nothing written in idl.ind.
 Transcript written in idl.ilg.
