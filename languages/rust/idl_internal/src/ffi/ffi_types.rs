@@ -2,6 +2,15 @@ use crate::StreamReceiver;
 use std::convert::TryInto;
 pub use crate::abi::{AbiInternalError, AbiStreamReceiverState, AbiStreamSenderState};
 
+#[repr(C)]
+pub struct AbiStream {
+    pub state: i64,
+    pub wake_handle: i64,
+    pub wake_object_id: i64,
+    pub wake_object: *const ::core::ffi::c_void,
+    pub wake_callback: *const ::core::ffi::c_void,
+    pub data: *const ::core::ffi::c_void,
+}
 
 impl AbiStream {
     pub fn new(state: i64) -> Self {
