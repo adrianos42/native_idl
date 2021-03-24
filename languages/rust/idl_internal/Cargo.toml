@@ -12,11 +12,13 @@ documentation = "https://adrianos42.github.io/native_idl/"
 repository = "https://github.com/adrianos42/native_idl"
 
 [dependencies]
-proc-macro2 = { version = "1", default-features = false }
 uuid = { version = "0.8", features = ["v4"] }
 anyhow = "1.0"
 thiserror = "1.0"
 byteorder = "1.4.2"
 tungstenite = "0.13.0"
-url = "2.2.1 "
-#bytes = "1"
+url = "2.2.1"
+lazy_static = "1.4.0"
+tokio-tungstenite = "0.14.0"
+futures = "0.3.13"
+tokio = { version = "1.4.0", features = ["rt", "rt-multi-thread", "net", "macros", "sync"] }

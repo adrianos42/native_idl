@@ -1,0 +1,9 @@
+[package]
+name = "basic_types"
+version = "0.1.0"
+edition = "2018"
+[dependencies.lazy_static]
+version = "1.4.0"
+
+[dependencies.idl_internal]
+path = "/home/adriano/repos/native_idl/languages/rust/idl_internal/"

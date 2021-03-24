@@ -1,0 +1,40 @@
+library basic_types
+
+interface Test {
+    test_int: (value: int) -> int,
+    test_bool: (value: bool) -> bool,
+    test_float: (value: float) -> float,
+    test_string: (value: string) -> string,
+    test_bytes: (value: bytes) -> bytes,
+    test_uuid: (value: uuid) -> uuid,
+    test_int_array: (value: int[]) -> int[],
+    test_map: (value: map[string, float]) -> map[string, float],
+    test_static: static (value: int) -> int,
+    test_struct: (value: Point) -> Point,
+    test_types: (value: Types) -> Types,
+    test_enum: (value: Names) -> Names,
+    test_stream: stream[int],
+}
+
+interface TetSt {
+    test_int: static (value: int) -> int,
+}
+
+struct Point {
+    x: int,
+    y: int,
+    name: string,
+}
+
+type Types {
+    Integers: int,
+    Sttrings: string,
+    Ntsst: Point,
+}
+
+enum Names {
+    Pamela,
+    Bianca,
+    Dominique,
+    Stephany,
+}

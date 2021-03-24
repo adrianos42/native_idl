@@ -17,6 +17,7 @@ pub enum ReferenceErrorKind {
     ReferencesStream,
     StructRecursiveReference,
     ReferencesResult,
+    NoneUsage,
     UndefinedType,
 }
 
@@ -35,6 +36,7 @@ impl fmt::Display for ReferenceError {
             ReferenceErrorKind::StructRecursiveReference => {
                 format!("Recursive reference in struct `{}`", name)
             }
+            ReferenceErrorKind::NoneUsage => format!("None usaged `{}`", name),
             ReferenceErrorKind::UndefinedType => format!("Undefined type `{}`", name),
         };
 
@@ -905,6 +907,7 @@ impl Analyzer {
 
         analyzer.references_invalid_type(parsers)?;
         analyzer.struct_has_recursive_reference(parsers)?;
+        analyzer.usage_of_none(parsers)?;
         analyzer.tuple_has_duplicate_fields(parsers)?;
         analyzer.tuple_has_result_type(parsers)?;
         analyzer.tuple_has_incorrect_stream_type(parsers)?;
@@ -1453,6 +1456,42 @@ impl Analyzer {
         Ok(())
     }
 
+    fn usage_of_none(&self, parsers: &parser::Parser) -> Result<(), ReferenceError> {
+        for node in &self.nodes {
+            match node {
+                idl_nodes::IdlNode::TypeInterface(value) => {
+                    for interface_node in value.fields.iter() {
+                        if let idl_nodes::InterfaceNode::InterfaceField(interface_field) =
+                            interface_node
+                        {
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                interface_field.ident.as_str(),
+                            );
+
+                            Self::references_none(&interface_field.ty, range)?;
+                        }
+                    }
+                }
+                idl_nodes::IdlNode::TypeStruct(value) => {
+                    for struct_node in value.fields.iter() {
+                        if let idl_nodes::StructNode::StructField(struct_field) = struct_node {
+                            let range = parsers.get_range_from_field_name(
+                                value.ident.as_str(),
+                                struct_field.ident.as_str(),
+                            );
+
+                            Self::references_none(&struct_field.ty, range)?;
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        Ok(())
+    }
+
     fn references_interface(ty: &idl_nodes::TypeName, range: Range) -> Result<(), ReferenceError> {
         match ty {
             idl_nodes::TypeName::InterfaceTypeName(_) => Err(ReferenceError(
@@ -1481,6 +1520,39 @@ impl Analyzer {
             }
             idl_nodes::TypeName::TypeStream(stream) => {
                 Self::references_interface(&stream.s_ty, range)
+            }
+            _ => Ok(()),
+        }
+    }
+
+    fn references_none(ty: &idl_nodes::TypeName, range: Range) -> Result<(), ReferenceError> {
+        match ty {
+            idl_nodes::TypeName::Types(idl_nodes::Types::NatNone) => Err(ReferenceError(
+                ReferenceErrorKind::NoneUsage,
+                range,
+                ty.get_type_reference(),
+            )),
+            idl_nodes::TypeName::TypeFunction(function) => {
+                Self::references_none(&function.return_ty, range)?;
+                Self::references_none(&function.args, range)
+            }
+            idl_nodes::TypeName::TypeTuple(tuple) => {
+                for tuple_ty in tuple.fields.iter() {
+                    Self::references_none(&tuple_ty.ty, range)?;
+                }
+                Ok(())
+            }
+            idl_nodes::TypeName::TypeMap(map) => Self::references_none(&map.map_ty, range),
+            idl_nodes::TypeName::TypeArray(array) => Self::references_none(&array.ty, range),
+            idl_nodes::TypeName::TypeOption(option) => {
+                Self::references_none(&option.some_ty, range)
+            }
+            idl_nodes::TypeName::TypeResult(result) => {
+                Self::references_none(&result.ok_ty, range)?;
+                Self::references_none(&result.err_ty, range)
+            }
+            idl_nodes::TypeName::TypeStream(stream) => {
+                Self::references_none(&stream.s_ty, range)
             }
             _ => Ok(()),
         }

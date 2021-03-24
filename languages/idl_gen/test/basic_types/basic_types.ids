@@ -1,0 +1,15 @@
+package basic_types {
+    version: 1.0,
+    idl_version: 0.1,
+
+}
+
+client Main {
+    language: "rust",
+    servers: [MainServer],
+}
+
+server MainServer {
+    layers: [sync, ws],
+    language: "rust",
+}

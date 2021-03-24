@@ -1,0 +1,18 @@
+library stream_types
+
+interface StreamSt {
+    test_stream: (value: int) -> int,
+    test_stream_struct: (value: Rect) -> Rect,
+}
+
+struct Rect {
+    x: int,
+    y: int,
+    width: int,
+    heigth: int,
+}
+
+struct RrRect {
+    rr_y: Rect,
+    rr_s: string,
+}

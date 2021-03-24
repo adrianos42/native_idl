@@ -31,7 +31,7 @@ impl Package {
     }
     
     pub fn lib_names(&self) -> Option<Vec<String>> {
-        let field = self.get_field("libs")?.as_values()?;
+        let field = self.get_field("libraries")?.as_values()?;
         let mut result = vec![];
 
         for value in field {
@@ -79,7 +79,7 @@ pub(super) fn get_node(
             parser::ItemNode::ItemField(field) => {
                 let value = analyzer_items.get_ids_node(&field.value)?;
                 match field.ident.as_str() {
-                    "libs" => match &value {
+                    "libraries" => match &value {
                         ItemType::Values(values) => {
                             for value in values {
                                 if !value.is_identifier() {
