@@ -109,7 +109,6 @@ impl WSCargo {
     }
 }
 
-
 pub struct WSMod {
     module: TokenStream,
 }

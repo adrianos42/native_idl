@@ -63,7 +63,8 @@ impl BytesInterface {
         context.module.push(quote! {
             use ::std::collections::HashMap;
             use idl_internal::{
-                MethodType, Uuid,
+                Uuid,
+                abi::MethodType, 
                 byteorder::{BigEndian, ReadBytesExt, WriteBytesExt}, #( #deps )*
             };
         });
