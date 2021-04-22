@@ -12,6 +12,11 @@ pub struct CargoDep {
 }
 
 #[derive(Serialize)]
+pub struct CargoPath {
+    pub path: String,
+}
+
+#[derive(Serialize)]
 pub struct CargoPackage {
     pub name: String,
     pub version: String,

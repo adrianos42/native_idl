@@ -2,8 +2,19 @@
 name = "basic_types"
 version = "0.1.0"
 edition = "2018"
-[dependencies.lazy_static]
-version = "1.4.0"
 
 [dependencies.idl_internal]
 path = "/home/adriano/repos/native_idl/languages/rust/idl_internal/"
+
+[dependencies.lazy_static]
+version = "1.4.0"
+
+[dependencies]
+byteorder = "1.4.2"
+tungstenite = "0.13.0"
+url = "2.2.1"
+tokio-tungstenite = "0.14.0"
+futures = "0.3.13"
+tokio = { version = "1.4.0", features = ["rt", "rt-multi-thread", "net", "macros", "sync"] }
+async-trait = { version = "0.1.48" }
+async-stream = { version = "0.3.0" }

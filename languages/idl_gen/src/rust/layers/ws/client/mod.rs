@@ -46,19 +46,17 @@ impl WSClient {
         let mut context = Self::new();
 
         context.module.push(quote! {
-            use ::idl_internal::{
-                futures::{stream::SplitSink, StreamExt},
-                tokio::{
-                    self,
-                    net::TcpStream, 
-                    sync::{oneshot, RwLock}
-                },
-                byteorder::{BigEndian, ReadBytesExt},
-                tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream},
-                tungstenite::Message,
-                url::Url,
-                Uuid,
+            use ::byteorder::{BigEndian, ReadBytesExt};
+            use ::futures::{stream::SplitSink, StreamExt};
+            use ::idl_internal::Uuid;
+            use ::tokio::{
+                self,
+                net::TcpStream,
+                sync::{oneshot, mpsc, RwLock},
             };
+            use ::tokio_tungstenite::{connect_async, MaybeTlsStream, WebSocketStream};
+            use ::tungstenite::Message;
+            use ::url::Url;
         });
 
         context.add_main(package, analyzers)?;
@@ -79,7 +77,19 @@ impl WSClient {
             _sender.send(_response.into_boxed_slice()).unwrap();
         };
 
-        let ws_package = BytesPackage::generate(package, analyzers, response_body, true).unwrap();
+        let response_body_stream = quote! {
+            let _sender = WS_INSTANCE
+                .stream_dispatch
+                .read()
+                .await
+                .get(&_instance_id)
+                .and_then(|v| v.get(&_object_id))
+                .unwrap()
+                .clone();
+            _sender.send(_response).await.unwrap();
+        };
+
+        let ws_package = BytesPackage::generate(package, analyzers, response_body, response_body_stream, true).unwrap();
 
         self.module.push(quote! {
             lazy_static! {
@@ -88,8 +98,9 @@ impl WSClient {
 
             #[derive(Default)]
             pub(crate) struct WsInstance {
-                pub(crate) write: ::std::sync::Arc<RwLock<Option<SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>>>>,
-                pub(crate) dispatch: ::std::sync::Arc<RwLock<::std::collections::HashMap<Uuid, oneshot::Sender<Box<[u8]>>>>>,
+                pub(crate) write: ::std::sync::Arc<RwLock<Option<(i64, SplitSink<WebSocketStream<MaybeTlsStream<TcpStream>>, Message>)>,>,>,
+                pub(crate) dispatch: ::std::sync::Arc<RwLock<::std::collections::HashMap<i64, oneshot::Sender<Vec<u8>>>>>,
+                pub(crate) stream_dispatch: ::std::sync::Arc<RwLock<::std::collections::HashMap<u128, ::std::collections::HashMap<i64, mpsc::Sender<Vec<u8>>>>>>,
             }
 
             impl WsInstance {
@@ -104,13 +115,9 @@ impl WSClient {
                 
                     tokio::spawn(async move {
                         let url = Url::parse(#url_lit).unwrap();
-                    
                         let (ws_stream, _) = connect_async(url).await.expect("Failed to connect");
-                    
                         let (write, read) = ws_stream.split();
-                    
-                        context_lock.write().await.replace(write);
-                    
+                        context_lock.write().await.replace((0, write));
                         read.for_each(|message| async {
                             match message {
                                 Ok(msg) => match msg {
@@ -127,7 +134,6 @@ impl WSClient {
                         })
                         .await;
                     });
-                
                     context
                 }
             }
@@ -169,17 +175,18 @@ impl WSInterface {
     pub fn generate(package: &ids::package::Package, analyzer: &Analyzer) -> Result<Self, WSClientError> {
         let mut context = Self::new();
 
-        let new_body = quote! {
+        let new_prefix_body = quote! { 
+            crate::ws::WS_INSTANCE.wait_context().await; 
             let mut write_ref = crate::ws::WS_INSTANCE.write.write().await;
-            let write = write_ref.as_mut().expect("Invalid locked value");
-            write.send(::idl_internal::tungstenite::Message::binary(input.into_boxed_slice())).await.unwrap();
-
-            let response = response_event.await.unwrap();
-            let mut response_data = &response[..];
+            let (_call_id, _write) = write_ref.as_mut().expect("Invalid locked value");
+            *_call_id += 1;
         };
-        let new_prefix_body = quote! { crate::ws::WS_INSTANCE.wait_context().await; };
 
-        let write_prefix_type = quote! { ::idl_internal::tokio::sync::oneshot::Receiver<Box<[u8]>> };
+        let new_body = quote! {
+            write.send(::idl_internal::tungstenite::Message::binary(input.into_boxed_slice())).await.unwrap();
+        };
+
+        let write_prefix_type = quote! { ::idl_internal::tokio::sync::oneshot::Receiver<Vec<u8>> };
 
         let write_prefix_body = quote! {
             let (sender, response_event) = ::idl_internal::tokio::sync::oneshot::channel();
@@ -188,11 +195,13 @@ impl WSInterface {
         };
 
         let method_body = quote! {
-            let mut _write_ref = crate::ws::WS_INSTANCE.write.write().await;
-            let _write = _write_ref.as_mut().expect("Invalid locked value");
             _write.send(::idl_internal::tungstenite::Message::binary(_input.into_boxed_slice())).await.unwrap();
             let _response = _response_event.await.unwrap();
             let mut _response_data = &_response[..];
+        };
+
+        let method_stream_body = quote! {
+            _write.send(::idl_internal::tungstenite::Message::binary(_input.into_boxed_slice())).await.unwrap();
         };
 
         let bytes_interface =

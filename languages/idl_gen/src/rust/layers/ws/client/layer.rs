@@ -29,16 +29,17 @@ pub fn ws_client_files(
     let package = ids_analyzer.get_package();
     let package_name = package.name();
 
-    let ws_interface = WSClient::generate(&package, &analyzers).unwrap();
+    let ws_client = WSClient::generate(&package, &analyzers).unwrap();
 
     for analyzer in analyzers.iter().filter(|v| v.has_interface()) {
         let library_name = analyzer.library_name();
+        
+        let ws_lib = WSMod::generate(&analyzer).unwrap();
         let rus_t = RustTypes::generate(analyzer).unwrap();
         let bytes_rus_t = BytesTypes::generate(false, analyzer).unwrap();
-        let ws_lib = WSMod::generate(&analyzer).unwrap();
         let ws_interface = WSInterface::generate(&package, &analyzer).unwrap();
 
-        // This happens at most one time, therefore the library's `use` declarations may be inserted first.
+        // This happens at most once, therefore the libraries' `use` declarations may be inserted first.
         if package_name == library_name {
             lib_body.append_all(ws_lib.to_token_stream());
             lib_body.append_all(rus_t.to_token_stream());
@@ -79,7 +80,7 @@ pub fn ws_client_files(
 
     lib_items.push(StorageItem::Source {
         name: "ws.rs".to_owned(),
-        txt: ws_interface.to_string(),
+        txt: ws_client.to_string(),
     });
 
     return vec![

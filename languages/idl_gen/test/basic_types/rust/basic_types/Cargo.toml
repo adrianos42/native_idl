@@ -9,6 +9,7 @@ idl_types = { path = "idl_types" }
 anyhow = "1.0"
 num = "0.3"
 regex = "1"
+tokio = { features = ["time", "rt"], version =  "1.0" }
 
 [workspace]
 members = ["idl_types"]

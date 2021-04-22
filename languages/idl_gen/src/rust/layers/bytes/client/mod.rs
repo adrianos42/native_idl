@@ -50,7 +50,9 @@ impl BytesInterface {
         new_prefix_body: TokenStream,
         write_prefix_type: TokenStream,
         write_prefix_body: TokenStream,
+        instance_streams_body: TokenStream,
         method_body: TokenStream,
+        method_stream_body: TokenStream,
     ) -> Result<Self, BytesServerError> {
         let mut context = Self::new();
 
@@ -87,7 +89,9 @@ impl BytesInterface {
                         &new_prefix_body, 
                         &write_prefix_type, 
                         &write_prefix_body,
-                        &method_body
+                        &instance_streams_body,
+                        &method_body,
+                        &method_stream_body,
                     )?
                 }
                 IdlNode::InterfaceComment(_) => {}
@@ -161,8 +165,6 @@ impl BytesInterface {
     /// dispatch.write().await.insert(call_id, sender);
     ///// Write prefix body end
     ///
-    /// (input, response_event)
-    ///
     ///// Function body
     /// let (mut _input, _response_event) = Self::_write_prefix().await;
     ///
@@ -199,7 +201,9 @@ impl BytesInterface {
         new_prefix_body: &TokenStream,
         write_prefix_type: &TokenStream,
         write_prefix_body: &TokenStream,
+        instance_streams_body: &TokenStream,
         method_body: &TokenStream,
+        method_stream_body: &TokenStream,
     ) -> Result<(), BytesServerError> {
         let ident = &ty_interface.ident;
 
@@ -209,7 +213,9 @@ impl BytesInterface {
         } else {
             (quote! {}, quote! {})
         };
+        
         let instance_id = quote! { instance_id };
+        let stream_index = quote! { stream_index };
 
         let mut fields = vec![];
         let input_ident = quote! { _input };
@@ -271,15 +277,56 @@ impl BytesInterface {
                     }
                 }
 
-                let (ret_value_ident, ret_conv) = match ret_ty {
-                    TypeName::TypeStream(_) => {
-                        if let TypeName::TypeStream(value) = ret_ty {
-                            let stream_ty_ident = get_rust_ty_ref(&ret_ty, false);
-                            args_ty_names.push(quote! { stream_instance: #stream_ty_ident });
-                            args_names.push(quote! { stream_instance });
-                            stream_ret = Some((ret_ty, &value.s_ty));
-                        }
-                        (quote! {}, quote! {})
+                let method_hash_ident: TokenStream = create_hash_idents(&field.hash);
+
+                let (self_ident, instance_id_body) = if field.is_static {
+                    (quote! {}, quote! {})
+                } else {
+                    (
+                        quote! { &mut self, }, 
+                        quote! { 
+                            _input.write_u128::<::idl_internal::byteorder::BigEndian>(self.#instance_id.as_u128()).unwrap(); 
+                        },
+                    )
+                };
+
+                let (ret_value_ident, m_body) = match ret_ty {
+                    TypeName::TypeStream(value) => {
+                        let stream_ty_ident = get_rust_ty_ref(&value.s_ty, false);
+
+                        let result_conv = ret_ty.conv_bytes_to_value(
+                            &result_val_ident,
+                            false,
+                            true,
+                            analyzer,
+                        );
+                        
+                        (quote! { -> impl Stream<Item = #stream_ty_ident> }, quote! {
+                            #new_prefix_body
+
+                            let (mut #input_ident, #response_event_ident) = Self::_write_prefix(call_id, ::idl_internal::MethodType::MethodCall)#await_ident;
+                            
+                            #instance_id_body
+                            
+                            const _METHOD_HASH: [u8; 0x10] = [#method_hash_ident];
+                            #input_ident.write_all(&_METHOD_HASH[..]).unwrap();
+
+                            _input.write_i64::<::byteorder::BigEndian>(idl_internal::abi::MethodCallType::Method as i64).unwrap();
+                            _input.write_i64::<::byteorder::BigEndian>(self.stream_index).unwrap();
+                            _input.write_i64::<::byteorder::BigEndian>(idl_internal::abi::AbiStreamReceiverState::Start.into()).unwrap();
+                            
+                            #( #args_conv )*
+                            #method_stream_body
+
+                            stream! {
+                                while let Some(value) = receiver.recv().await {
+                                    let mut _input = value.as_slice();
+                                    let _object_id = _input.read_i64::<::byteorder::BigEndian>().unwrap();
+                                    let _result = _input.read_i64::<::byteorder::BigEndian>().unwrap();
+                                    yield _result;
+                                }
+                            }
+                        })
                     }
                     _ => {
                         let result_val_ident = quote! { _response_data };
@@ -292,41 +339,29 @@ impl BytesInterface {
                         );
 
                         let ret_ty_ident = get_rust_ty_ref(&ret_ty, false);
-                        (quote! { -> #ret_ty_ident }, quote! { #result_conv })
+                        (quote! { -> #ret_ty_ident }, quote! {
+                            #new_prefix_body
+
+                            let (mut #input_ident, #response_event_ident) = Self::_write_prefix(call_id, ::idl_internal::MethodType::MethodCall)#await_ident;
+                            
+                            #instance_id_body
+                            
+                            const _METHOD_HASH: [u8; 0x10] = [#method_hash_ident];
+                            #input_ident.write_all(&_METHOD_HASH[..]).unwrap();
+                            
+                            #( #args_conv )*
+                            #method_body
+                            #result_conv
+                        })
                     }
                 };
 
-                let (self_ident, instance_id_body) = if field.is_static {
-                    (quote! {}, quote! {})
-                } else {
-                    (
-                        quote! { &mut self, }, 
-                        quote! { 
-                            _input.write_u128::<::idl_internal::byteorder::BigEndian>(
-                                self.#instance_id.as_u128()
-                            )
-                            .unwrap(); 
-                        },
-                    )
-                };
-
-                let method_hash_ident: TokenStream = create_hash_idents(&field.hash);
+                
 
                 fields.push(quote! {
                     #[allow(unused_braces)]
-                    pub #async_ident fn #func_ident(#self_ident #( #args_ty_names ),* )#ret_value_ident { 
-                        let (mut #input_ident, #response_event_ident) = Self::_write_prefix()#await_ident;
-                        #input_ident
-                            .write_i64::<::idl_internal::byteorder::BigEndian>(
-                                ::idl_internal::MethodType::MethodCall as i64
-                            )
-                            .unwrap();
-                        #instance_id_body
-                        const _METHOD_HASH: [u8; 0x10] = [#method_hash_ident];
-                        #input_ident.write_all(&_METHOD_HASH[..]).unwrap();
-                        #( #args_conv )*
-                        #method_body
-                        #ret_conv
+                    pub #async_ident fn #func_ident(#self_ident #( #args_ty_names ),* )#ret_value_ident {
+                        #m_body
                     }
                 });
             }
@@ -337,19 +372,30 @@ impl BytesInterface {
             fields.push(quote! {
                 pub #async_ident fn new() -> Self {
                     #new_prefix_body
-                    let (mut input, response_event) = Self::_write_prefix()#await_ident;
-                    input.write_i64::<::idl_internal::byteorder::BigEndian>(
-                        ::idl_internal::MethodType::CreateInstance as i64
-                    )
-                    .unwrap();
+                    let (input, response_event) = Self::_write_prefix(
+                        _call_id,
+                        ::idl_internal::abi::MethodType::CreateInstance,
+                    )#await_ident;
                     #new_body
-                    let call_id = Uuid::from_u128(
-                        response_data.read_u128::<::idl_internal::byteorder::BigEndian>().unwrap()
-                    );
-                    Self { #instance_id: call_id }
+                    match response_sl.read_i64::<::byteorder::BigEndian>().unwrap().into()
+                    {
+                        ::idl_internal::abi::AbiInternalError::Ok => {
+                            let instance_streams = #instance_streams_body;
+                            let #instance_id = Uuid::from_u128(response_sl.read_u128::<::byteorder::BigEndian>().unwrap());
+                            instance_streams.insert(#instance_id, ::std::collections::HashMap::new());
+                            Self {
+                                #instance_id,
+                                #stream_index: 0, // TODO
+                            }
+                        },
+                        _ => panic!("Could not create `{}` instance", ty_interface.ident),
+                    }
                 }
             });
-            (quote! { #instance_id: Uuid, }, quote! {})
+            (quote! { 
+                #instance_id: Uuid,
+                #stream_index: i64,
+             }, quote! {})
         } else {
             (quote! {}, quote! {})
         };
@@ -359,7 +405,10 @@ impl BytesInterface {
         let interface_digest_ident: TokenStream = create_hash_idents(&ty_interface.hash);
 
         fields.push(quote! {
-            #async_ident fn _write_prefix() -> (Vec<u8>, #write_prefix_type) {
+            #async_ident fn _write_prefix(
+                call_id: i64, 
+                method_type: ::idl_internal::abi::MethodType,
+            ) -> (Vec<u8>, #write_prefix_type) {
                 let mut input: Vec<u8> = Vec::with_capacity(0x1000);
 
                 const PACKAGE_HASH: [u8; 0x10] = [#package_digest_ident];
@@ -369,11 +418,10 @@ impl BytesInterface {
                 const INTERFACE_HASH: [u8; 0x10] = [#interface_digest_ident];
                 input.write_all(&INTERFACE_HASH[..]).unwrap();
 
-                let call_id = Uuid::new_v4();
-                input.write_u128::<::idl_internal::byteorder::BigEndian>(call_id.as_u128()).unwrap(); // Call id
+                input.write_i64::<::byteorder::BigEndian>(call_id).unwrap();
+                input.write_i64::<::byteorder::BigEndian>(method_type.into()).unwrap();
 
                 #write_prefix_body
-
                 (input, response_event)
             }
         });

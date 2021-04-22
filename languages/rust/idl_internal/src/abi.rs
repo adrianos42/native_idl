@@ -1,4 +1,5 @@
 // This would be the same as the `AbiStream` defined for ffi, except without the callback fields.
+#[derive(Debug)]
 pub struct AbiStreamObject {
     pub state: i64,
     // Handle used by the client for internal usage, e.g., a thread id or port for message exchange.
@@ -8,6 +9,7 @@ pub struct AbiStreamObject {
 }
 
 #[repr(i64)]
+#[derive(Debug)]
 pub enum AbiInternalError {
     Ok = 0x0,                  // Success.
     InvalidArg = 0x1,          // Invalid argument.
@@ -20,13 +22,47 @@ pub enum AbiInternalError {
     NotAllowedOperation = 0x8, // Not allowed operation error.
 }
 
+impl From<i64> for AbiInternalError {
+    fn from(value: i64) -> Self {
+        match value {
+            0x0 => AbiInternalError::Ok,
+            0x1 => AbiInternalError::InvalidArg,
+            0x2 => AbiInternalError::NullPtr,
+            0x3 => AbiInternalError::Abort,
+            0x4 => AbiInternalError::CallbackException,
+            0x5 => AbiInternalError::UndefinedException,
+            0x6 => AbiInternalError::Unimplemented,
+            0x7 => AbiInternalError::Type,
+            0x8 => AbiInternalError::NotAllowedOperation,
+            _ => panic!("Invalid error value: `{}`", value),
+        }
+    }
+}
+
+impl From<AbiInternalError> for i64 {
+    fn from(value: AbiInternalError) -> Self {
+        match value {
+            AbiInternalError::Ok => 0x0,
+            AbiInternalError::InvalidArg => 0x1,
+            AbiInternalError::NullPtr => 0x2,
+            AbiInternalError::Abort => 0x3,
+            AbiInternalError::CallbackException => 0x4,
+            AbiInternalError::UndefinedException => 0x5,
+            AbiInternalError::Unimplemented => 0x6,
+            AbiInternalError::Type => 0x7,
+            AbiInternalError::NotAllowedOperation => 0x8,
+        }
+    }
+}
+
 #[repr(i64)]
+#[derive(Debug)]
 pub enum AbiStreamSenderState {
-    Ok = 0x0,      // Nothing.
-    Value = 0x1,   // Only one value.
-    Request = 0x2, // Request to retrieve the last state from the server.
-    Waiting = 0x3, // Send a response that the server is awaiting for client to send a request.
-    Done = 0x4,    // Stream is finished.
+    Ok = 0x0,       // Nothing.
+    Value = 0x1,    // Only one value.
+    Request = 0x2,  // Request to retrieve the last state from the server.
+    Awaiting = 0x3, // Send a response that the server is awaiting for client to send a request.
+    Done = 0x4,     // Stream is finished.
 }
 
 impl From<i64> for AbiStreamSenderState {
@@ -35,7 +71,7 @@ impl From<i64> for AbiStreamSenderState {
             0x0 => AbiStreamSenderState::Ok,
             0x1 => AbiStreamSenderState::Value,
             0x2 => AbiStreamSenderState::Request,
-            0x3 => AbiStreamSenderState::Waiting,
+            0x3 => AbiStreamSenderState::Awaiting,
             0x4 => AbiStreamSenderState::Done,
             _ => panic!("Invalid state value: `{}`", value),
         }
@@ -48,13 +84,40 @@ impl From<AbiStreamSenderState> for i64 {
             AbiStreamSenderState::Ok => 0x0,
             AbiStreamSenderState::Value => 0x1,
             AbiStreamSenderState::Request => 0x2,
-            AbiStreamSenderState::Waiting => 0x3,
+            AbiStreamSenderState::Awaiting => 0x3,
             AbiStreamSenderState::Done => 0x4,
         }
     }
 }
 
+impl From<AbiStreamReceiverState> for crate::StreamReceiver {
+    fn from(value: AbiStreamReceiverState) -> Self {
+        match value {
+            AbiStreamReceiverState::Ok => crate::StreamReceiver::Ok,
+            AbiStreamReceiverState::Close => crate::StreamReceiver::Close,
+            AbiStreamReceiverState::Start => crate::StreamReceiver::Start,
+            AbiStreamReceiverState::Pause => crate::StreamReceiver::Pause,
+            AbiStreamReceiverState::Resume => crate::StreamReceiver::Resume,
+            AbiStreamReceiverState::Request => crate::StreamReceiver::Request,
+        }
+    }
+}
+
+impl From<crate::StreamReceiver> for AbiStreamReceiverState {
+    fn from(value: crate::StreamReceiver) -> Self {
+        match value {
+            crate::StreamReceiver::Ok => AbiStreamReceiverState::Ok,
+            crate::StreamReceiver::Close => AbiStreamReceiverState::Close,
+            crate::StreamReceiver::Start => AbiStreamReceiverState::Start,
+            crate::StreamReceiver::Pause => AbiStreamReceiverState::Pause,
+            crate::StreamReceiver::Resume => AbiStreamReceiverState::Resume,
+            crate::StreamReceiver::Request => AbiStreamReceiverState::Request,
+        }
+    }
+}
+
 #[repr(i64)]
+#[derive(Debug)]
 pub enum AbiStreamReceiverState {
     Ok = 0x0,      // Nothing
     Close = 0x1,   // Closes the stream.
@@ -92,10 +155,12 @@ impl From<i64> for AbiStreamReceiverState {
 }
 
 #[repr(i64)]
+#[derive(Debug)]
 pub enum MethodType {
     CreateInstance = 0x10,
     DisposeInstance = 0x11,
     MethodCall = 0x12,
+    StreamValue = 0x13, // Basically, a stream sender response.
 }
 
 impl From<i64> for MethodType {
@@ -104,6 +169,7 @@ impl From<i64> for MethodType {
             0x10 => MethodType::CreateInstance,
             0x11 => MethodType::DisposeInstance,
             0x12 => MethodType::MethodCall,
+            0x13 => MethodType::StreamValue,
             _ => panic!("Invalid type value: `{}`", value),
         }
     }
@@ -115,6 +181,7 @@ impl From<MethodType> for i64 {
             MethodType::CreateInstance => 0x10,
             MethodType::DisposeInstance => 0x11,
             MethodType::MethodCall => 0x12,
+            MethodType::StreamValue => 0x13,
         }
     }
 }

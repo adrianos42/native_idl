@@ -41,6 +41,7 @@ impl BytesPackage {
         package: &ids::package::Package,
         analyzers: &[idl::analyzer::Analyzer],
         response_body: TokenStream,
+        response_body_stream: TokenStream,
         is_async: bool,
     ) -> Result<Self, BytesServerError> {
         let mut context = Self::new();
@@ -66,8 +67,28 @@ impl BytesPackage {
                 let library_digest_ident: TokenStream =
                     create_hash_idents(&analyzer.library_hash());
                 quote! { [#library_digest_ident] => {
+                    let mut _interface_hash: [u8; 0x10] = [0x0; 0x10];
+                    #input_ident.read_exact(&mut _interface_hash[..])?; // Interface hash
                     match _interface_hash[..] {
-                        #( #hash_interface_match )|* => { #response_body }
+                        #( #hash_interface_match )|* => { 
+                            match _input.read_i64::<BigEndian>()?.into() {
+                                ::idl_internal::abi::MethodType::CreateInstance
+                                | ::idl_internal::abi::MethodType::DisposeInstance
+                                | ::idl_internal::abi::MethodType::MethodCall => {
+                                    let _call_id = _input.read_i64::<BigEndian>()?;
+                                    let mut _response = Vec::new();
+                                    _input.read_to_end(&mut _response).unwrap();
+                                    #response_body
+                                }
+                                ::idl_internal::abi::MethodType::StreamValue => {
+                                    let _instance_id = _input.read_u128::<BigEndian>().unwrap();
+                                    let _object_id = _input.read_i64::<BigEndian>().unwrap();
+                                    let mut _response = Vec::new();
+                                    _input.read_to_end(&mut _response).unwrap();
+                                    #response_body_stream 
+                                }
+                            }
+                        }
                         _ => panic!("Invalid interface hash value"),
                     }
                 } }
@@ -86,14 +107,9 @@ impl BytesPackage {
                 #input_ident.read_exact(&mut _package_hash[..])?; // Package hash
                 match _package_hash[..] {
                     [#package_digest_ident] => {
-                        let mut _hash: [u8; 0x10] = [0x0; 0x10];
-                        #input_ident.read_exact(&mut _hash[..])?; // Library hash
-                        let mut _interface_hash: [u8; 0x10] = [0x0; 0x10];
-                        #input_ident.read_exact(&mut _interface_hash[..])?; // Interface hash
-                        let #call_id_ident = Uuid::from_u128(_input.read_u128::<BigEndian>()?);
-                        let mut _response = Vec::new();
-                        _input.read_to_end(&mut _response).unwrap();
-                        match _hash[..] {
+                        let mut _library_hash: [u8; 0x10] = [0x0; 0x10];
+                        #input_ident.read_exact(&mut _library_hash[..])?; // Library hash
+                        match _library_hash[..] {
                             #( #hash_library_match )*
                             _ => panic!("Invalid library hash value"),
                         }

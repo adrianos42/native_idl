@@ -3,7 +3,10 @@ use std::sync::{Arc, RwLock};
 use std::{collections::HashMap, thread::sleep, time::Duration};
 
 pub use idl_types;
-use idl_types::{*, idl_impl::{TestInstance, TetStStatic}, idl_internal::{StreamInstance, StreamReceiver, StreamSender}};
+use idl_types::{
+    idl_impl::TestInstance,
+    idl_internal::{StreamInstance, StreamReceiver, StreamSender},
+};
 
 pub struct Test {
     count: i64,
@@ -11,9 +14,7 @@ pub struct Test {
 
 impl Test {
     pub fn new() -> Self {
-        Self {
-            count: 0,
-        }
+        Self { count: 0 }
     }
 }
 
@@ -23,6 +24,7 @@ impl Test {
 //     }
 // }
 
+#[idl_types::async_trait]
 impl TestInstance for Test {
     // fn test_int(&mut self, value: i64) -> i64 {
     //     value
@@ -68,38 +70,32 @@ impl TestInstance for Test {
     //     value
     // }
 
-    fn test_stream(&mut self, stream_instance: Box<dyn StreamInstance + Send + Sync>) {
-        std::thread::spawn(move || {
-            std::thread::sleep(Duration::from_secs(1));
-            
+    async fn test_stream(&mut self, stream_instance: Box<dyn StreamInstance<i64>>) {
+        tokio::spawn(async move {
+            let mut count = 0;
+            loop {
+                count += 1;
+                //tokio::time::sleep(Duration::from_nanos(1)).await;
+                if let StreamReceiver::Close =
+                    stream_instance.send(StreamSender::Value(count)).await
+                {
+                    return;
+                }
+            }
         });
     }
 
-    fn test_stream_stream(
+    async fn test_stream_stream(
         &mut self,
-        stream_instance: Box<dyn StreamInstance + Send + Sync>,
+        stream_instance: Box<dyn StreamInstance<i64>>,
         stream_receiver: StreamReceiver,
-    ) -> StreamSender<i64> {
+    ) {
         match stream_receiver {
-            StreamReceiver::Request => {
-                self.count += 1;
-                return StreamSender::Value(self.count);
-            }
+            StreamReceiver::Ok | StreamReceiver::Request => {}
             StreamReceiver::Close => {}
             StreamReceiver::Start => {}
             StreamReceiver::Pause => {}
             StreamReceiver::Resume => {}
-            StreamReceiver::Ok => {}
         }
-
-        StreamSender::Ok
-    }
-}
-
-pub struct TetSt {}
-
-impl TetStStatic for TetSt {
-    fn test_int(value: i64) -> i64 {
-        value
     }
 }

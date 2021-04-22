@@ -11,34 +11,51 @@ For any method, the `Read` and `Write` traits are used to convert all data betwe
 
 ### Request
 
-All hashs are 16 bytes long, while enumerations are a 64-bit integer.
+All hashs are 16 bytes long, meanwhile enumerations - all types with pascal case here - are a 64-bit integers and uuids are 128-bit, big endian integers.
 
-* Header
+1. *package* `hash` -> `hash`
+2. *library* `hash` -> `hash`
+3. *interface* `hash` -> `hash`
+4. *call id* `int` -> `MethodType`
+5. *method type* `MethodType` -> *call id* `int`, *error* `InternalError`
+    1. CreateInstance
+        1. *nothing* -> *instance* `uuid`
+    2. DisposeInstance
+        1. *instance* `uuid` -> *nothing*
+    3. MethodCall
+        1. *intance?* `uuid` -> `uuid`
+        2. *method* `hash` ->  `hash`
+        3. *stream?* `MethodCallType`
+            1. Method
+                1. *args* -> *result*
+            2. Stream
+                1. *args*
+                2. *object id* `int`
+                3. *state* `StreamReceiver`
+                    1. Ok | Close | Start | Pause | Resume | Request
+                        1. *nothing*
+    4. StreamValue
+        1. *instance?* `uuid` -> `uuid`
+        2. *object id* `int`
+        3. *state* `StreamSender`
+            1. Ok | Request | Awaiting | Done
+                1. *nothing*
+            2. Value
+                1. *stream value* `any`
 
-1. package `hash` -> `hash`
-2. library `hash` -> `hash`
-3. interface `hash` -> `hash`
-4. call id `uuid` -> `uuid`, `error code`
-5. `MethodType`
+### Stream response
 
-* Create instance
-
-    1. *empty* -> instance `uuid`
-
-* Dispose instance
-
-    1. instance `uuid` -> `error code`
-
-* Method call
-
-    1. intance `uuid` -> `uuid`
-    2. method `hash` ->  `hash`
-    3. `MethodCallType`
-
-* Method
-
-    1. `args` -> `result`
-
+1. *package* `hash`
+2. *library* `hash`
+3. *interface* `hash`
+4. *method type* `MethodType.StreamValue`
+5. *instance?* `uuid`
+6. *object id* `int`
+7. *state* `StreamSender`
+    1. Ok | Request | Awaiting | Done
+        1. *nothing*
+    2. Value
+        1. *stream value* `any`
 
 ## FFI
 
@@ -53,4 +70,3 @@ Since it uses the x64 calling convention, call between language would be the sam
 The main problem with stream is that it needs to use a callback to send an event to the client to acknowledge for new data, and then the need to raise a signal to the thread that is listening to that event. This is the reason that there's a function that sends a handle and id, so that the client can call the server to retrive data or do something else with the stream.
 
 ## Web Sockets
-

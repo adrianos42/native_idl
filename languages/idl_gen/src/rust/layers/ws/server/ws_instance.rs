@@ -44,13 +44,9 @@ impl WSInstance {
 
         context.module.push(quote! {
             use super::#package_ident;
-            use ::idl_internal::{
+            use ::basic_types::idl_types::{
                 futures::{stream::SplitSink, SinkExt, StreamExt},
-                tokio::{
-                    self,
-                    net::{TcpListener, TcpStream},
-                    sync::{oneshot, RwLock},
-                },
+                tokio,
                 tokio_tungstenite::{accept_async, WebSocketStream},
                 tungstenite::{self, Message},
                 Uuid,
@@ -83,8 +79,7 @@ impl WSInstance {
 
         self.module.push(quote! {
             pub struct WsInstance {
-                pub(crate) write: ::std::sync::Arc<RwLock<SplitSink<WebSocketStream<TcpStream>, Message>>>,
-                pub(crate) dispatch: ::std::sync::Arc<RwLock<::std::collections::HashMap<Uuid, oneshot::Sender<Box<[u8]>>>>>,
+                write: ::std::sync::Arc<RwLock<SplitSink<WebSocketStream<TcpStream>, Message>>>,
                 package_inst: #package_ident,                                
             }
 
@@ -104,20 +99,32 @@ impl WSInstance {
                     _peer: ::std::net::SocketAddr,
                     stream: TcpStream,
                 ) -> tungstenite::Result<()> {
-                    let ws_stream = accept_async(stream)
-                        .await
-                        .expect("Error accepting connection");
-
+                    let ws_stream = accept_async(stream).await.expect("Error accepting connection");
                     let (write, mut read) = ws_stream.split();
-                    let mut ws_instance = Self::new(write);
+                    let (sender, mut request_event) = tokio::sync::mpsc::channel::<Vec<u8>>(100);
+
+                    let ws_context = ::std::sync::Arc::new(tokio::sync::RwLock::new(Self::new(write)));
+                    let m_ws_constext = ws_context.clone();
+
+                    tokio::spawn(async move {
+                        while let Some(data) = request_event.recv().await {
+                            let mut ws_instance = m_ws_constext.write().await;
+
+                            if let Err(_) = ws_instance.write.send(tungstenite::Message::Binary(data)).await {
+                                return;
+                            }
+                        }
+                    });
 
                     while let Some(message) = read.next().await {
                         match message? {
                             Message::Binary(data) => {
+                                let mut ws_instance = ws_context.write().await;
                                 let mut output: Vec<u8> = Vec::with_capacity(#buffer_capacity);
+
                                 match ws_instance
                                     .package_inst
-                                    .parse_request_bytes(&mut data.as_slice(), &mut output)
+                                    .parse_request_bytes(&mut data.as_slice(), &mut output, || sender.clone())
                                 {
                                     Ok(_) => {}
                                     Err(err) => {
@@ -125,13 +132,7 @@ impl WSInstance {
                                     }
                                 }
 
-                                ws_instance
-                                    .write
-                                    .write()
-                                    .await
-                                    .send(tungstenite::Message::Binary(output))
-                                    .await
-                                    .unwrap();
+                                ws_instance.write.send(tungstenite::Message::Binary(output)).await?;
                             }
                             Message::Ping(_) => {}
                             Message::Pong(_) => {}
@@ -146,7 +147,6 @@ impl WSInstance {
                 fn new(write: SplitSink<WebSocketStream<TcpStream>, Message>) -> Self {
                     Self {
                         write: ::std::sync::Arc::new(RwLock::new(write)),
-                        dispatch: ::std::sync::Arc::new(RwLock::new(::std::collections::HashMap::new())),
                         package_inst: #package_ident::new(),
                     }
                 }

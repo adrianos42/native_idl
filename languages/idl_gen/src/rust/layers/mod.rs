@@ -51,3 +51,17 @@ pub fn layer_builder_client(layer: &str, client_name: &str) -> Box<dyn Layer> {
         _ => panic!("Layer not supported"),
     }
 }
+
+
+
+// uuid = { version = "0.8", features = ["v4"] }
+// anyhow = "1.0"
+// thiserror = "1.0"
+// byteorder = "1.4.2"
+// tungstenite = "0.13.0"
+// url = "2.2.1"
+// lazy_static = "1.4.0"
+// tokio-tungstenite = "0.14.0"
+// futures = "0.3.13"
+// tokio = { version = "1.4.0", features = ["rt", "rt-multi-thread", "net", "macros", "sync"] }
+// async-trait = { version = "0.1.48" }

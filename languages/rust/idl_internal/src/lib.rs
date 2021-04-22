@@ -2,19 +2,13 @@ pub mod ffi;
 pub mod abi;
 
 pub use uuid::Uuid;
-pub use byteorder;
-pub use tungstenite;
-pub use url;
-pub use tokio;
-pub use tokio_tungstenite;
-pub use lazy_static;
-pub use futures;
+pub use async_trait::async_trait;
 
 pub enum StreamSender<R> {
     Ok,
     Value(R),
     Request,
-    Waiting,
+    Awaiting,
     Done,
 }
 
@@ -27,7 +21,8 @@ pub enum StreamReceiver {
     Request,
 }
 
-pub trait StreamInstance {
-    fn wake_client(&self);
-    fn get_id(&self) -> i64;
+#[async_trait]
+pub trait StreamInstance<R>: Send + Sync {
+    async fn send(&self, value: StreamSender<R>) -> StreamReceiver;
+    async fn id(&self) -> i64;
 }

@@ -77,7 +77,8 @@ impl BytesPackage {
                 };
                 let library_digest_ident: TokenStream =
                     create_hash_idents(&analyzer.library_hash());
-                quote! { [#library_digest_ident] => { #library_call(#input_ident, #output_ident) } }
+                let await_ident = quote! { .await };
+                quote! { [#library_digest_ident] => { #library_call(#input_ident, #output_ident)#await_ident } }
             })
             .collect();
 

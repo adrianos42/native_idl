@@ -1,12 +1,10 @@
 use idl_internal::{StreamInstance, StreamReceiver, StreamSender, Uuid};
-pub trait TestInstance {
-    fn test_stream(&mut self, stream_instance: Box<dyn StreamInstance + Send + Sync>);
-    fn test_stream_stream(
+#[idl_internal::async_trait]
+pub trait TestInstance: Send + Sync {
+    async fn test_stream(&mut self, stream_instance: Box<dyn StreamInstance<i64>>);
+    async fn test_stream_stream(
         &mut self,
-        stream_instance: Box<dyn StreamInstance + Send + Sync>,
+        stream_instance: Box<dyn StreamInstance<i64>>,
         stream_receiver: StreamReceiver,
-    ) -> StreamSender<i64>;
-}
-pub trait TetStStatic {
-    fn test_int(value: i64) -> i64;
+    );
 }

@@ -1,7 +1,7 @@
 library basic_types
 
 interface Test {
-    test_stream: stream[int],
+    test_stream: stream int,
 }
 
 -- test_int: (value: int) -> int,
@@ -16,10 +16,6 @@ interface Test {
 -- test_struct: (value: Point) -> Point,
 -- test_types: (value: Types) -> Types,
 -- test_enum: (value: Names) -> Names,
-
-interface TetSt {
-    test_int: static (value: int) -> int,
-}
 
 struct Point {
     x: int,

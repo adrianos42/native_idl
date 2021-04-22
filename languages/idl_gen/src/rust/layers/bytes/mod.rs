@@ -360,17 +360,7 @@ impl BytesTypeName for TypeName {
                 quote! { 0 }
             }
             TypeName::TypePair(value) => {
-                let first = value.first_ty.calc_number_bytes(
-                    &quote! { #value_name.0 },
-                    references,
-                    analyzer,
-                );
-                let second = value.second_ty.calc_number_bytes(
-                    &quote! { #value_name.1 },
-                    references,
-                    analyzer,
-                );
-                quote! { #first + #second }
+                panic!()
             }
             TypeName::ListTypeName(_) => quote! { 0 },
             TypeName::StructTypeName(_) => quote! { 0 },
